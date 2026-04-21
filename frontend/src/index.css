@@ -1,0 +1,17 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: var(--primary-color, #00B5AD);
+  --color-secondary: #1996DC;
+  --color-navy: #001D4A;
+  --color-brand: var(--primary-color, #00B5AD);
+
+  
+  --font-brand: "Noto Sans", sans-serif;
+}
+
+@layer base {
+  body {
+    @apply bg-white text-navy font-brand antialiased;
+  }
+}
