@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { supabase } from '../lib/supabase';
+import { authService } from '../services/authService';
 import type { User } from '@supabase/supabase-js';
 import { Loader2 } from 'lucide-react';
 
@@ -23,7 +23,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     // Busca a sessão atual no local storage nativo do supabase-js
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    authService.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       if (session?.access_token) {
         setToken(session.access_token);
@@ -33,7 +33,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     // Escuta mudanças no Auth (Login, Logout)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = authService.onAuthStateChange((event, session) => {
       setUser(session?.user ?? null);
       if (session?.access_token) {
         setToken(session.access_token);
@@ -49,28 +49,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const signInWithOtp = async (email: string) => {
-    return await supabase.auth.signInWithOtp({ 
-      email,
-      options: {
-        // Redireciona para /painel após o click no email
-        emailRedirectTo: `${window.location.origin}/painel`
-      } 
-    });
+    return await authService.signInWithOtp(email);
   };
 
   const signInWithPassword = async (email: string, password: string) => {
-    return await supabase.auth.signInWithPassword({
-      email,
-      password
-    });
+    return await authService.signInWithPassword(email, password);
   };
   const login = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await authService.signInWithPassword(email, password);
     if (error) throw error;
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    await authService.signOut();
   };
 
   return (

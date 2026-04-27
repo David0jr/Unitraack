@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
+import { dashboardService } from '../services/dashboardService';
 import { useAuth } from './AuthContext';
 
 /**
@@ -48,17 +48,13 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setState(prev => ({ ...prev, loading: true }));
       
       // 1. Buscar Monitoramento (Mapa + Operativo)
-      const monitoringRes = await axios.get(`${import.meta.env.VITE_API_URL}/gestor/monitoring`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const monitoringRes = await dashboardService.getMonitoring();
 
       // 2. Buscar Requisições (Aprovação)
-      const requestsRes = await axios.get(`${import.meta.env.VITE_API_URL}/gestor/dashboard`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const requestsRes = await dashboardService.getDashboard();
 
-      const { sectors, materials, movements } = monitoringRes.data.data;
-      const requests = requestsRes.data.data;
+      const { sectors, materials, movements } = monitoringRes.data;
+      const requests = requestsRes.data;
 
       // Cálculo de estatísticas rápidas
       const stats = {
@@ -90,33 +86,23 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   }, [fetchData]);
 
   const approveRequest = async (requestId: string) => {
-    await axios.post(`${import.meta.env.VITE_API_URL}/gestor/approve/${requestId}`, {}, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
+    await dashboardService.approveRequest(requestId);
     await fetchData();
   };
 
   const rejectRequest = async (requestId: string, reason: string) => {
-    await axios.post(`${import.meta.env.VITE_API_URL}/gestor/reject/${requestId}`, { reason }, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
+    await dashboardService.rejectRequest(requestId, reason);
     await fetchData();
   };
 
   const updateMaterialPosition = async (materialId: string, x: number, y: number) => {
-    await axios.post(`${import.meta.env.VITE_API_URL}/gestor/material-position`, {
-      material_id: materialId, x, y
-    }, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
+    await dashboardService.updateMaterialPosition(materialId, x, y);
     // Update local otimista ou refresh
     await fetchData();
   };
 
   const updateMapLayout = async (layouts: any[]) => {
-    await axios.post(`${import.meta.env.VITE_API_URL}/gestor/map-layout`, { layouts }, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
+    await dashboardService.updateMapLayout(layouts);
     await fetchData();
   };
 

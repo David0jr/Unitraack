@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { getSubdomain, isAdminPath } from '../utils/subdomain';
+import { tenantService } from '../services/tenantService';
 
 interface Tenant {
   id: string;
@@ -21,8 +22,6 @@ interface TenantContextType {
 
 const TenantContext = createContext<TenantContextType>({} as TenantContextType);
 
-const API_URL = 'http://localhost:3333/api';
-
 export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [tenant, setTenant] = useState<Tenant | null>(null);
   const [loading, setLoading] = useState(true);
@@ -41,18 +40,8 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
       try {
         setLoading(true);
-        const response = await fetch(`${API_URL}/auth/tenant-info?slug=${slug}`, {
-          headers: {
-            'X-Tenant-Slug': slug 
-          }
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          setTenant(data);
-        } else {
-          setTenant(null);
-        }
+        const data = await tenantService.getTenantInfo(slug);
+        setTenant(data);
       } catch (error) {
         console.error('Erro de conexão ao buscar usina:', error);
         setTenant(null);
