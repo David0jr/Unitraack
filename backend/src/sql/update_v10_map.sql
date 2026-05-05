@@ -10,8 +10,9 @@ ADD COLUMN IF NOT EXISTS layout_h INTEGER DEFAULT 150;
 -- 2. ADICIONAR COORDENADAS AOS MATERIAIS
 -- Estas coordenadas são relativas à "casa" (setor) ou ao mapa geral
 ALTER TABLE public.materials
-ADD COLUMN IF NOT EXISTS map_x INTEGER,
-ADD COLUMN IF NOT EXISTS map_y INTEGER;
+ADD COLUMN IF NOT EXISTS layout_x INTEGER,
+ADD COLUMN IF NOT EXISTS layout_y INTEGER;
+
 
 -- 3. CRIAR TABELA DE CORES PARA TERCEIRIZADAS (Opcional, mas ajuda a manter consistência)
 -- Para simplificar, poderíamos apenas usar uma função no frontend, 

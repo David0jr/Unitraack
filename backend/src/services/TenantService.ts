@@ -21,7 +21,7 @@ export class TenantService {
     const { data: tenant, error } = await supabaseAdmin
       .from('tenants')
       .select('*')
-      .eq('subdomain', subdomain)
+      .ilike('subdomain', subdomain.trim())
       .maybeSingle();
 
     if (error) {

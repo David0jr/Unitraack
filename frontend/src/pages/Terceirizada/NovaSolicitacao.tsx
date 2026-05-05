@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { getAuthToken } from '../../utils/subdomain';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { 
@@ -85,7 +86,7 @@ export default function NovaSolicitacao() {
   const fetchSectors = async () => {
     try {
       const response = await axios.get(`${import.meta.env.VITE_API_URL}/gestor/sectors`, {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        headers: { 'Authorization': `Bearer ${getAuthToken()}` }
       });
       setSectors(response.data.data || []);
     } catch (err) {
@@ -203,7 +204,7 @@ export default function NovaSolicitacao() {
         url,
         data: payload,
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${getAuthToken()}`
         }
       });
 

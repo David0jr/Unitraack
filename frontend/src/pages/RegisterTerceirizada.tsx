@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { ArrowRight, Loader2, CheckCircle2, ShieldAlert } from 'lucide-react';
+import { ArrowRight, Loader2, CheckCircle2, ShieldAlert, Building2, UserCircle2, Phone, Mail, Lock, ShieldCheck } from 'lucide-react';
 import { maskCNPJ, maskPhone, validateEmail } from '../utils/masks';
 import { useTenant } from '../contexts/TenantContext';
+import ParticleBackground from '../components/ParticleBackground';
 
 export default function RegisterTerceirizada() {
   const navigate = useNavigate();
@@ -47,7 +48,7 @@ export default function RegisterTerceirizada() {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'X-Tenant-Slug': tenant?.subdomain || ''
+          'X-Tenant-Slug': tenant?.subdomain || slug || ''
         },
         body: JSON.stringify({ ...formData, role: 'TERCEIRIZADA' })
       });
@@ -56,7 +57,7 @@ export default function RegisterTerceirizada() {
       if (!response.ok) throw new Error(data.error || 'Erro ao realizar cadastro.');
 
       setSuccess(true);
-      setTimeout(() => navigate(`/${tenant?.subdomain || 'unknown'}/login`), 3000);
+      setTimeout(() => navigate(`/${tenant?.subdomain || slug || 'unknown'}/login`), 3000);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -72,18 +73,20 @@ export default function RegisterTerceirizada() {
     );
   }
 
-  // Se não houver subdomínio ou a usina não for encontrada, bloqueia o acesso
-  if (!slug || !tenant) {
+  // Removida a restrição agressiva para permitir cadastro mesmo que o tenant não esteja totalmente carregado (usa o slug da URL)
+  // Mas ainda mostramos um aviso se não houver contexto nenhum
+  if (!slug && !tenant) {
     return (
-      <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center p-4 font-brand">
-        <div className="max-w-md w-full bg-white p-12 rounded-3xl shadow-xl border border-slate-100 text-center">
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 font-brand">
+        <div className="max-w-md w-full bg-white p-10 rounded-[2.5rem] shadow-2xl border border-slate-100 text-center">
           <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
             <ShieldAlert className="w-10 h-10 text-red-500" />
           </div>
-          <h2 className="text-2xl font-bold text-navy mb-4">Acesso Restrito</h2>
-          <p className="text-slate-500 text-sm mb-8 leading-relaxed">
-            O cadastro de parceiros deve ser realizado através do link exclusivo da Usina contratante.
+          <h2 className="text-2xl font-black text-navy mb-4">Link de Cadastro Inválido</h2>
+          <p className="text-slate-500 text-sm mb-8 leading-relaxed font-medium">
+            Para se cadastrar, você deve acessar o link exclusivo fornecido pela Usina contratante.
           </p>
+          <Link to="/" className="text-primary font-bold hover:underline">Ir para Home</Link>
         </div>
       </div>
     );
@@ -92,146 +95,180 @@ export default function RegisterTerceirizada() {
   if (success) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 font-brand">
-        <div className="bg-white p-12 rounded-3xl shadow-xl max-w-md w-full text-center border border-slate-100 animate-in zoom-in-95 duration-500">
-          <div className="w-20 h-20 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6">
+        <div className="bg-white p-12 rounded-[2.5rem] shadow-2xl max-w-md w-full text-center border border-slate-100 animate-in zoom-in-95 duration-500">
+          <div className="w-20 h-20 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-emerald-500/10">
             <CheckCircle2 className="w-10 h-10" />
           </div>
           <h2 className="text-3xl font-black text-navy mb-3 tracking-tight">Cadastro Concluído!</h2>
-          <p className="text-slate-500 text-sm leading-relaxed">
-            Sua empresa foi cadastrada no sistema <strong>{tenant.name}</strong>. Redirecionando para o login...
+          <p className="text-slate-500 text-sm leading-relaxed font-medium">
+            Sua empresa foi cadastrada no sistema <strong>{tenant?.name || 'Usina'}</strong> com sucesso.
           </p>
+          <div className="mt-8 flex items-center justify-center gap-2 text-primary font-bold text-sm">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            Redirecionando para o login...
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex flex-col lg:flex-row bg-white font-brand antialiased selection:bg-primary selection:text-white">
+    <div className="min-h-screen relative flex items-center justify-center p-4 overflow-hidden font-brand selection:bg-primary selection:text-white bg-slate-50">
       
-      {/* Sidebar Elegante */}
-      <div className="hidden lg:flex flex-col justify-between w-2/5 p-16 bg-navy relative overflow-hidden">
-        {/* Fundo Decorativo Sutil */}
-        <div className="absolute top-0 right-0 w-[40rem] h-[40rem] bg-gradient-to-bl from-primary/10 to-transparent rounded-full -mr-64 -mt-64"></div>
-        <div className="absolute bottom-0 left-0 w-full h-1/3 bg-gradient-to-t from-black/20 to-transparent"></div>
-
-        <div className="relative z-10">
-          <img 
-            src={tenant?.logo_url || "https://linsagro.com.br/wp-content/uploads/2022/07/cropped-Lins_Logo_Horizontal_RGB_Preferencial_20250512_Keenwork_AF.png"} 
-            alt={tenant?.name || "Lins Agroindustrial"} 
-            className={`h-8 object-contain mb-16 ${!tenant?.logo_url && 'brightness-0 invert'}`} 
-          />
-          <h1 className="text-4xl xl:text-5xl font-black text-white leading-[1.1] tracking-tight">
-            Portal do <br/><span className="text-primary font-serif italic font-medium">Fornecedor</span>
-          </h1>
-          <p className="text-slate-300 mt-6 text-lg max-w-sm leading-relaxed">
-            Realize seu credenciamento para gerenciar operações na <strong>{tenant?.name || 'Usina'}</strong> de forma ágil e segura.
-          </p>
-        </div>
-
-        <div className="relative z-10 pt-10 border-t border-white/10">
-          <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold">Plataforma de Segurança Multilocatária</p>
-        </div>
+      {/* Background Shapes */}
+      <div className="absolute inset-0 z-0 overflow-hidden">
+        <div className="absolute top-0 right-0 w-1/2 h-full bg-primary/10 md:bg-primary transform skew-x-[-20deg] translate-x-1/4"></div>
+        <div className="absolute bottom-0 left-0 w-full h-1/2 bg-navy/5 md:bg-navy transform skew-y-[-10deg] translate-y-1/4"></div>
       </div>
 
-      {/* Área do Formulário */}
-      <div className="flex-1 flex flex-col justify-center p-8 lg:p-20 overflow-y-auto bg-slate-50/30">
-        <div className="max-w-xl w-full mx-auto">
+      <div className="w-full max-w-6xl z-10">
+        
+        {/* Main Card */}
+        <div className="bg-white rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col md:flex-row min-h-[650px] border border-white/20 backdrop-blur-sm">
           
-          <div className="mb-10 lg:hidden text-center">
-            <img 
-              src={tenant?.logo_url || "https://linsagro.com.br/wp-content/uploads/2022/07/cropped-Lins_Logo_Horizontal_RGB_Preferencial_20250512_Keenwork_AF.png"} 
-              alt={tenant?.name || "Lins"} 
-              className="h-8 object-contain mx-auto mb-6" 
-            />
-            <h2 className="text-3xl font-black text-navy tracking-tight">Credenciamento</h2>
-          </div>
+          {/* Left Side - Identity (Same as Login) */}
+          <div className="w-full md:w-5/12 bg-navy p-10 lg:p-12 flex flex-col justify-between relative overflow-hidden hidden md:flex">
+            
+            {/* Particle Canvas */}
+            <div className="absolute inset-0 opacity-40 mix-blend-screen">
+              <ParticleBackground />
+            </div>
 
-          <div className="hidden lg:block mb-10">
-            <h2 className="text-3xl font-black text-navy tracking-tight mb-2">Cadastre-se</h2>
-            <p className="text-slate-500 text-sm">Insira as informações da sua empresa para criar sua conta corporativa.</p>
-          </div>
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/30 via-transparent to-black/40 pointer-events-none"></div>
 
-          <form onSubmit={handleRegister} className="space-y-6">
-            {error && (
-              <div className="p-4 bg-red-50 border border-red-100 rounded-xl text-red-600 text-sm flex items-start gap-3">
-                <ShieldAlert className="w-5 h-5 shrink-0 mt-0.5" />
-                <span>{error}</span>
+            <div className="relative z-10 flex flex-col h-full">
+              <div className="mb-auto">
+                <img 
+                  src={tenant?.logo_url || "https://linsagro.com.br/wp-content/uploads/2022/07/cropped-Lins_Logo_Horizontal_RGB_Preferencial_20250512_Keenwork_AF.png"} 
+                  alt={tenant?.name || "Lins"} 
+                  className="h-16 lg:h-20 object-contain brightness-0 invert mb-6" 
+                />
+                <div className="inline-flex items-center gap-3 px-4 py-2 bg-white/10 backdrop-blur-md rounded-full border border-white/10">
+                  <ShieldCheck className="w-4 h-4 text-primary" />
+                  <span className="text-[10px] text-white/70 font-bold uppercase tracking-[0.3em]">Credenciamento Oficial</span>
+                </div>
               </div>
-            )}
 
-            <div className="space-y-5">
-              <InputGroup 
-                label="Razão Social da Empresa" 
-                value={formData.fullName} 
-                onChange={v => setFormData({...formData, fullName: v})} 
-                placeholder="Ex: Transportadora Silva LTDA" 
-              />
+              <div className="relative z-10 my-10">
+                <h1 className="text-4xl lg:text-5xl font-black text-white leading-[1.1] tracking-tight mb-6">
+                  Portal do <br/>
+                  <span className="text-primary font-serif italic font-medium">Fornecedor</span>
+                </h1>
+                <p className="text-slate-300 text-base max-w-sm leading-relaxed font-medium">
+                  Realize seu credenciamento para gerenciar operações na <strong className="text-white">{tenant?.name || 'Usina Lins'}</strong> de forma ágil e segura.
+                </p>
+              </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div className="mt-auto pt-6 border-t border-white/10 flex items-center justify-between">
+                <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Lins Agroindustrial &copy; 2026</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Side - Form (More Compact) */}
+          <div className="w-full md:w-7/12 p-8 lg:p-12 flex flex-col justify-center bg-white relative overflow-y-auto max-h-[90vh] md:max-h-none">
+            
+            <div className="mb-8">
+              <div className="w-12 h-1.5 bg-primary mb-4 rounded-full"></div>
+              <h2 className="text-3xl font-black text-navy tracking-tight mb-2">Cadastre sua Empresa</h2>
+              <p className="text-slate-500 text-sm font-medium">Preencha os dados abaixo para iniciar sua parceria.</p>
+            </div>
+
+            <form onSubmit={handleRegister} className="space-y-4">
+              {error && (
+                <div className="p-3 bg-red-50 border border-red-100 rounded-xl text-red-600 text-xs flex items-start gap-3">
+                  <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5" />
+                  <span className="font-semibold">{error}</span>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="md:col-span-2">
+                  <InputGroup 
+                    label="Razão Social" 
+                    icon={Building2}
+                    value={formData.fullName} 
+                    onChange={v => setFormData({...formData, fullName: v})} 
+                    placeholder="Nome da sua empresa" 
+                  />
+                </div>
+
                 <InputGroup 
-                  label="CNPJ Regional" 
+                  label="CNPJ" 
+                  icon={ShieldCheck}
                   value={formData.cnpj} 
                   onChange={handleCnpjChange} 
                   placeholder="00.000.000/0000-00" 
                 />
+                
                 <InputGroup 
-                  label="Telefone de Contato" 
+                  label="Telefone" 
+                  icon={Phone}
                   value={formData.phone} 
                   onChange={handlePhoneChange} 
-                  placeholder="(11) 90000-0000" 
+                  placeholder="(00) 00000-0000" 
                 />
-              </div>
 
-              <InputGroup 
-                label="Nome do Representante" 
-                value={formData.representativeName} 
-                onChange={v => setFormData({...formData, representativeName: v})} 
-                placeholder="Ex: Carlos Mendes" 
-              />
-              
-              <InputGroup 
-                label="E-mail Corporativo" 
-                type="email" 
-                value={formData.email} 
-                onChange={v => setFormData({...formData, email: v})} 
-                placeholder="carlos@transportadora.com.br" 
-              />
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <InputGroup 
-                  label="Senha de Acesso" 
+                  label="Nome do Responsável" 
+                  icon={UserCircle2}
+                  value={formData.representativeName} 
+                  onChange={v => setFormData({...formData, representativeName: v})} 
+                  placeholder="Nome completo" 
+                />
+
+                <InputGroup 
+                  label="E-mail Corporativo" 
+                  icon={Mail}
+                  type="email" 
+                  value={formData.email} 
+                  onChange={v => setFormData({...formData, email: v})} 
+                  placeholder="empresa@exemplo.com.br" 
+                />
+
+                <InputGroup 
+                  label="Senha" 
+                  icon={Lock}
                   type="password" 
                   value={formData.password} 
                   onChange={v => setFormData({...formData, password: v})} 
                   placeholder="••••••••" 
                 />
+
                 <InputGroup 
                   label="Confirmar Senha" 
+                  icon={Lock}
                   type="password" 
                   value={formData.confirmPassword} 
                   onChange={v => setFormData({...formData, confirmPassword: v})} 
                   placeholder="••••••••" 
                 />
               </div>
+
+              <button 
+                type="submit" 
+                disabled={loading}
+                className="w-full py-4 mt-6 bg-navy hover:bg-[#001D4A] text-white font-black rounded-xl shadow-xl shadow-navy/10 flex items-center justify-center gap-3 transition-all hover:-translate-y-1 active:translate-y-0 active:scale-[0.98] disabled:opacity-70 uppercase tracking-[0.2em] text-xs group"
+              >
+                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (
+                  <>
+                    Finalizar Credenciamento
+                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                  </>
+                )}
+              </button>
+            </form>
+
+            <div className="mt-8 text-center pt-6 border-t border-slate-50">
+              <p className="text-xs text-slate-400 font-bold">
+                Já possui uma conta? 
+                <Link to={`/${tenant?.subdomain || slug || 'unknown'}/login`} className="ml-2 text-primary hover:underline">
+                  Fazer Login
+                </Link>
+              </p>
             </div>
+          </div>
 
-            <button 
-              type="submit" 
-              disabled={loading}
-              className="w-full py-4 mt-8 bg-primary hover:bg-[#008f8a] text-white font-bold rounded-xl shadow-[0_10px_20px_-10px_rgba(0,181,173,0.5)] flex items-center justify-center gap-2 transition-all hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98]"
-            >
-              {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (
-                <>
-                  Finalizar Cadastro
-                  <ArrowRight className="w-4 h-4 ml-1" />
-                </>
-              )}
-            </button>
-
-            <p className="text-center text-sm text-slate-500 pt-6">
-              Já possui acesso? <Link to={`/${tenant?.subdomain || 'unknown'}/login`} className="text-primary font-bold hover:underline transition-all">Fazer login</Link>
-            </p>
-          </form>
         </div>
       </div>
     </div>
@@ -244,20 +281,24 @@ interface InputProps {
   type?: string;
   value: string;
   onChange: (v: string) => void;
+  icon: any;
 }
 
-function InputGroup({ label, placeholder, type = "text", value, onChange }: InputProps) {
+function InputGroup({ label, placeholder, type = "text", value, onChange, icon: Icon }: InputProps) {
   return (
-    <div className="space-y-2 w-full">
-      <label className="text-xs font-semibold text-slate-600 block pl-1">{label}</label>
-      <input 
-        type={type}
-        required
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        placeholder={placeholder}
-        className="w-full px-4 py-3.5 bg-white border border-slate-200/80 rounded-xl text-navy placeholder-slate-400 focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all text-sm shadow-sm"
-      />
+    <div className="space-y-1.5 group">
+      <label className="text-[10px] uppercase tracking-widest font-black text-slate-400 ml-1 transition-colors group-focus-within:text-primary">{label}</label>
+      <div className="relative">
+        <Icon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 group-focus-within:text-primary transition-all" />
+        <input 
+          type={type}
+          required
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          placeholder={placeholder}
+          className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-navy font-bold placeholder-slate-300 focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all text-xs shadow-inner"
+        />
+      </div>
     </div>
   );
 }

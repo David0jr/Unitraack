@@ -7,6 +7,6 @@ export const tenantService = {
         'X-Tenant-Slug': slug
       }
     });
-    return response.data;
+    return response.data.data;
   }
 };

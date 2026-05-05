@@ -11,8 +11,23 @@ import RegisterGestor from './pages/RegisterGestor';
 
 import { TenantProvider, useTenant } from './contexts/TenantContext';
 
+import { useAuth } from './contexts/AuthContext';
+
 function HomeRedirect() {
+  const { user, profile } = useAuth();
   const { slug, isAdmin, isSubdomain } = useTenant();
+  
+  // Se já estiver logado, manda direto para o painel correto
+  if (user && profile) {
+    if (profile.role === 'SUPER_ADMIN') {
+      return <Navigate to="/admin/painel" replace />;
+    }
+    const userSlug = profile.tenant?.subdomain;
+    if (userSlug) {
+      return <Navigate to={`/${userSlug}/painel`} replace />;
+    }
+    return <Navigate to="/painel" replace />;
+  }
   
   if (isAdmin) {
     return <Navigate to="/admin/login" replace />;

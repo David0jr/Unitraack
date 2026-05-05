@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { getAuthToken } from '../utils/subdomain';
 import { ClipboardList, Check, X, AlertTriangle, Loader2, LogOut } from 'lucide-react';
 
 interface Material {
@@ -37,7 +38,7 @@ export default function LiderDashboard() {
     try {
       const response = await fetch(`${import.meta.env.VITE_API_URL}/lider/pendencias`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${getAuthToken()}`
         }
       });
       
@@ -71,7 +72,7 @@ export default function LiderDashboard() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${getAuthToken()}`
         },
         body: JSON.stringify({ acao })
       });

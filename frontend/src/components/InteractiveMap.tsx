@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import axios from 'axios';
+import { api } from '../services/api';
 import { 
   Maximize2, 
   Minimize2, 
@@ -25,7 +25,7 @@ const COMPANY_COLORS: Record<string, string> = {
  * Permite visualização e edição do layout industrial e localização de ativos.
  */
 export default function InteractiveMap() {
-  const { token } = useAuth();
+  const { } = useAuth();
   const { sectors, materials, refreshData } = useDashboard();
   const [isExpanded, setIsExpanded] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -104,7 +104,7 @@ export default function InteractiveMap() {
 
   const saveChanges = async () => {
     try {
-      await axios.post(`${import.meta.env.VITE_API_URL}/gestor/update-layout`, {
+      await api.post('/gestor/map-layout', {
         layouts: localSectors.map(s => ({
           id: s.id,
           x: s.layout_x,
@@ -112,13 +112,12 @@ export default function InteractiveMap() {
           w: s.layout_w,
           h: s.layout_h
         }))
-      }, {
-        headers: { 'Authorization': `Bearer ${token}` }
       });
       
       setIsEditMode(false);
       refreshData();
     } catch (err: any) {
+
       alert(err.response?.data?.error || 'Erro ao salvar layout do mapa.');
     }
   };
@@ -319,8 +318,9 @@ export default function InteractiveMap() {
               )}
 
               {materials.filter((m: any) => m.current_sector_id === sector.id).map((mat: any, idx: number) => {
-                const x = mat.map_x ?? (sector.layout_x + 40 + (idx * 25) % (sector.layout_w - 60));
-                const y = mat.map_y ?? (sector.layout_y + 60 + Math.floor(idx / 5) * 25);
+                const x = mat.layout_x ?? (sector.layout_x + 40 + (idx * 25) % (sector.layout_w - 60));
+                const y = mat.layout_y ?? (sector.layout_y + 60 + Math.floor(idx / 5) * 25);
+
                 const color = getCompanyColor(mat.request.profile.tenant_id);
 
                 return (

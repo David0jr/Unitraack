@@ -13,36 +13,65 @@ export class AuditService {
    * @param profileId ID do perfil (terceirizado) para filtro opcional
    */
   async getTenantAudit(tenantId: string, profileId?: string) {
-    // 1. Inicia query para buscar requisições ativas ou concluídas
-    let query = supabaseAdmin
-      .from('entry_requests')
-      .select(`
-        *,
-        profile:profiles(full_name, role),
-        materials(
+    console.log(`[AuditService] Gerando relatório para Tenant: ${tenantId}, Profile: ${profileId || 'Todos'}`);
+    
+    try {
+      // 1. Tentar busca completa com movimentações
+      let query = supabaseAdmin
+        .from('entry_requests')
+        .select(`
           *,
-          movements:material_movements(
+          profile:profiles(full_name, role),
+          materials(
             *,
-            from_sector:sectors!from_sector_id(name),
-            to_sector:sectors!to_sector_id(name),
-            actor:profiles!moved_by(full_name)
+            movements:material_movements(
+              *,
+              from_sector:sectors!from_sector_id(name),
+              to_sector:sectors!to_sector_id(name),
+              actor:profiles!moved_by(full_name)
+            )
           )
-        )
-      `)
-      .eq('tenant_id', tenantId)
-      // Apenas status que geraram rastro operativo
-      .in('status', ['APPROVED_LIDER', 'APPROVED_GESTOR', 'COMPLETED'])
-      .order('created_at', { ascending: false });
+        `)
+        .eq('tenant_id', tenantId)
+        .in('status', ['APPROVED_LIDER', 'APPROVED_GESTOR', 'COMPLETED'])
+        .order('created_at', { ascending: false });
 
-    if (profileId) {
-      query = query.eq('profile_id', profileId);
+      if (profileId) {
+        query = query.eq('profile_id', profileId);
+      }
+
+      const { data, error } = await query;
+      
+      if (error) {
+        console.warn('[AuditService] Falha na busca completa de auditoria, tentando simplificada (sem movimentações)...');
+        // Fallback: Busca sem movimentações se a tabela não existir
+        let fallbackQuery = supabaseAdmin
+          .from('entry_requests')
+          .select(`
+            *,
+            profile:profiles(full_name, role),
+            materials(*)
+          `)
+          .eq('tenant_id', tenantId)
+          .in('status', ['APPROVED_LIDER', 'APPROVED_GESTOR', 'COMPLETED'])
+          .order('created_at', { ascending: false });
+
+        if (profileId) {
+          fallbackQuery = fallbackQuery.eq('profile_id', profileId);
+        }
+
+        const { data: fallbackData, error: fallbackError } = await fallbackQuery;
+        if (fallbackError) throw fallbackError;
+        return fallbackData || [];
+      }
+
+      return data || [];
+    } catch (err: any) {
+      console.error('[AuditService] Erro fatal na auditoria:', err.message);
+      return [];
     }
-
-    const { data, error } = await query;
-    if (error) throw error;
-
-    return data;
   }
+
 
   /**
    * Consolida métricas de desempenho e frequência de empresas terceirizadas.

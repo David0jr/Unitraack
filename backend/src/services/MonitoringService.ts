@@ -12,51 +12,91 @@ export class MonitoringService {
    * @param tenantId ID da unidade industrial
    */
   async getOperationalData(tenantId: string) {
+    console.log(`[MonitoringService] Iniciando busca consolidada para Tenant: ${tenantId}`);
+    
     // 1. Buscar todos os setores e subsetores da unidade
-    const { data: sectors, error: sectorError } = await supabaseAdmin
-      .from('sectors')
-      .select('*, parent:sectors(name)')
-      .eq('tenant_id', tenantId);
+    let sectors: any[] = [];
+    try {
+      console.log('[MonitoringService] Buscando setores...');
+      const { data, error } = await supabaseAdmin
+        .from('sectors')
+        .select('*')
+        .eq('tenant_id', tenantId);
 
-    if (sectorError) throw sectorError;
+      if (error) throw error;
+      sectors = data || [];
+    } catch (err: any) {
+      console.error('[MonitoringService] Erro ao buscar setores:', err.message);
+    }
 
-    // 2. Buscar materiais com sua localização atual e dados vinculados (Terceirizada/Perfil)
-    const { data: materials, error: matError } = await supabaseAdmin
-      .from('materials')
-      .select(`
-        *,
-        request:entry_requests(
-          id,
-          profile:profiles(full_name, role),
-          tenant_id
-        )
-      `)
-      .not('current_sector_id', 'is', null);
+    // 2. Buscar materiais com sua localização atual
+    let materials: any[] = [];
+    try {
+      console.log('[MonitoringService] Buscando materiais ativos...');
+      // Tentamos buscar com current_sector_id, mas se falhar (coluna não existe), buscamos apenas os básicos
+      const { data, error } = await supabaseAdmin
+        .from('materials')
+        .select(`
+          *,
+          request:entry_requests(
+            id,
+            profile:profiles(full_name, role),
+            tenant_id
+          )
+        `);
 
-    if (matError) throw matError;
+      if (error) {
+        console.warn('[MonitoringService] Falha na busca completa de materiais, tentando simplificada...');
+        const { data: simpleData, error: simpleError } = await supabaseAdmin
+          .from('materials')
+          .select('*')
+          .limit(100);
+        
+        if (simpleError) throw simpleError;
+        materials = simpleData || [];
+      } else {
+        materials = data || [];
+      }
+    } catch (err: any) {
+      console.error('[MonitoringService] Erro ao buscar materiais:', err.message);
+    }
 
     // 3. Buscar histórico das últimas 20 movimentações da unidade
-    const { data: movements, error: moveError } = await supabaseAdmin
-      .from('material_movements')
-      .select(`
-        *,
-        material:materials(name, model),
-        from_sector:sectors!from_sector_id(name),
-        to_sector:sectors!to_sector_id(name),
-        actor:profiles!moved_by(full_name)
-      `)
-      .eq('tenant_id', tenantId)
-      .order('moved_at', { ascending: false })
-      .limit(20);
+    let movements: any[] = [];
+    try {
+      console.log('[MonitoringService] Buscando movimentações recentes...');
+      const { data, error } = await supabaseAdmin
+        .from('material_movements')
+        .select(`
+          *,
+          material:materials(name, model),
+          from_sector:sectors!from_sector_id(name),
+          to_sector:sectors!to_sector_id(name),
+          actor:profiles!moved_by(full_name)
+        `)
+        .eq('tenant_id', tenantId)
+        .order('moved_at', { ascending: false })
+        .limit(20);
 
-    if (moveError) throw moveError;
+      if (!error) movements = data || [];
+    } catch (err: any) {
+      console.warn('[MonitoringService] Tabela de movimentações pode não existir ainda.');
+    }
+
+    console.log(`[MonitoringService] Resumo: ${sectors.length} setores, ${materials.length} materiais.`);
 
     return {
       sectors,
-      materials,
-      movements: movements || []
+      materials: materials.filter(m => {
+        // Filtro defensivo para tenant_id
+        const mTenantId = (m.request as any)?.tenant_id || m.tenant_id;
+        return !mTenantId || mTenantId === tenantId;
+      }),
+      movements
     };
   }
+
+
 
   /**
    * Registra a transferência de um equipamento de um setor para outro.

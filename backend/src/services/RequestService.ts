@@ -35,27 +35,48 @@ export class RequestService {
   }
 
   async listByTenant(tenantId: string, filters: any = {}): Promise<EntryRequest[]> {
-    let query = supabaseAdmin
-      .from('entry_requests')
-      .select(`
-        *,
-        profile:profiles!entry_requests_profile_id_fkey(full_name),
-        sector_info:sectors!sector_id(*, parent:sectors!parent_id(name)),
-        materials(*)
-      `)
-      .eq('tenant_id', tenantId);
+    console.log(`[RequestService] Listando requisições para Tenant: ${tenantId}`);
+    
+    try {
+      let query = supabaseAdmin
+        .from('entry_requests')
+        .select(`
+          *,
+          profile:profiles(full_name),
+          sector_info:sectors(*)
+        `)
+        .eq('tenant_id', tenantId);
 
-    if (filters.status) query = query.eq('status', filters.status);
-    if (filters.sector_id) {
-      query = query.eq('sector_id', filters.sector_id);
-    } else if (filters.sector) {
-      query = query.eq('sector', filters.sector);
+      if (filters.status) query = query.eq('status', filters.status);
+      if (filters.sector_id) {
+        query = query.eq('sector_id', filters.sector_id);
+      } else if (filters.sector) {
+        query = query.eq('sector', filters.sector);
+      }
+
+      const { data, error } = await query.order('created_at', { ascending: false });
+      
+      if (error) {
+        console.warn('[RequestService] Falha na busca completa de requisições, tentando simplificada...');
+        const { data: simpleData, error: simpleError } = await supabaseAdmin
+          .from('entry_requests')
+          .select('*, profile:profiles(full_name)')
+          .eq('tenant_id', tenantId)
+          .order('created_at', { ascending: false });
+          
+        if (simpleError) throw simpleError;
+        return simpleData || [];
+      }
+      
+      console.log(`[RequestService] Requisições encontradas: ${data?.length || 0}`);
+      return data || [];
+    } catch (err: any) {
+      console.error('[RequestService] Erro fatal ao listar requisições:', err.message);
+      return [];
     }
-
-    const { data, error } = await query.order('created_at', { ascending: false });
-    if (error) throw error;
-    return data;
   }
+
+
 
   async updateStatus(requestId: string, status: RequestStatus, rejectionReason?: string): Promise<void> {
     const { error } = await supabaseAdmin

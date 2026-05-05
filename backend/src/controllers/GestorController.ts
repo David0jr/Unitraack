@@ -61,14 +61,26 @@ export class GestorController {
    */
   static async getMonitoring(req: AuthRequest, res: Response): Promise<any> {
     try {
+      console.log(`[GestorController] getMonitoring called by user: ${req.user.id}`);
       const profile = await userService.findProfileById(req.user.id);
-      if (!profile || !profile.tenant_id) {
-        return ApiResponse.error(res, 'Tenant não identificado.', 403);
+      
+      if (!profile) {
+        console.warn(`[GestorController] Perfil NÃO ENCONTRADO para usuário: ${req.user.id}`);
+        return ApiResponse.error(res, 'Perfil não encontrado.', 403);
       }
 
+      if (!profile.tenant_id) {
+        console.warn(`[GestorController] Tenant_id ausente no perfil do usuário: ${req.user.id}`);
+        return ApiResponse.error(res, 'Tenant não identificado no seu perfil.', 403);
+      }
+
+      console.log(`[GestorController] Buscando dados de monitoramento para Tenant: ${profile.tenant_id}`);
       const data = await monitoringService.getOperationalData(profile.tenant_id as string);
+      console.log(`[GestorController] Sucesso! Setores encontrados: ${data.sectors?.length || 0}`);
+      
       return ApiResponse.success(res, data);
     } catch (error: any) {
+      console.error(`[GestorController] Erro fatal: ${error.message}`);
       return ApiResponse.error(res, error.message, 500, error);
     }
   }

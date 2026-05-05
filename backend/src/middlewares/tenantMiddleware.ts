@@ -13,6 +13,8 @@ export const tenantContextMiddleware = async (req: TenantRequest, res: Response,
     const headerSlug = req.headers['x-tenant-slug'];
     const querySlug = req.query.slug;
     
+    console.log(`[TenantMiddleware] Raw values - host: ${host}, header: ${headerSlug}, query: ${querySlug}`);
+    
     let slug: string | null = null;
     
     // 1. Prioridade para o cabeçalho X-Tenant-Slug

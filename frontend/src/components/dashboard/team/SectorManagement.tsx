@@ -9,7 +9,9 @@ import {
 } from 'lucide-react';
 import { useDashboard } from '../../../contexts/DashboardContext';
 import { useAuth } from '../../../contexts/AuthContext';
+import { api } from '../../../services/api';
 import { InputGroup } from './TeamCommon';
+import { useEffect } from 'react';
 
 interface SectorManagementProps {
   onSuccess: (msg: string) => void;
@@ -21,19 +23,22 @@ export function SectorManagement({ onSuccess, onError }: SectorManagementProps) 
   const { token } = useAuth();
   const [loading, setLoading] = useState(false);
   const [newSectorName, setNewSectorName] = useState('');
-  const [inlineSectorParentId, setInlineSectorParentId] = useState<string | null>(null);
+   const [inlineSectorParentId, setInlineSectorParentId] = useState<string | null>(null);
   const [inlineSectorName, setInlineSectorName] = useState('');
+
+  // Garantir que os dados estão sincronizados ao abrir a gestão de setores
+  useEffect(() => {
+    refreshData();
+  }, [refreshData]);
 
   const handleCreateSector = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newSectorName) return;
     setLoading(true);
     try {
-      await axios.post(`${import.meta.env.VITE_API_URL}/gestor/sectors`, { 
+      await api.post('/gestor/sectors', { 
         name: newSectorName,
         parent_id: null
-      }, {
-        headers: { 'Authorization': `Bearer ${token}` }
       });
       
       setNewSectorName('');
@@ -51,11 +56,9 @@ export function SectorManagement({ onSuccess, onError }: SectorManagementProps) 
     if (!inlineSectorName || !inlineSectorParentId) return;
     setLoading(true);
     try {
-      await axios.post(`${import.meta.env.VITE_API_URL}/gestor/sectors`, { 
+      await api.post('/gestor/sectors', { 
         name: inlineSectorName,
         parent_id: inlineSectorParentId
-      }, {
-        headers: { 'Authorization': `Bearer ${token}` }
       });
       
       setInlineSectorName('');
@@ -72,9 +75,7 @@ export function SectorManagement({ onSuccess, onError }: SectorManagementProps) 
   const handleDeleteSector = async (id: string) => {
     if (!confirm('Tem certeza que deseja excluir este setor?')) return;
     try {
-      await axios.delete(`${import.meta.env.VITE_API_URL}/gestor/sectors/${id}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      await api.delete(`/gestor/sectors/${id}`);
       refreshData();
       onSuccess('Setor removido.');
     } catch (err: any) {
@@ -126,7 +127,12 @@ export function SectorManagement({ onSuccess, onError }: SectorManagementProps) 
       </div>
 
       <div className="space-y-6">
-         <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Mapa de Operações</h5>
+         <div className="flex items-center justify-between ml-1">
+           <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Mapa de Operações</h5>
+           <div className="text-[8px] font-black text-slate-300 uppercase tracking-widest">
+             Sectores: {sectors.length} | Filtro Pai: {sectors.filter((s: any) => !s.parent_id).length}
+           </div>
+         </div>
          
          <div className="space-y-4">
            {sectors.filter((s: any) => !s.parent_id).length === 0 ? (

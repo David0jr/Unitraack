@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
-import { ShieldCheck, LogIn, Loader2, LayoutDashboard } from 'lucide-react';
+import { Lock, LogIn, Loader2, UserCircle2, Mail, AlertCircle } from 'lucide-react';
+import ParticleBackground from '../components/ParticleBackground';
 
 export default function AdminLogin() {
   const [email, setEmail] = useState('');
@@ -16,24 +17,25 @@ export default function AdminLogin() {
     e.preventDefault();
     setLoading(true);
     setError('');
-    
+
     try {
-      // 1. Tentar Login Auth
-      await login(email, password);
+      const startTime = Date.now();
+      console.log('[Login] Iniciando autenticação administrativa...');
 
-      // 2. Verificar se o usuário TEM o role SUPER_ADMIN antes de liberar o painel
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', (await supabase.auth.getUser()).data.user?.id)
-        .maybeSingle();
+      // Usar a função de login do contexto que já gerencia o perfil de forma otimizada
+      const profile = await login(email, password);
+      
+      const duration = Date.now() - startTime;
+      console.log(`[Login] Autenticação e perfil concluídos em ${duration}ms`);
 
-      if (profileError || !profile || profile.role !== 'SUPER_ADMIN') {
+      if (!profile || profile.role !== 'SUPER_ADMIN') {
         throw new Error('Acesso negado. Esta página é restrita a Administradores Globais.');
       }
 
+      console.log('[Login] Sucesso! Redirecionando para o painel...');
       navigate('/admin/painel');
     } catch (err: any) {
+      console.error('[Login] Erro:', err);
       setError(err.message || 'Credenciais inválidas.');
     } finally {
       setLoading(false);
@@ -41,87 +43,92 @@ export default function AdminLogin() {
   };
 
   return (
-    <div className="min-h-screen bg-navy flex flex-col items-center justify-center p-6 font-brand relative overflow-hidden">
-      {/* Background Effect */}
-      <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none">
-        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary rounded-full blur-[120px]"></div>
-        <div className="absolute bottom-[-10%] right-[-10%] w-[30%] h-[30%] bg-secondary rounded-full blur-[100px]"></div>
+    <div className="min-h-screen relative flex items-center justify-center p-4 overflow-hidden font-sans">
+      {/* Background Shapes */}
+      <div className="absolute inset-0 z-0">
+        <div className="absolute top-0 right-0 w-1/2 h-full bg-[#10C99E] transform skew-x-[-20deg] translate-x-1/4"></div>
+        <div className="absolute bottom-0 left-0 w-full h-1/2 bg-[#7C5CFF] transform skew-y-[-10deg] translate-y-1/4"></div>
       </div>
 
-      <div className="w-full max-w-sm relative z-10">
-        
-        {/* Header Control */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-white/5 rounded-3xl border border-white/10 mb-6 backdrop-blur-xl">
-            <LayoutDashboard className="w-8 h-8 text-primary shadow-xl" />
-          </div>
-          <p className="text-[10px] text-primary font-black uppercase tracking-[0.4em] mb-2">INFRASTRUCTURE CONTROL</p>
-          <h1 className="text-white text-2xl font-black uppercase tracking-tighter">SaaS Owner Login</h1>
+      <div className="w-full max-w-5xl z-10">
+        {/* Logo Section */}
+        <div className="flex flex-col items-center mb-8">
+          <span className="text-[12px] font-bold uppercase tracking-[0.3em] text-[#2D3A4B]">Unitraack</span>
         </div>
 
-        <div className="bg-white/5 backdrop-blur-3xl p-8 rounded-[40px] shadow-2xl border border-white/10">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {error && (
-              <div className="p-4 bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-bold rounded-2xl flex items-start gap-3">
-                <span className="w-2 h-2 bg-red-500 rounded-full mt-1.5 shrink-0"></span>
-                {error}
-              </div>
-            )}
+        {/* Main Card */}
+        <div className="bg-white rounded-[2rem] shadow-2xl overflow-hidden flex flex-col md:flex-row min-h-[500px]">
+          {/* Left Side - Illustration / Particle Background */}
+          <div className="w-full md:w-1/2 bg-[#F8FAFF] p-12 flex items-center justify-center relative overflow-hidden hidden md:flex">
+            {/* Particle Canvas */}
+            <ParticleBackground />
 
-            <div className="space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-white/40 uppercase ml-1 tracking-widest">Global Identity</label>
+            {/* Company Name Overlay */}
+            <div className="relative z-10 flex flex-col items-center pointer-events-none">
+              <h1 className="text-5xl lg:text-6xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-[#7C5CFF] to-[#10C99E] text-center drop-shadow-md leading-tight tracking-wide">
+                Unitraack
+              </h1>
+            </div>
+
+            {/* Divider Line (Visible only on desktop) */}
+            <div className="absolute right-0 top-1/4 bottom-1/4 w-px bg-gradient-to-b from-transparent via-slate-200 to-transparent"></div>
+          </div>
+
+          {/* Right Side - Form */}
+          <div className="w-full md:w-1/2 p-8 md:p-16 flex flex-col justify-center">
+            <div className="mb-8">
+              <div className="w-10 h-1 bg-[#7C5CFF] mb-4"></div>
+              <h2 className="text-2xl font-bold text-[#2D3A4B]">Admin</h2>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {error && (
+                <div className="p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100 flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 bg-red-600 rounded-full"></div>
+                  {error}
+                </div>
+              )}
+
+              <div className="space-y-4">
                 <div className="relative">
-                  <input 
-                    type="email" 
+                  <input
+                    type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="E-mail de Operação"
-                    className="w-full px-6 py-4 bg-white/5 border border-white/10 rounded-2xl text-white placeholder-white/20 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
-                    required 
+                    placeholder="seuemail@gmail.com"
+                    className="w-full px-5 py-4 bg-[#F8FAFF] border border-slate-100 rounded-2xl text-[#2D3A4B] placeholder-slate-300 focus:outline-none focus:ring-2 focus:ring-[#7C5CFF]/20 focus:border-[#7C5CFF] transition-all pr-12"
+                    required
                   />
+                  <UserCircle2 className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 w-6 h-6" />
+                </div>
+
+                <div className="relative">
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full px-5 py-4 bg-[#F8FAFF] border border-slate-100 rounded-2xl text-[#2D3A4B] placeholder-slate-300 focus:outline-none focus:ring-2 focus:ring-[#7C5CFF]/20 focus:border-[#7C5CFF] transition-all pr-12"
+                    required
+                  />
+                  <Lock className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 w-6 h-6" />
                 </div>
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-white/40 uppercase ml-1 tracking-widest">Security Token</label>
-                <input 
-                  type="password" 
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full px-6 py-4 bg-white/5 border border-white/10 rounded-2xl text-white placeholder-white/20 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
-                  required 
-                />
-              </div>
-            </div>
-
-            <button 
-              type="submit" 
-              disabled={loading}
-              className="w-full py-4 bg-primary hover:bg-[#009A94] text-white font-black rounded-2xl shadow-xl shadow-primary/20 flex items-center justify-center gap-3 transition-all active:scale-[0.98] disabled:opacity-70"
-            >
-              {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (
-                <>
-                  <LogIn className="w-5 h-5" />
-                  AUTHENTICATE OPERATOR
-                </>
-              )}
-            </button>
-          </form>
-        </div>
-
-        <div className="mt-8 flex flex-col items-center gap-4">
-          <div className="flex items-center gap-3 text-white/20 uppercase font-black text-[9px] tracking-[0.3em]">
-             <ShieldCheck className="w-4 h-4" />
-             End-to-End Encryption
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-4 bg-[#7C5CFF] hover:bg-[#6A4BE0] text-white font-bold rounded-2xl shadow-lg shadow-purple-200 flex items-center justify-center gap-3 transition-all active:scale-[0.98] disabled:opacity-70 uppercase tracking-widest text-sm"
+              >
+                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (
+                  <>
+                    LOGIN
+                    <LogIn className="w-5 h-5" />
+                  </>
+                )}
+              </button>
+            </form>
           </div>
-          <button 
-            onClick={() => navigate('/login')}
-            className="text-[10px] font-black text-primary hover:text-white transition-colors uppercase tracking-widest"
-          >
-            ← Voltar para Acesso Corporativo
-          </button>
         </div>
       </div>
     </div>

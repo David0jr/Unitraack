@@ -47,20 +47,37 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     try {
       setState(prev => ({ ...prev, loading: true }));
       
-      // 1. Buscar Monitoramento (Mapa + Operativo)
-      const monitoringRes = await dashboardService.getMonitoring();
+      // Buscar dados em paralelo para performance e resiliência
+      const [monitoringRes, requestsRes] = await Promise.allSettled([
+        dashboardService.getMonitoring(),
+        dashboardService.getDashboard()
+      ]);
 
-      // 2. Buscar Requisições (Aprovação)
-      const requestsRes = await dashboardService.getDashboard();
+      let sectors = [];
+      let materials = [];
+      let movements = [];
+      let requests = [];
 
-      const { sectors, materials, movements } = monitoringRes.data;
-      const requests = requestsRes.data;
+      if (monitoringRes.status === 'fulfilled') {
+        const monitoringData = monitoringRes.value.data || {};
+        sectors = monitoringData.sectors || [];
+        materials = monitoringData.materials || [];
+        movements = monitoringData.movements || [];
+      } else {
+        console.warn('Falha ao carregar dados de monitoramento:', monitoringRes.reason);
+      }
+
+      if (requestsRes.status === 'fulfilled') {
+        requests = requestsRes.value.data || [];
+      } else {
+        console.warn('Falha ao carregar dados de requisições:', requestsRes.reason);
+      }
 
       // Cálculo de estatísticas rápidas
       const stats = {
-        pending: requests.filter((r: any) => r.status === 'PENDING').length,
+        pending: Array.isArray(requests) ? requests.filter((r: any) => r.status === 'PENDING').length : 0,
         active: materials.length,
-        completed: movements.length // Simplificação para demonstração
+        completed: movements.length
       };
 
       setState({
@@ -70,7 +87,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         movements,
         stats,
         loading: false,
-        error: null
+        error: (monitoringRes.status === 'rejected' && requestsRes.status === 'rejected') ? 'Falha total na conexão.' : null
       });
     } catch (err: any) {
       console.error('Erro ao carregar dados do dashboard:', err);

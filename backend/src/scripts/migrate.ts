@@ -33,7 +33,10 @@ async function migrate() {
     'update_v4_material_details.sql',
     'update_v5_gate_flow.sql',
     'update_v6_registration.sql',
-    'update_v7_terceirizada_fields.sql'
+    'update_v7_terceirizada_fields.sql',
+    'update_v8_subdomains.sql',
+    'update_v9_movements.sql',
+    'update_v10_map.sql'
   ];
 
   console.log('\n🚀 Iniciando Automação de Banco de Dados...');
@@ -41,8 +44,9 @@ async function migrate() {
   const client = await pool.connect();
   try {
     for (const file of sqlFiles) {
-      const filePath = path.join(__dirname, '../../', file);
+      const filePath = path.join(__dirname, '../sql/', file);
       if (fs.existsSync(filePath)) {
+
         console.log(`⏱️ Executando: ${file}...`);
         const sql = fs.readFileSync(filePath, 'utf8');
         await client.query(sql);

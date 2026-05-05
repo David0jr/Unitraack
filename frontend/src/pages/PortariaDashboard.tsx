@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { getAuthToken } from '../utils/subdomain';
 import { Truck, Search, CheckCircle, Loader2, Package, Hash, Info, LogOut } from 'lucide-react';
 
 interface Material {
@@ -33,15 +34,24 @@ export default function PortariaDashboard() {
 
   const fetchAprovados = async () => {
     try {
+      setLoading(true);
       const response = await fetch(`${import.meta.env.VITE_API_URL}/portaria/approved`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${getAuthToken()}`
         }
       });
-      const data = await response.json();
-      if (response.ok) setRequisicoes(data);
+      const payload = await response.json();
+      
+      if (response.ok) {
+        // O ApiResponse.success empacota o retorno dentro de `data`
+        setRequisicoes(Array.isArray(payload.data) ? payload.data : []);
+      } else {
+        console.error('Erro na resposta da API:', payload.error);
+        setRequisicoes([]);
+      }
     } catch (err) {
       console.error('Erro ao carregar aprovados:', err);
+      setRequisicoes([]);
     } finally {
       setLoading(false);
     }
@@ -51,7 +61,7 @@ export default function PortariaDashboard() {
     fetchAprovados();
   }, []);
 
-  const selectedReq = requisicoes.find(r => r.id === selecionadoId);
+  const selectedReq = Array.isArray(requisicoes) ? requisicoes.find(r => r.id === selecionadoId) : null;
 
   const handleCheckIn = async (requestId: string) => {
     setProcessing(true);
@@ -60,7 +70,7 @@ export default function PortariaDashboard() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${getAuthToken()}`
         },
         body: JSON.stringify({ observations: 'Check-in realizado com sucesso.' })
       });
@@ -79,10 +89,10 @@ export default function PortariaDashboard() {
     }
   };
 
-  const filteredReqs = requisicoes.filter(r => 
+  const filteredReqs = Array.isArray(requisicoes) ? requisicoes.filter(r => 
     r.profiles.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     r.id.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  ) : [];
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] font-brand antialiased text-navy">

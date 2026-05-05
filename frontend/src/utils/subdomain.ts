@@ -48,3 +48,11 @@ export const isAdminPath = (): boolean => {
   return path.startsWith('/admin');
 };
 
+export const getTokenKey = (): string => {
+  const slug = getSubdomain() || (isAdminPath() ? 'admin' : 'main');
+  return `usinalins-token-${slug}`;
+};
+
+export const getAuthToken = (): string | null => {
+  return sessionStorage.getItem(getTokenKey());
+};

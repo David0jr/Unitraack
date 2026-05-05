@@ -1,6 +1,4 @@
-import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { supabase } from '../lib/supabase';
 import { Loader2 } from 'lucide-react';
 
 import TerceirizadaDashboard from '../pages/TerceirizadaDashboard';
@@ -11,45 +9,8 @@ import SuperAdminDashboard from '../pages/SuperAdminDashboard';
 import { DashboardProvider } from '../contexts/DashboardContext';
 
 export default function RoleDispatcher() {
-  const { user } = useAuth();
-  const [role, setRole] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let isMounted = true;
-    async function fetchRole() {
-      if (!user) {
-        if (isMounted) setLoading(false);
-        return;
-      }
-
-      try {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', user.id)
-          .maybeSingle();
-
-        if (isMounted) {
-          if (error) {
-            console.error("Erro ao buscar role:", error);
-            setRole('TERCEIRIZADA'); // Fallback
-          } else if (data) {
-            setRole(data.role);
-          } else {
-            console.warn("Perfil não encontrado para o usuário.");
-            setRole('TERCEIRIZADA'); // Fallback para novos usuários
-          }
-        }
-      } catch (err) {
-        console.error("Crash ao buscar role:", err);
-      } finally {
-        if (isMounted) setLoading(false);
-      }
-    }
-    fetchRole();
-    return () => { isMounted = false };
-  }, [user]);
+  const { profile, loading } = useAuth();
+  const pathname = window.location.pathname;
 
   if (loading) {
     return (
@@ -59,8 +20,30 @@ export default function RoleDispatcher() {
     );
   }
 
+  if (!profile) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-red-50 p-8 text-center text-red-800 font-brand">
+        Perfil não encontrado. Verifique sua conexão ou contate o suporte.
+      </div>
+    );
+  }
+
+  // Integridade de Rota: Se for ADMIN mas estiver em rota de USINA, redireciona para Admin Global
+  if (profile.role === 'SUPER_ADMIN' && !pathname.startsWith('/admin')) {
+    window.location.href = '/admin/painel';
+    return null;
+  }
+
+  // Se for GESTOR/OPERACIONAL mas estiver na rota ADMIN, redireciona para sua usina
+  if (profile.role !== 'SUPER_ADMIN' && pathname.startsWith('/admin')) {
+    const slug = profile.tenant?.subdomain || 'login';
+    window.location.href = `/${slug}/painel`;
+    return null;
+  }
+
   // Direcionamento Roteado Componentizado
-  switch (role) {
+
+  switch (profile.role) {
     case 'TERCEIRIZADA':
       return <TerceirizadaDashboard />;
     case 'LIDER_SETOR':
@@ -79,7 +62,7 @@ export default function RoleDispatcher() {
       return (
         <div className="min-h-screen flex items-center justify-center bg-red-50 p-8 text-center text-red-800">
           Você não possui um perfil válido atribuído no sistema da UsinaLins. <br />
-          Contate a administração. Role detectado: {role || 'Nenhum'}
+          Contate a administração. Role detectado: {profile.role || 'Nenhum'}
         </div>
       );
   }

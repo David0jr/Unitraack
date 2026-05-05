@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { getAuthToken } from '../utils/subdomain';
 import { 
   Plus, 
   Clock, 
@@ -87,7 +88,7 @@ export default function TerceirizadaDashboard() {
     if (result.isConfirmed) {
       try {
         await axios.patch(`${import.meta.env.VITE_API_URL}/terceirizada/requisicao/${id}/cancelar`, {}, {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+          headers: { Authorization: `Bearer ${getAuthToken()}` }
         });
         Swal.fire('Cancelada!', 'A solicitação foi cancelada.', 'success');
         fetchData();
@@ -112,7 +113,7 @@ export default function TerceirizadaDashboard() {
     if (result.isConfirmed) {
       try {
         await axios.delete(`${import.meta.env.VITE_API_URL}/terceirizada/requisicao/${id}`, {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+          headers: { Authorization: `Bearer ${getAuthToken()}` }
         });
         Swal.fire('Excluída!', 'Registro removido.', 'success');
         fetchData();

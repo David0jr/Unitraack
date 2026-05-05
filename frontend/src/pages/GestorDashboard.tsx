@@ -24,18 +24,27 @@ export default function GestorDashboard() {
   const { user } = useAuth();
   const {} = useDashboard();
   const [activeSection, setActiveSection] = useState<'approvals' | 'team' | 'monitoring' | 'map' | 'audit'>('approvals');
-  const [managerProfile, setManagerProfile] = useState<{tenant_id: string, cnpj: string, full_name?: string, role?: string} | null>(null);
+  const [managerProfile, setManagerProfile] = useState<{tenant_id: string, cnpj?: string, full_name?: string, role?: string} | null>(null);
 
   // Perfil específico permanece local por ser dados de sessão prolongada
   useEffect(() => {
     async function fetchManagerProfile() {
       if (!user) return;
-      const { data } = await supabase
+      // Buscamos o perfil e incluímos o CNPJ do Tenant associado
+      const { data, error } = await supabase
         .from('profiles')
-        .select('tenant_id, cnpj, full_name, role')
+        .select('tenant_id, full_name, role, tenant:tenants(cnpj)')
         .eq('id', user.id)
         .single();
-      if (data) setManagerProfile(data);
+      
+      if (data) {
+        setManagerProfile({
+          tenant_id: data.tenant_id,
+          full_name: data.full_name,
+          role: data.role,
+          cnpj: (data as any).tenant?.cnpj
+        });
+      }
     }
     fetchManagerProfile();
   }, [user]);
