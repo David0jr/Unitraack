@@ -1,7 +1,7 @@
 import { Response, NextFunction } from 'express';
 import { AuthRequest } from './authMiddleware';
 import { tenantService } from '../services/TenantService';
-import { Tenant } from '../models/tenant.model';
+import { Tenant } from '../types';
 
 export interface TenantRequest extends AuthRequest {
   tenantContext?: Tenant;

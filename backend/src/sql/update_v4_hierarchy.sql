@@ -25,10 +25,10 @@ DROP POLICY IF EXISTS "Lider vê solicitações do seu setor" ON public.entry_re
 CREATE POLICY "Lider vê solicitações do seu setor" 
 ON public.entry_requests FOR SELECT 
 USING (
-  (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'LIDER_SETOR'
+  get_user_role() = 'LIDER_SETOR'
   AND (
-    sector_id = (SELECT sector_id FROM public.profiles WHERE id = auth.uid())
+    sector_id = get_user_sector_id()
     OR 
-    sector = (SELECT sector FROM public.profiles WHERE id = auth.uid()) -- Retrocompatibilidade
+    sector = get_user_sector() -- Retrocompatibilidade
   )
 );

@@ -13,50 +13,53 @@ export class AuditService {
    * @param profileId ID do perfil (terceirizado) para filtro opcional
    */
   async getTenantAudit(tenantId: string, profileId?: string) {
-    console.log(`[AuditService] Gerando relatório para Tenant: ${tenantId}, Profile: ${profileId || 'Todos'}`);
+    console.log(`[AuditService] Gerando relatório: Tenant=${tenantId}, Profile=${profileId || 'Todos'}`);
     
     try {
-      // 1. Tentar busca completa com movimentações
+      const statuses = ['APPROVED_LIDER', 'APPROVED_GESTOR', 'APPROVED_PORTARIA', 'IN_PLANTA', 'COMPLETED'];
+      
       let query = supabaseAdmin
         .from('entry_requests')
         .select(`
           *,
-          profile:profiles(full_name, role),
+          profile:profiles!profile_id(full_name, role),
+          gate_checked_by_profile:profiles!gate_checked_by(full_name, role),
+          sector:sectors!sector_id(name),
           materials(
             *,
             movements:material_movements(
               *,
               from_sector:sectors!from_sector_id(name),
               to_sector:sectors!to_sector_id(name),
-              actor:profiles!moved_by(full_name)
+              actor:profiles!moved_by(full_name, role)
             )
           )
         `)
         .eq('tenant_id', tenantId)
-        .in('status', ['APPROVED_LIDER', 'APPROVED_GESTOR', 'COMPLETED'])
+        .in('status', statuses)
         .order('created_at', { ascending: false });
 
-      if (profileId) {
+      if (profileId && profileId !== 'null' && profileId !== 'undefined') {
         query = query.eq('profile_id', profileId);
       }
 
       const { data, error } = await query;
       
       if (error) {
-        console.warn('[AuditService] Falha na busca completa de auditoria, tentando simplificada (sem movimentações)...');
-        // Fallback: Busca sem movimentações se a tabela não existir
+        console.error('[AuditService] Erro na busca completa:', error);
+        // Fallback simplificado
         let fallbackQuery = supabaseAdmin
           .from('entry_requests')
           .select(`
             *,
-            profile:profiles(full_name, role),
+            profile:profiles!profile_id(full_name, role),
             materials(*)
           `)
           .eq('tenant_id', tenantId)
-          .in('status', ['APPROVED_LIDER', 'APPROVED_GESTOR', 'COMPLETED'])
+          .in('status', statuses)
           .order('created_at', { ascending: false });
 
-        if (profileId) {
+        if (profileId && profileId !== 'null' && profileId !== 'undefined') {
           fallbackQuery = fallbackQuery.eq('profile_id', profileId);
         }
 
@@ -65,9 +68,10 @@ export class AuditService {
         return fallbackData || [];
       }
 
+      console.log(`[AuditService] Encontrados ${data?.length || 0} registros.`);
       return data || [];
     } catch (err: any) {
-      console.error('[AuditService] Erro fatal na auditoria:', err.message);
+      console.error('[AuditService] Erro fatal:', err.message);
       return [];
     }
   }
@@ -94,7 +98,8 @@ export class AuditService {
         .from('entry_requests')
         .select('id, created_at, exit_at')
         .eq('profile_id', p.id)
-        .eq('status', 'COMPLETED');
+        .in('status', ['APPROVED_PORTARIA', 'IN_PLANTA', 'COMPLETED'])
+        .order('created_at', { ascending: false });
 
       const totalVisits = requests?.length || 0;
       

@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { authService } from '../services/authService';
+import { authService } from '../features/auth/api/authService';
 import { supabase } from '../lib/supabase';
-import { getSubdomain, isAdminPath, getTokenKey } from '../utils/subdomain';
+import { getTokenKey } from '../utils/subdomain';
 import type { User } from '@supabase/supabase-js';
 import { Loader2 } from 'lucide-react';
 
@@ -104,28 +104,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           return null;
         }
 
+        // Carrega dados do tenant (necessário para navegação correta no login)
+        if (profileData.tenant_id) {
+          const { data: tenantData } = await supabase
+            .from('tenants')
+            .select('*')
+            .eq('id', profileData.tenant_id)
+            .maybeSingle();
+            
+          if (tenantData) {
+            profileData.tenant = tenantData;
+          }
+        }
+
         const duration = Date.now() - startTime;
         console.log(`[Auth] Perfil carregado com sucesso (${duration}ms):`, profileData.role);
         
         setProfile(profileData);
-        
-        // Carrega dados do tenant em segundo plano (não bloqueante)
-        if (profileData.tenant_id) {
-          supabase
-            .from('tenants')
-            .select('*')
-            .eq('id', profileData.tenant_id)
-            .maybeSingle()
-            .then(
-              ({ data: tenantData }) => {
-                if (tenantData) {
-                  setProfile(prev => prev ? { ...prev, tenant: tenantData } : null);
-                }
-              },
-              (e) => console.warn('[Auth] Erro ao carregar tenant em background:', e)
-            );
-        }
-
         return profileData;
       } catch (err: any) {
         // Erro de lock stolen do Supabase é comum em concorrência

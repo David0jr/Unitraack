@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { getSubdomain, isAdminPath } from '../utils/subdomain';
-import { tenantService } from '../services/tenantService';
+import { tenantService } from '../features/auth/api/tenantService';
 
 interface Tenant {
   id: string;

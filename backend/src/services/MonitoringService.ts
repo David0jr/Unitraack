@@ -40,8 +40,9 @@ export class MonitoringService {
           *,
           request:entry_requests(
             id,
-            profile:profiles(full_name, role),
-            tenant_id
+            profile:profiles(full_name, role, theme_color, logo_url, cnpj, phone, representative_name),
+            tenant_id,
+            status
           )
         `);
 
@@ -90,7 +91,8 @@ export class MonitoringService {
       materials: materials.filter(m => {
         // Filtro defensivo para tenant_id
         const mTenantId = (m.request as any)?.tenant_id || m.tenant_id;
-        return !mTenantId || mTenantId === tenantId;
+        const status = (m.request as any)?.status;
+        return (!mTenantId || mTenantId === tenantId) && status === 'IN_PLANTA';
       }),
       movements
     };
@@ -142,10 +144,38 @@ export class MonitoringService {
 
   /**
    * Atualiza as coordenadas e dimensões de múltiplos setores no mapa.
+   * Setores da unidade que não estiverem na lista terão seu layout limpo (removidos do mapa).
    * @param tenantId ID da unidade
    * @param sectorLayouts Array de layouts (x, y, w, h) por ID de setor
    */
   async updateMapLayout(tenantId: string, sectorLayouts: {id: string, x: number, y: number, w: number, h: number}[]) {
+    const activeIds = sectorLayouts.map(l => l.id);
+
+    // 1. Limpar layout de todos os outros setores deste tenant que NÃO estão na lista ativa
+    if (activeIds.length > 0) {
+      await supabaseAdmin
+        .from('sectors')
+        .update({
+          layout_x: null,
+          layout_y: null,
+          layout_w: null,
+          layout_h: null
+        })
+        .eq('tenant_id', tenantId)
+        .not('id', 'in', `(${activeIds.join(',')})`);
+    } else {
+      await supabaseAdmin
+        .from('sectors')
+        .update({
+          layout_x: null,
+          layout_y: null,
+          layout_w: null,
+          layout_h: null
+        })
+        .eq('tenant_id', tenantId);
+    }
+
+    // 2. Atualizar ou definir layout dos setores ativos
     for (const layout of sectorLayouts) {
       const { error } = await supabaseAdmin
         .from('sectors')

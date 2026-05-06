@@ -16,8 +16,8 @@ DROP POLICY IF EXISTS "Lider vê solicitações do seu setor" ON public.entry_re
 CREATE POLICY "Lider vê solicitações do seu setor" 
 ON public.entry_requests FOR SELECT 
 USING (
-  (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'LIDER_SETOR'
-  AND sector = (SELECT sector FROM public.profiles WHERE id = auth.uid())
+  get_user_role() = 'LIDER_SETOR'
+  AND sector = get_user_sector()
 );
 
 -- Gestor de Segurança e Portaria continuam vendo tudo da Usina (Tenant)
@@ -25,6 +25,6 @@ DROP POLICY IF EXISTS "Gestor e Portaria veem tudo da usina" ON public.entry_req
 CREATE POLICY "Gestor e Portaria veem tudo da usina" 
 ON public.entry_requests FOR SELECT 
 USING (
-  (SELECT role FROM public.profiles WHERE id = auth.uid()) IN ('GESTOR_SEGURANCA', 'PORTARIA')
-  AND tenant_id = (SELECT tenant_id FROM public.profiles WHERE id = auth.uid())
+  get_user_role() IN ('GESTOR_SEGURANCA', 'PORTARIA')
+  AND tenant_id = get_user_tenant_id()
 );

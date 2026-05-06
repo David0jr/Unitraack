@@ -13,7 +13,7 @@ CREATE POLICY "Super Admin vê tudo"
 ON public.profiles FOR ALL
 TO authenticated
 USING (
-  (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'SUPER_ADMIN'
+  get_user_role() = 'SUPER_ADMIN'
 );
 
 -- Permitir que SUPER_ADMIN gerencie todas as Usinas (Tenants)
@@ -22,7 +22,7 @@ CREATE POLICY "Super Admin gerencia tenants"
 ON public.tenants FOR ALL
 TO authenticated
 USING (
-  (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'SUPER_ADMIN'
+  get_user_role() = 'SUPER_ADMIN'
 );
 
 -- Permitir que SUPER_ADMIN veja todas as requisições (Global Oversight)
@@ -31,7 +31,7 @@ CREATE POLICY "Super Admin vê todas as requisições"
 ON public.entry_requests FOR ALL
 TO authenticated
 USING (
-  (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'SUPER_ADMIN'
+  get_user_role() = 'SUPER_ADMIN'
 );
 
 -- 3. PROMOÇÃO DE USUÁRIO (Opcional - Exemplo de como promover)

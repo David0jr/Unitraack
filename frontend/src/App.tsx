@@ -1,13 +1,13 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
-import Login from './pages/Login';
-import RegisterTerceirizada from './pages/RegisterTerceirizada';
-import RegisterInternal from './pages/RegisterInternal';
-import AdminLogin from './pages/AdminLogin';
-import RoleDispatcher from './components/RoleDispatcher';
-import NovaSolicitacao from './pages/Terceirizada/NovaSolicitacao';
-import RegisterGestor from './pages/RegisterGestor';
+import Login from './features/auth/pages/Login';
+import RegisterTerceirizada from './features/auth/pages/RegisterTerceirizada';
+import RegisterInternal from './features/auth/pages/RegisterInternal';
+import AdminLogin from './features/auth/pages/AdminLogin';
+import RoleDispatcher from './features/auth/components/RoleDispatcher';
+import NovaSolicitacao from './features/requests/pages/Terceirizada/NovaSolicitacao';
+import RegisterGestor from './features/auth/pages/RegisterGestor';
 
 import { TenantProvider, useTenant } from './contexts/TenantContext';
 
@@ -23,6 +23,11 @@ function HomeRedirect() {
       return <Navigate to="/admin/painel" replace />;
     }
     const userSlug = profile.tenant?.subdomain;
+    const rolePath = profile.role?.toLowerCase().replace('_', '-');
+    
+    if (userSlug && rolePath) {
+      return <Navigate to={`/${userSlug}/${rolePath}/painel`} replace />;
+    }
     if (userSlug) {
       return <Navigate to={`/${userSlug}/painel`} replace />;
     }
@@ -71,6 +76,12 @@ function App() {
             <Route path="/:tenantSlug/registro-interno" element={<RegisterInternal />} />
             <Route path="/:tenantSlug/register-gestor" element={<RegisterGestor />} />
             
+            <Route path="/:tenantSlug/:role/painel" element={
+              <ProtectedRoute>
+                <RoleDispatcher />
+              </ProtectedRoute>
+            } />
+
             <Route path="/:tenantSlug/painel" element={
               <ProtectedRoute>
                 <RoleDispatcher />
@@ -80,6 +91,12 @@ function App() {
             <Route path="/painel" element={
               <ProtectedRoute>
                 <RoleDispatcher />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/:tenantSlug/:role/painel/nova-solicitacao" element={
+              <ProtectedRoute>
+                <NovaSolicitacao />
               </ProtectedRoute>
             } />
 

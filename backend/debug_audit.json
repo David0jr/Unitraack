@@ -1,0 +1,38 @@
+{
+  "error": {
+    "code": "PGRST201",
+    "details": [
+      {
+        "cardinality": "many-to-one",
+        "embedding": "entry_requests with profiles",
+        "relationship": "entry_requests_approved_gestor_by_fkey using entry_requests(approved_gestor_by) and profiles(id)"
+      },
+      {
+        "cardinality": "many-to-one",
+        "embedding": "entry_requests with profiles",
+        "relationship": "entry_requests_approved_leader_by_fkey using entry_requests(approved_leader_by) and profiles(id)"
+      },
+      {
+        "cardinality": "many-to-one",
+        "embedding": "entry_requests with profiles",
+        "relationship": "entry_requests_check_in_by_fkey using entry_requests(check_in_by) and profiles(id)"
+      },
+      {
+        "cardinality": "many-to-one",
+        "embedding": "entry_requests with profiles",
+        "relationship": "entry_requests_check_out_by_fkey using entry_requests(check_out_by) and profiles(id)"
+      },
+      {
+        "cardinality": "many-to-one",
+        "embedding": "entry_requests with profiles",
+        "relationship": "entry_requests_profile_id_fkey using entry_requests(profile_id) and profiles(id)"
+      }
+    ],
+    "hint": "Try changing 'profiles' to one of the following: 'profiles!entry_requests_approved_gestor_by_fkey', 'profiles!entry_requests_approved_leader_by_fkey', 'profiles!entry_requests_check_in_by_fkey', 'profiles!entry_requests_check_out_by_fkey', 'profiles!entry_requests_profile_id_fkey'. Find the desired relationship in the 'details' key.",
+    "message": "Could not embed because more than one relationship was found for 'entry_requests' and 'profiles'"
+  },
+  "data": null,
+  "count": null,
+  "status": 300,
+  "statusText": "Multiple Choices"
+}

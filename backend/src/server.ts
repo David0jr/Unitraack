@@ -13,8 +13,9 @@ const port = process.env.PORT || 3333;
 
 app.use(cors({
   origin: '*', // Em prod, ideal restringir para seus domínios
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Tenant-Slug'],
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Tenant-Slug', 'Accept'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  credentials: true
 }));
 app.use(express.json());
 
@@ -42,6 +43,38 @@ app.use(errorMiddleware);
 // Rota raiz (Health Check)
 app.get('/health', (req: Request, res: Response) => {
   res.status(200).json({ status: 'ok', message: 'SaaS Portaria Backend is running.' });
+});
+
+// Debug: Listar todas as rotas registradas
+app.get('/api/debug-routes', (req: Request, res: Response) => {
+  const routes: string[] = [];
+  
+  function print(path: any, layer: any) {
+    if (layer.route) {
+      layer.route.stack.forEach(print.bind(null, path.concat(split(layer.route.path))));
+    } else if (layer.name === 'router' && layer.handle.stack) {
+      layer.handle.stack.forEach(print.bind(null, path.concat(split(layer.regexp))));
+    } else if (layer.method) {
+      routes.push(`${layer.method.toUpperCase()} ${path.concat(split(layer.regexp)).filter(Boolean).join('/')}`);
+    }
+  }
+
+  function split(thing: any) {
+    if (typeof thing === 'string') {
+      return thing.split('/');
+    } else if (thing.fast_slash) {
+      return '';
+    } else {
+      var match = thing.toString()
+        .replace('\\/?', '')
+        .replace('(?=\\/|$)', '')
+        .match(/^\/\^\\\/([^\\]+)\\\//);
+      return match ? match[1].replace('\\', '') : thing.toString();
+    }
+  }
+
+  (app as any)._router.stack.forEach(print.bind(null, []));
+  res.json({ routes: routes.filter(r => r.includes('/api/')) });
 });
 
 // Tratamento de 404 (Rota não encontrada)

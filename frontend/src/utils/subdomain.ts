@@ -49,8 +49,7 @@ export const isAdminPath = (): boolean => {
 };
 
 export const getTokenKey = (): string => {
-  const slug = getSubdomain() || (isAdminPath() ? 'admin' : 'main');
-  return `usinalins-token-${slug}`;
+  return `usinalins-auth-token-v1`;
 };
 
 export const getAuthToken = (): string | null => {

@@ -5,7 +5,7 @@ import { Loader2 } from 'lucide-react';
 
 export default function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, profile, loading } = useAuth();
-  const { slug, isAdmin, isSubdomain } = useTenant();
+  const { slug, isSubdomain } = useTenant();
   const location = useLocation();
 
   if (loading) {

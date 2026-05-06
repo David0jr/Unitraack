@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { dashboardService } from '../services/dashboardService';
+import { dashboardService } from '../features/requests/api/dashboardService';
 import { useAuth } from './AuthContext';
 
 /**

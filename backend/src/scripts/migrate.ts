@@ -29,14 +29,22 @@ async function migrate() {
     'database.sql',
     'update_v2.sql',
     'fix_rls_recursion.sql',
+    'create_sectors_table.sql',
     'update_v3_sectors.sql',
+    'update_v4_hierarchy.sql',
     'update_v4_material_details.sql',
     'update_v5_gate_flow.sql',
     'update_v6_registration.sql',
     'update_v7_terceirizada_fields.sql',
     'update_v8_subdomains.sql',
     'update_v9_movements.sql',
-    'update_v10_map.sql'
+    'update_v10_map.sql',
+    'update_v11_status_constraints.sql',
+    'update_v12_timestamp_and_logo.sql',
+    'create_invitations.sql',
+    'super_admin_setup.sql',
+    'update_v13_material_status.sql',
+    'audit_audit_tracking.sql'
   ];
 
   console.log('\n🚀 Iniciando Automação de Banco de Dados...');

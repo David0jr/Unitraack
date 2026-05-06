@@ -65,6 +65,21 @@ export class AuthService {
     if (error) throw error;
     return data;
   }
+
+  /**
+   * Busca o perfil (Profile) de um usuário pelo ID.
+   * @param userId ID do usuário no Supabase Auth
+   */
+  async getUserProfile(userId: string): Promise<Profile | null> {
+    const { data, error } = await supabaseAdmin
+      .from('profiles')
+      .select('*, tenant:tenants(*)')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (error) throw error;
+    return data;
+  }
 }
 
 export const authService = new AuthService();

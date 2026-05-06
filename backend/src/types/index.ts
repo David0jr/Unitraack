@@ -27,7 +27,8 @@ export type RequestStatus =
   | 'REJECTED_GESTOR' 
   | 'IN_PLANTA'
   | 'COMPLETED'
-  | 'CANCELED';
+  | 'CANCELED'
+  | 'DISCREPANCY';
 
 /**
  * Representa o perfil de um usuário no sistema (Profiles).
