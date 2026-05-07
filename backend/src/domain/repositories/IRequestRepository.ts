@@ -1,4 +1,4 @@
-import { EntryRequest, Material, RequestStatus } from '../entities/EntryRequest';
+import { EntryRequest, Material, RequestStatus, MaterialStatus } from '../entities/EntryRequest';
 
 export interface ListFilters {
   status?: RequestStatus | RequestStatus[];
