@@ -12,10 +12,10 @@ interface AuditThirdPartyListProps {
   thirdParties: ThirdParty[];
   filterText: string;
   setFilterText: (text: string) => void;
-  onSelect: (id: string) => void;
+  onSelect: (id: string | null) => void;
 }
 
-export function AuditThirdPartyList({ thirdParties, filterText, setFilterText, onSelect }: AuditThirdPartyListProps) {
+export function AuditThirdPartyList({ thirdParties, filterText, onSelect }: AuditThirdPartyListProps) {
   const filteredParties = thirdParties.filter(p => 
     p.full_name.toLowerCase().includes(filterText.toLowerCase())
   );
@@ -23,20 +23,20 @@ export function AuditThirdPartyList({ thirdParties, filterText, setFilterText, o
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
       {/* Lista Industrial de Alta Densidade */}
-      <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
         {/* Header da Tabela Desktop */}
         <div className="hidden md:grid grid-cols-12 gap-4 px-8 py-5 bg-slate-50/50 border-b border-slate-100">
           <div className="col-span-5">
-            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Identificação da Entidade</span>
+            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Identificação da Entidade</span>
           </div>
           <div className="col-span-2 text-center">
-            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Tipo / Perfil</span>
+            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Tipo / Perfil</span>
           </div>
           <div className="col-span-2 text-center">
-            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Frequência</span>
+            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Frequência</span>
           </div>
           <div className="col-span-2 text-right">
-            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Último Rastro</span>
+            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Último Rastro</span>
           </div>
           <div className="col-span-1"></div>
         </div>
@@ -47,7 +47,7 @@ export function AuditThirdPartyList({ thirdParties, filterText, setFilterText, o
                <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-dashed border-slate-200">
                   <Search className="w-6 h-6 text-slate-200" />
                </div>
-               <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Nenhum rastro encontrado na base</p>
+               <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">Nenhum rastro encontrado na base</p>
             </div>
           ) : filteredParties.map(party => (
             <div 
@@ -57,11 +57,11 @@ export function AuditThirdPartyList({ thirdParties, filterText, setFilterText, o
             >
               {/* Identificação */}
               <div className="col-span-5 flex items-center gap-4">
-                <div className="w-12 h-12 bg-navy text-white rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 group-hover:bg-primary transition-all duration-300">
+                <div className="w-12 h-12 bg-navy text-white rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 group-hover:bg-primary transition-all duration-300">
                   <User className="w-6 h-6" />
                 </div>
                 <div>
-                   <h3 className="font-black text-navy text-sm uppercase leading-tight tracking-tight mb-1 group-hover:text-primary transition-colors">
+                   <h3 className="font-bold text-navy text-sm uppercase leading-tight tracking-tight mb-1 group-hover:text-primary transition-colors">
                      {party.full_name}
                    </h3>
                    <div className="flex items-center gap-2">
@@ -73,7 +73,7 @@ export function AuditThirdPartyList({ thirdParties, filterText, setFilterText, o
 
               {/* Perfil */}
               <div className="col-span-2 flex justify-center">
-                <span className="px-3 py-1 bg-white border border-slate-100 text-slate-500 text-[8px] font-black uppercase tracking-widest rounded-lg shadow-sm">
+                <span className="px-3 py-1 bg-white border border-slate-100 text-slate-500 text-[8px] font-bold uppercase tracking-widest rounded-lg shadow-sm">
                   {party.role}
                 </span>
               </div>
@@ -82,20 +82,20 @@ export function AuditThirdPartyList({ thirdParties, filterText, setFilterText, o
               <div className="col-span-2 flex flex-col items-center gap-1">
                 <div className="flex items-center gap-1.5">
                    <Activity className="w-3 h-3 text-primary" />
-                   <span className="text-xs font-black text-navy">{party.totalVisits}</span>
+                   <span className="text-xs font-bold text-navy">{party.totalVisits}</span>
                 </div>
-                <span className="text-[7px] font-black text-slate-300 uppercase tracking-widest leading-none">Visitas Totais</span>
+                <span className="text-[7px] font-bold text-slate-300 uppercase tracking-widest leading-none">Visitas Totais</span>
               </div>
 
               {/* Último Rastro */}
               <div className="col-span-2 flex flex-col items-end gap-1">
                  <div className="flex items-center gap-1.5">
                     <Calendar className="w-3 h-3 text-slate-300" />
-                    <span className="text-[10px] font-black text-navy">
+                    <span className="text-[10px] font-bold text-navy">
                       {party.lastVisit ? new Date(party.lastVisit).toLocaleDateString('pt-BR') : 'NEVER'}
                     </span>
                  </div>
-                 <span className="text-[7px] font-black text-slate-300 uppercase tracking-widest leading-none">Rastreado em</span>
+                 <span className="text-[7px] font-bold text-slate-300 uppercase tracking-widest leading-none">Rastreado em</span>
               </div>
 
               {/* Ação */}

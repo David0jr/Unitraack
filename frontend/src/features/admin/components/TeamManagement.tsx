@@ -31,7 +31,7 @@ export default function TeamManagement({ tenantId, usinaCnpj }: { tenantId: stri
   };
 
   return (
-    <div className="bg-white rounded-3xl border border-slate-100 shadow-sm min-h-[500px]">
+    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm min-h-[500px]">
       {/* Tabs Header */}
       <div className="flex bg-slate-50 p-1 rounded-t-3xl overflow-x-auto scrollbar-hide">
         <TabButton 
@@ -62,12 +62,12 @@ export default function TeamManagement({ tenantId, usinaCnpj }: { tenantId: stri
 
       <div className="p-8">
         {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-100 rounded-2xl text-red-600 text-[10px] font-black uppercase tracking-widest flex items-center gap-3 animate-in slide-in-from-top-2">
+          <div className="mb-6 p-4 bg-red-50 border border-red-100 rounded-xl text-red-600 text-[10px] font-bold uppercase tracking-widest flex items-center gap-3 animate-in slide-in-from-top-2">
             <AlertTriangle className="w-4 h-4" /> {error}
           </div>
         )}
         {success && (
-          <div className="mb-6 p-4 bg-emerald-50 border border-emerald-100 rounded-2xl text-emerald-600 text-[10px] font-black uppercase tracking-widest flex items-center gap-3 animate-in slide-in-from-top-2">
+          <div className="mb-6 p-4 bg-emerald-50 border border-emerald-100 rounded-xl text-emerald-600 text-[10px] font-bold uppercase tracking-widest flex items-center gap-3 animate-in slide-in-from-top-2">
             <Check className="w-4 h-4" /> {success}
           </div>
         )}

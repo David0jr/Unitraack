@@ -37,12 +37,12 @@ export const DashboardStats: React.FC = () => {
 
 function StatCard({ label, value, icon, color }: { label: string, value: string, icon: any, color: string }) {
   return (
-    <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center justify-between group hover:shadow-xl hover:shadow-navy/5 transition-all">
+    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between group hover:shadow-xl hover:shadow-navy/5 transition-all">
       <div>
-        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{label}</p>
-        <p className="text-3xl font-black text-navy">{value}</p>
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{label}</p>
+        <p className="text-3xl font-bold text-navy">{value}</p>
       </div>
-      <div className={`p-4 rounded-2xl transition-all group-hover:scale-110 ${color}`}>
+      <div className={`p-4 rounded-xl transition-all group-hover:scale-110 ${color}`}>
         {icon}
       </div>
     </div>

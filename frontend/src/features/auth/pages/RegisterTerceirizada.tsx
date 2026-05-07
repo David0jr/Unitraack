@@ -78,11 +78,11 @@ export default function RegisterTerceirizada() {
   if (!slug && !tenant) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 font-brand">
-        <div className="max-w-md w-full bg-white p-10 rounded-[2.5rem] shadow-2xl border border-slate-100 text-center">
+        <div className="max-w-md w-full bg-white p-10 rounded-2xl shadow-xl border border-slate-100 text-center">
           <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
             <ShieldAlert className="w-10 h-10 text-red-500" />
           </div>
-          <h2 className="text-2xl font-black text-navy mb-4">Link de Cadastro Inválido</h2>
+          <h2 className="text-2xl font-bold text-navy mb-4">Link de Cadastro Inválido</h2>
           <p className="text-slate-500 text-sm mb-8 leading-relaxed font-medium">
             Para se cadastrar, você deve acessar o link exclusivo fornecido pela Usina contratante.
           </p>
@@ -95,11 +95,11 @@ export default function RegisterTerceirizada() {
   if (success) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 font-brand">
-        <div className="bg-white p-12 rounded-[2.5rem] shadow-2xl max-w-md w-full text-center border border-slate-100 animate-in zoom-in-95 duration-500">
+        <div className="bg-white p-12 rounded-2xl shadow-xl max-w-md w-full text-center border border-slate-100 animate-in zoom-in-95 duration-500">
           <div className="w-20 h-20 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-emerald-500/10">
             <CheckCircle2 className="w-10 h-10" />
           </div>
-          <h2 className="text-3xl font-black text-navy mb-3 tracking-tight">Cadastro Concluído!</h2>
+          <h2 className="text-3xl font-bold text-navy mb-3 tracking-tight">Cadastro Concluído!</h2>
           <p className="text-slate-500 text-sm leading-relaxed font-medium">
             Sua empresa foi cadastrada no sistema <strong>{tenant?.name || 'Usina'}</strong> com sucesso.
           </p>
@@ -124,7 +124,7 @@ export default function RegisterTerceirizada() {
       <div className="w-full max-w-6xl z-10">
         
         {/* Main Card */}
-        <div className="bg-white rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col md:flex-row min-h-[650px] border border-white/20 backdrop-blur-sm">
+        <div className="bg-white rounded-2xl shadow-xl overflow-hidden flex flex-col md:flex-row min-h-[650px] border border-white/20 backdrop-blur-sm">
           
           {/* Left Side - Identity (Same as Login) */}
           <div className="w-full md:w-5/12 bg-navy p-10 lg:p-12 flex flex-col justify-between relative overflow-hidden hidden md:flex">
@@ -145,12 +145,12 @@ export default function RegisterTerceirizada() {
                 />
                 <div className="inline-flex items-center gap-3 px-4 py-2 bg-white/10 backdrop-blur-md rounded-full border border-white/10">
                   <ShieldCheck className="w-4 h-4 text-primary" />
-                  <span className="text-[10px] text-white/70 font-bold uppercase tracking-[0.3em]">Credenciamento Oficial</span>
+                  <span className="text-[10px] text-white/70 font-bold uppercase tracking-widest">Credenciamento Oficial</span>
                 </div>
               </div>
 
               <div className="relative z-10 my-10">
-                <h1 className="text-4xl lg:text-5xl font-black text-white leading-[1.1] tracking-tight mb-6">
+                <h1 className="text-4xl lg:text-5xl font-bold text-white leading-[1.1] tracking-tight mb-6">
                   Portal do <br/>
                   <span className="text-primary font-serif italic font-medium">Fornecedor</span>
                 </h1>
@@ -170,7 +170,7 @@ export default function RegisterTerceirizada() {
             
             <div className="mb-8">
               <div className="w-12 h-1.5 bg-primary mb-4 rounded-full"></div>
-              <h2 className="text-3xl font-black text-navy tracking-tight mb-2">Cadastre sua Empresa</h2>
+              <h2 className="text-3xl font-bold text-navy tracking-tight mb-2">Cadastre sua Empresa</h2>
               <p className="text-slate-500 text-sm font-medium">Preencha os dados abaixo para iniciar sua parceria.</p>
             </div>
 
@@ -248,7 +248,7 @@ export default function RegisterTerceirizada() {
               <button 
                 type="submit" 
                 disabled={loading}
-                className="w-full py-4 mt-6 bg-navy hover:bg-[#001D4A] text-white font-black rounded-xl shadow-xl shadow-navy/10 flex items-center justify-center gap-3 transition-all hover:-translate-y-1 active:translate-y-0 active:scale-[0.98] disabled:opacity-70 uppercase tracking-[0.2em] text-xs group"
+                className="w-full py-4 mt-6 bg-navy hover:bg-[#001D4A] text-white font-bold rounded-xl shadow-xl shadow-navy/10 flex items-center justify-center gap-3 transition-all hover:-translate-y-1 active:translate-y-0 active:scale-[0.98] disabled:opacity-70 uppercase tracking-widest text-xs group"
               >
                 {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (
                   <>
@@ -287,7 +287,7 @@ interface InputProps {
 function InputGroup({ label, placeholder, type = "text", value, onChange, icon: Icon }: InputProps) {
   return (
     <div className="space-y-1.5 group">
-      <label className="text-[10px] uppercase tracking-widest font-black text-slate-400 ml-1 transition-colors group-focus-within:text-primary">{label}</label>
+      <label className="text-[10px] uppercase tracking-widest font-bold text-slate-400 ml-1 transition-colors group-focus-within:text-primary">{label}</label>
       <div className="relative">
         <Icon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 group-focus-within:text-primary transition-all" />
         <input 

@@ -9,7 +9,7 @@ const router = Router();
 // Gestão de Requisições
 router.get('/requisicoes', requireAuth, RequestController.listByTenant);
 router.get('/dashboard', requireAuth, RequestController.listByTenant);
-router.post('/aprovar/:id', requireAuth, RequestController.review);
+router.post('/approve/:id', requireAuth, RequestController.review);
 
 // Monitoramento Operativo
 router.get('/monitoring', requireAuth, MonitoringController.getOperationalData);

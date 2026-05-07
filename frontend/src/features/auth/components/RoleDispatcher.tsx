@@ -1,5 +1,6 @@
 import { useAuth } from '../../../contexts/AuthContext';
 import { Loader2 } from 'lucide-react';
+import { Navigate, useLocation } from 'react-router-dom';
 
 import TerceirizadaDashboard from '../../requests/pages/TerceirizadaDashboard';
 import LiderDashboard from '../../requests/pages/LiderDashboard';
@@ -7,10 +8,13 @@ import PortariaDashboard from '../../requests/pages/PortariaDashboard';
 import GestorDashboard from '../../monitoring/pages/GestorDashboard';
 import SuperAdminDashboard from '../../admin/pages/SuperAdminDashboard';
 import { DashboardProvider } from '../../../contexts/DashboardContext';
+import { useTenant } from '../../../contexts/TenantContext';
 
 export default function RoleDispatcher() {
   const { profile, loading } = useAuth();
-  const pathname = window.location.pathname;
+  const { slug } = useTenant();
+  const location = useLocation();
+  const pathname = location.pathname;
 
   if (loading) {
     return (
@@ -30,29 +34,27 @@ export default function RoleDispatcher() {
 
   // Integridade de Rota: Se for ADMIN mas estiver em rota de USINA, redireciona para Admin Global
   if (profile.role === 'SUPER_ADMIN' && !pathname.startsWith('/admin')) {
-    window.location.href = '/admin/painel';
-    return null;
+    return <Navigate to="/admin/painel" replace />;
   }
 
   // Se for GESTOR/OPERACIONAL mas estiver na rota ADMIN, redireciona para sua usina
   if (profile.role !== 'SUPER_ADMIN' && pathname.startsWith('/admin')) {
     const slug = profile.tenant?.subdomain || 'login';
     const rolePath = profile.role?.toLowerCase().replace('_', '-');
-    window.location.href = `/${slug}/${rolePath}/painel`;
-    return null;
+    return <Navigate to={`/${slug}/${rolePath}/painel`} replace />;
   }
 
   // Integridade de Rota: Se estiver em /painel ou rota sem slug/role, redireciona para a rota completa
   const isGenericPainel = pathname === '/painel' || pathname === '/painel/';
   const rolePath = profile.role?.toLowerCase().replace('_', '-');
-  const slug = profile.tenant?.subdomain;
+  
+  // Prioriza o slug do perfil (banco de dados) sobre o slug da URL (volátil)
+  const effectiveSlug = profile.tenant?.subdomain || slug;
 
-  if (profile.role !== 'SUPER_ADMIN' && slug && rolePath && (isGenericPainel || !pathname.includes(`/${rolePath}/`))) {
-    // Evita loop infinito se já estiver na rota correta mas o include falhar por algum motivo
-    const targetPath = `/${slug}/${rolePath}/painel`;
+  if (profile.role !== 'SUPER_ADMIN' && effectiveSlug && rolePath && (isGenericPainel || !pathname.includes(`/${rolePath}/`))) {
+    const targetPath = `/${effectiveSlug}/${rolePath}/painel`;
     if (pathname !== targetPath) {
-      window.location.href = targetPath;
-      return null;
+      return <Navigate to={targetPath} replace />;
     }
   }
 
@@ -62,9 +64,17 @@ export default function RoleDispatcher() {
     case 'TERCEIRIZADA':
       return <TerceirizadaDashboard />;
     case 'LIDER_SETOR':
-      return <LiderDashboard />;
+      return (
+        <DashboardProvider>
+          <LiderDashboard />
+        </DashboardProvider>
+      );
     case 'PORTARIA':
-      return <PortariaDashboard />;
+      return (
+        <DashboardProvider>
+          <PortariaDashboard />
+        </DashboardProvider>
+      );
     case 'GESTOR_SEGURANCA':
       return (
         <DashboardProvider>

@@ -19,6 +19,8 @@ export interface EntryRequest {
   sector_id?: string | null;
   entry_date: string;
   status: RequestStatus;
+  driver_name?: string | null;
+  plate?: string | null;
   rejection_reason?: string | null;
   approved_leader_by?: string | null;
   approved_gestor_by?: string | null;
@@ -26,10 +28,11 @@ export interface EntryRequest {
   check_out_by?: string | null;
   gate_checked_at?: string | null;
   exit_at?: string | null;
+  signature?: string | null;
   created_at: string;
 }
 
-export type MaterialStatus = 'PENDING' | 'IN_PLANTA' | 'OUT_PLANTA';
+export type MaterialStatus = 'PENDING' | 'IN_PLANTA' | 'OUT_PLANTA' | 'MOVING';
 
 export interface Material {
   id: string;

@@ -17,14 +17,22 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
   }
 
   if (!user) {
-    // Se estiver tentando acessar /admin sem estar logado
+    // 1. Se estiver explicitamente em uma rota administrativa
     if (location.pathname.startsWith('/admin')) {
       return <Navigate to="/admin/login" replace />;
     }
     
-    // Se estiver em um subdomínio (ex: usina.localhost), o login é em /login
-    // Se estiver no domínio principal com slug no path (ex: localhost/usina), o login é em /:slug/login
-    const loginPath = isSubdomain ? '/login' : (slug ? `/${slug}/login` : '/admin/login');
+    // 2. Tentar recuperar o slug da URL atual para manter o contexto da Usina
+    // Se a URL for /lins/terceirizada/painel, o slug é 'lins'
+    const currentSlug = slug || profile?.tenant?.subdomain;
+
+    const loginPath = isSubdomain ? '/login' : (currentSlug ? `/${currentSlug}/login` : '/login');
+    
+    // Evita loop se já estiver no login
+    if (location.pathname === loginPath || location.pathname === '/login' || location.pathname === '/admin/login') {
+      return null;
+    }
+
     return <Navigate to={loginPath} replace />;
   }
 

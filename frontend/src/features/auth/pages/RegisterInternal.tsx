@@ -84,15 +84,15 @@ export default function RegisterInternal() {
   if (isValidInvite === false) {
     return (
       <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center p-6 font-brand">
-        <div className="bg-white p-10 rounded-3xl shadow-xl max-w-lg w-full text-center border border-slate-100 flex flex-col items-center">
+        <div className="bg-white p-10 rounded-2xl shadow-xl max-w-lg w-full text-center border border-slate-100 flex flex-col items-center">
           <div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mb-6">
             <AlertCircle className="w-8 h-8" />
           </div>
-          <h2 className="text-2xl font-black text-navy mb-2 uppercase tracking-tighter">ACESSO RESTRITO</h2>
+          <h2 className="text-2xl font-bold text-navy mb-2 uppercase tracking-tighter">ACESSO RESTRITO</h2>
           <p className="text-slate-400 font-medium mb-8">Esta página requer um link de convite válido gerado pelo Gestor de Segurança.</p>
           <button 
             onClick={() => navigate(`/${tenantSlug || 'unknown'}/login`)}
-            className="w-full py-4 bg-navy text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-navy/90 transition-all"
+            className="w-full py-4 bg-navy text-white rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-navy/90 transition-all"
           >
             Voltar para o Login
           </button>
@@ -105,11 +105,11 @@ export default function RegisterInternal() {
   if (success) {
     return (
       <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center p-4">
-        <div className="bg-white p-8 rounded-3xl shadow-2xl max-w-md w-full text-center border border-slate-100">
+        <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full text-center border border-slate-100">
           <CheckCircle2 className="w-16 h-16 text-emerald-500 mx-auto mb-4" />
-          <h2 className="text-2xl font-black text-navy mb-2 uppercase tracking-tighter">CONTA ATIVADA!</h2>
+          <h2 className="text-2xl font-bold text-navy mb-2 uppercase tracking-tighter">CONTA ATIVADA!</h2>
           <p className="text-slate-500 font-medium">Seu acesso à equipe Lins Agroindustrial foi configurado com sucesso.</p>
-          <p className="text-[10px] text-slate-300 mt-6 uppercase font-black tracking-widest">Redirecionando...</p>
+          <p className="text-[10px] text-slate-300 mt-6 uppercase font-bold tracking-widest">Redirecionando...</p>
         </div>
       </div>
     );
@@ -138,7 +138,7 @@ export default function RegisterInternal() {
           </div>
 
           <ShieldCheck className="w-16 h-16 mb-8 text-[#00B5AD]" />
-          <h1 className="text-4xl font-black mb-6 leading-tight uppercase tracking-tighter">Portal do Colaborador <br/><span className="text-primary italic">{tenant?.name || 'Lins Agro'}</span></h1>
+          <h1 className="text-4xl font-bold mb-6 leading-tight uppercase tracking-tighter">Portal do Colaborador <br/><span className="text-primary italic">{tenant?.name || 'Lins Agro'}</span></h1>
 
           <p className="text-blue-100/60 text-lg font-medium leading-relaxed">
             Finalize o cadastro da sua conta administrativa vinculada à planta via convite oficial.
@@ -149,14 +149,14 @@ export default function RegisterInternal() {
         <div className="p-8 md:p-20 overflow-y-auto flex flex-col justify-center bg-[#F8FAFC]">
           <form onSubmit={handleRegister} className="max-w-md w-full mx-auto space-y-6">
             <div className="flex flex-col gap-1 mb-6">
-              <span className="text-[10px] font-black text-[#00B5AD] uppercase tracking-[0.2em] italic">DADOS DO CONVITE</span>
+              <span className="text-[10px] font-bold text-[#00B5AD] uppercase tracking-widest italic">DADOS DO CONVITE</span>
               <div className="flex items-center gap-2">
-                <h2 className="text-2xl font-black text-navy uppercase tracking-tighter">{role?.replace('_', ' ')}</h2>
+                <h2 className="text-2xl font-bold text-navy uppercase tracking-tighter">{role?.replace('_', ' ')}</h2>
                 <Lock className="w-4 h-4 text-slate-300" />
               </div>
             </div>
 
-            {error && <div className="p-4 bg-red-50 border border-red-100 rounded-2xl text-red-500 text-xs font-bold">{error}</div>}
+            {error && <div className="p-4 bg-red-50 border border-red-100 rounded-xl text-red-500 text-xs font-bold">{error}</div>}
 
             <div className="grid gap-4">
               <InputGroup label="Seu Nome Completo" value={formData.fullName} onChange={v => setFormData({...formData, fullName: v})} placeholder="Ex: Lucas Ferreira" />
@@ -184,7 +184,7 @@ export default function RegisterInternal() {
             <button 
               type="submit" 
               disabled={loading}
-              className="w-full py-5 bg-[#0032A0] hover:bg-[#002880] text-white font-black uppercase tracking-widest text-xs rounded-2xl shadow-xl shadow-navy/20 flex items-center justify-center gap-3 transition-all active:scale-[0.98]"
+              className="w-full py-5 bg-[#0032A0] hover:bg-[#002880] text-white font-bold uppercase tracking-widest text-xs rounded-xl shadow-xl shadow-navy/20 flex items-center justify-center gap-3 transition-all active:scale-[0.98]"
             >
               {loading ? <Loader2 className="animate-spin mx-auto text-white opacity-40" /> : (
                 <>
@@ -204,7 +204,7 @@ export default function RegisterInternal() {
 function InputGroup({ label, placeholder, type = "text", value, onChange, disabled = false }: { label: string, placeholder?: string, type?: string, value: string, onChange: (v: string) => void, disabled?: boolean }) {
   return (
     <div className="space-y-1.5 w-full">
-      <label className="text-[10px] font-black text-slate-400 uppercase ml-1 tracking-widest">{label}</label>
+      <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 tracking-widest">{label}</label>
       <input 
         type={type}
         required
@@ -212,7 +212,7 @@ function InputGroup({ label, placeholder, type = "text", value, onChange, disabl
         disabled={disabled}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
-        className={`w-full px-5 py-4 border rounded-2xl text-navy placeholder-slate-300 focus:outline-none transition-all font-bold text-sm ${
+        className={`w-full px-5 py-4 border rounded-xl text-navy placeholder-slate-300 focus:outline-none transition-all font-bold text-sm ${
           disabled 
             ? 'bg-slate-50 border-slate-100 text-slate-400 cursor-not-allowed' 
             : 'bg-white border-slate-100 focus:ring-4 focus:ring-[#00B5AD]/5 focus:border-[#00B5AD]'

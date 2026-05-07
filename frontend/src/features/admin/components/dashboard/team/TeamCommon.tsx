@@ -5,7 +5,7 @@ export function TabButton({ active, onClick, icon, label }: any) {
   return (
     <button 
       onClick={onClick}
-      className={`flex items-center gap-2.5 px-6 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${
+      className={`flex items-center gap-2.5 px-6 py-3.5 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all ${
         active 
           ? 'bg-white text-navy shadow-sm border border-slate-100' 
           : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100/50'
@@ -45,19 +45,19 @@ export function CustomSelect({ value, onChange, options, placeholder, direction 
     <div className="relative w-full" ref={dropdownRef}>
       <div 
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-navy font-bold text-xs cursor-pointer flex items-center justify-between hover:border-primary/30 transition-all select-none"
+        className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-xl text-navy font-bold text-xs cursor-pointer flex items-center justify-between hover:border-primary/30 transition-all select-none"
       >
         <span className="truncate">{selectedLabel}</span>
         <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform flex-shrink-0 ${isOpen ? 'rotate-180' : ''}`} />
       </div>
 
       {isOpen && (
-        <div className={`absolute ${direction === 'up' ? 'bottom-[calc(100%+8px)]' : 'top-[calc(100%+8px)]'} left-0 right-0 bg-white border border-slate-100 rounded-2xl shadow-xl z-50 animate-in fade-in zoom-in-95 duration-100 max-h-60 overflow-y-auto`}>
+        <div className={`absolute ${direction === 'up' ? 'bottom-[calc(100%+8px)]' : 'top-[calc(100%+8px)]'} left-0 right-0 bg-white border border-slate-100 rounded-xl shadow-xl z-50 animate-in fade-in zoom-in-95 duration-100 max-h-60 overflow-y-auto`}>
           {options.map((opt: any, i: number) => {
             if (opt.type === 'group') {
               return (
                 <div key={i} className="py-1">
-                  <div className="px-5 pt-3 pb-1.5 text-[9px] font-black uppercase tracking-widest text-slate-400 bg-slate-50/50">
+                  <div className="px-5 pt-3 pb-1.5 text-[9px] font-bold uppercase tracking-widest text-slate-400 bg-slate-50/50">
                     {opt.label}
                   </div>
                   {opt.items.map((item: any) => (
@@ -91,7 +91,7 @@ export function CustomSelect({ value, onChange, options, placeholder, direction 
 export function InputGroup({ id, label, placeholder, value, onChange, type = 'text', required = true }: any) {
   return (
     <div className="space-y-1.5 w-full">
-      <label className="text-[10px] font-black text-slate-400 uppercase ml-1 tracking-widest">{label}</label>
+      <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 tracking-widest">{label}</label>
       <input 
         id={id}
         type={type}
@@ -99,7 +99,7 @@ export function InputGroup({ id, label, placeholder, value, onChange, type = 'te
         value={value}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-navy placeholder:text-slate-300 focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all font-bold text-xs"
+        className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-xl text-navy placeholder:text-slate-300 focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all font-bold text-xs"
       />
     </div>
   );

@@ -73,11 +73,11 @@ export default function Login() {
               alt={tenant?.name || "Lins"} 
               className="h-8 object-contain mb-2" 
             />
-            <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-navy/60">Portal de Acesso</span>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-navy/60">Portal de Acesso</span>
         </div>
 
         {/* Main Card */}
-        <div className="bg-white rounded-[2rem] shadow-2xl overflow-hidden flex flex-col md:flex-row min-h-[500px] border border-white/20 backdrop-blur-sm">
+        <div className="bg-white rounded-2xl shadow-xl overflow-hidden flex flex-col md:flex-row min-h-[500px] border border-white/20 backdrop-blur-sm">
           
           {/* Left Side - Identity / Particle Background (Inspirado no Admin) */}
           <div className="w-full md:w-1/2 bg-navy p-8 lg:p-12 flex flex-col justify-between relative overflow-hidden hidden md:flex">
@@ -99,7 +99,7 @@ export default function Login() {
                   className="h-20 lg:h-32 object-contain brightness-0 invert mb-6 transition-all" 
                 />
                 <div className="inline-flex items-center gap-3 px-4 py-2 bg-white/10 backdrop-blur-md rounded-full border border-white/10">
-                  <span className="text-[10px] text-white/70 font-bold uppercase tracking-[0.3em]">Portal Oficial de Segurança</span>
+                  <span className="text-[10px] text-white/70 font-bold uppercase tracking-widest">Portal Oficial de Segurança</span>
                 </div>
               </div>
 
@@ -129,7 +129,7 @@ export default function Login() {
             
             <div className="mb-8">
               <div className="w-12 h-1.5 bg-primary mb-4 rounded-full shadow-lg shadow-primary/20"></div>
-              <h2 className="text-3xl font-black text-navy tracking-tight mb-2">Bem-vindo(a)</h2>
+              <h2 className="text-3xl font-bold text-navy tracking-tight mb-2">Bem-vindo(a)</h2>
               <p className="text-slate-500 text-sm font-medium">Insira suas credenciais corporativas para acessar o painel.</p>
             </div>
 
@@ -143,7 +143,7 @@ export default function Login() {
 
               <div className="space-y-4">
                 <div className="space-y-1.5 group">
-                  <label className="text-[10px] uppercase tracking-widest font-black text-slate-400 ml-1 transition-colors group-focus-within:text-primary">E-mail Corporativo</label>
+                  <label className="text-[10px] uppercase tracking-widest font-bold text-slate-400 ml-1 transition-colors group-focus-within:text-primary">E-mail Corporativo</label>
                   <div className="relative">
                     <UserCircle2 className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-primary transition-all" />
                     <input 
@@ -158,7 +158,7 @@ export default function Login() {
                 </div>
 
                 <div className="space-y-1.5 group">
-                  <label className="text-[10px] uppercase tracking-widest font-black text-slate-400 ml-1 transition-colors group-focus-within:text-primary">Senha de Acesso</label>
+                  <label className="text-[10px] uppercase tracking-widest font-bold text-slate-400 ml-1 transition-colors group-focus-within:text-primary">Senha de Acesso</label>
                   <div className="relative">
                     <Lock className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-primary transition-all" />
                     <input 
@@ -176,7 +176,7 @@ export default function Login() {
               <button 
                 type="submit" 
                 disabled={loading}
-                className="w-full py-4 mt-2 bg-navy hover:bg-[#001D4A]/90 text-white font-black rounded-xl shadow-xl shadow-navy/20 flex items-center justify-center gap-3 transition-all hover:-translate-y-1 active:translate-y-0 active:scale-[0.98] disabled:opacity-70 uppercase tracking-[0.2em] text-xs group"
+                className="w-full py-4 mt-2 bg-navy hover:bg-[#001D4A]/90 text-white font-bold rounded-xl shadow-xl shadow-navy/20 flex items-center justify-center gap-3 transition-all hover:-translate-y-1 active:translate-y-0 active:scale-[0.98] disabled:opacity-70 uppercase tracking-widest text-xs group"
               >
                 {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (
                   <>
@@ -193,7 +193,7 @@ export default function Login() {
               </p>
               <Link 
                 to={`/${tenant?.subdomain || 'unknown'}/cadastro`} 
-                className="inline-flex items-center gap-2 mt-3 text-primary font-black hover:text-primary/80 transition-all group relative"
+                className="inline-flex items-center gap-2 mt-3 text-primary font-bold hover:text-primary/80 transition-all group relative"
               >
                 <div className="p-1.5 rounded-full bg-primary/10 group-hover:bg-primary/20 transition-colors">
                   <UserPlus className="w-4 h-4" />

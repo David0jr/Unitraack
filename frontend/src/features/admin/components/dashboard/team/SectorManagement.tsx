@@ -85,11 +85,11 @@ export function SectorManagement({ onSuccess, onError }: SectorManagementProps) 
     <div className="space-y-10 animate-in fade-in slide-in-from-bottom-2 duration-300">
       <div className="max-w-xl">
         <div className="space-y-1 mb-8">
-          <h4 className="font-black text-navy text-sm uppercase">Estrutura da Usina</h4>
+          <h4 className="font-bold text-navy text-sm uppercase">Estrutura da Usina</h4>
           <p className="text-xs text-slate-400 font-medium">Cadastre os novos setores principais (Setores Pai) da usina aqui.</p>
         </div>
 
-        <form onSubmit={handleCreateSector} className="space-y-6 bg-slate-50/50 p-6 rounded-[2rem] border border-slate-100">
+        <form onSubmit={handleCreateSector} className="space-y-6 bg-slate-50/50 p-6 rounded-2xl border border-slate-100">
           <div className="grid grid-cols-1 gap-4">
             <InputGroup 
               id="new-sector-input"
@@ -101,7 +101,7 @@ export function SectorManagement({ onSuccess, onError }: SectorManagementProps) 
           </div>
           
           <div className="flex flex-wrap gap-2">
-            <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest w-full mb-1">Sugestões rápidas:</span>
+            <span className="text-[9px] font-bold text-slate-300 uppercase tracking-widest w-full mb-1">Sugestões rápidas:</span>
             {['Portaria', 'Balança', 'Laboratório', 'Oficina', 'Lavador', 'Estacionamento'].map(sug => (
               <button 
                 key={sug} 
@@ -117,7 +117,7 @@ export function SectorManagement({ onSuccess, onError }: SectorManagementProps) 
           <button 
             type="submit" 
             disabled={loading || !newSectorName}
-            className="w-full py-4 bg-navy text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-[#002880] transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-xl shadow-navy/10"
+            className="w-full py-4 bg-navy text-white rounded-xl font-bold text-[10px] uppercase tracking-widest hover:bg-[#002880] transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-xl shadow-navy/10"
           >
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Confirmar Registro de Estrutura'}
           </button>
@@ -126,23 +126,23 @@ export function SectorManagement({ onSuccess, onError }: SectorManagementProps) 
 
       <div className="space-y-6">
          <div className="flex items-center justify-between ml-1">
-           <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Mapa de Operações</h5>
-           <div className="text-[8px] font-black text-slate-300 uppercase tracking-widest">
+           <h5 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Mapa de Operações</h5>
+           <div className="text-[8px] font-bold text-slate-300 uppercase tracking-widest">
              Sectores: {sectors.length} | Filtro Pai: {sectors.filter((s: any) => !s.parent_id).length}
            </div>
          </div>
          
          <div className="space-y-4">
            {sectors.filter((s: any) => !s.parent_id).length === 0 ? (
-             <p className="text-slate-300 italic text-[10px] uppercase tracking-widest text-center py-10 bg-slate-50/50 rounded-3xl border border-dashed border-slate-200">Nenhum setor principal registrado.</p>
+             <p className="text-slate-300 italic text-[10px] uppercase tracking-widest text-center py-10 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">Nenhum setor principal registrado.</p>
            ) : sectors.filter((s: any) => !s.parent_id).map((parent: any) => (
-             <div key={parent.id} className="bg-white rounded-3xl border border-slate-100 overflow-hidden shadow-sm">
+             <div key={parent.id} className="bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-sm">
                 <div className="p-5 bg-slate-50/50 flex items-center justify-between border-b border-slate-100">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-navy text-white rounded-2xl flex items-center justify-center font-black">
+                    <div className="w-10 h-10 bg-navy text-white rounded-xl flex items-center justify-center font-bold">
                       {parent.name[0]}
                     </div>
-                    <span className="font-black text-navy text-sm uppercase tracking-tighter">{parent.name}</span>
+                    <span className="font-bold text-navy text-sm uppercase tracking-tighter">{parent.name}</span>
                   </div>
                   <button 
                     onClick={() => handleDeleteSector(parent.id)}
@@ -154,7 +154,7 @@ export function SectorManagement({ onSuccess, onError }: SectorManagementProps) 
                 
                 <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 bg-white">
                   {sectors.filter((s: any) => s.parent_id === parent.id).map((sub: any) => (
-                    <div key={sub.id} className="flex items-center justify-between p-3.5 bg-slate-50/30 rounded-2xl border border-slate-100/50 hover:border-primary/20 transition-all group">
+                    <div key={sub.id} className="flex items-center justify-between p-3.5 bg-slate-50/30 rounded-xl border border-slate-100/50 hover:border-primary/20 transition-all group">
                        <div className="flex items-center gap-2.5">
                          <div className="w-1.5 h-1.5 bg-primary rounded-full"></div>
                          <span className="font-bold text-navy text-[11px] uppercase">{sub.name}</span>
@@ -170,7 +170,7 @@ export function SectorManagement({ onSuccess, onError }: SectorManagementProps) 
                   {inlineSectorParentId === parent.id ? (
                     <form 
                       onSubmit={handleCreateInlineSector}
-                      className="flex items-center justify-between p-2 lg:col-span-1 border border-primary/30 rounded-2xl bg-white shadow-sm"
+                      className="flex items-center justify-between p-2 lg:col-span-1 border border-primary/30 rounded-xl bg-white shadow-sm"
                     >
                       <input
                         type="text"
@@ -200,7 +200,7 @@ export function SectorManagement({ onSuccess, onError }: SectorManagementProps) 
                   ) : (
                     <button 
                       onClick={() => { setInlineSectorParentId(parent.id); setInlineSectorName(''); }}
-                      className="flex items-center justify-center gap-2 p-3.5 border border-dashed border-slate-200 rounded-2xl text-[10px] font-black text-slate-300 uppercase hover:border-primary/30 hover:text-primary transition-all"
+                      className="flex items-center justify-center gap-2 p-3.5 border border-dashed border-slate-200 rounded-xl text-[10px] font-bold text-slate-300 uppercase hover:border-primary/30 hover:text-primary transition-all"
                     >
                        <Plus className="w-4 h-4" /> Novo Subsetor
                     </button>

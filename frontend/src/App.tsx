@@ -15,14 +15,14 @@ import { useAuth } from './contexts/AuthContext';
 
 function HomeRedirect() {
   const { user, profile } = useAuth();
-  const { slug, isAdmin, isSubdomain } = useTenant();
+  const { slug: tenantSlug, isAdmin, isSubdomain } = useTenant();
   
   // Se já estiver logado, manda direto para o painel correto
   if (user && profile) {
     if (profile.role === 'SUPER_ADMIN') {
       return <Navigate to="/admin/painel" replace />;
     }
-    const userSlug = profile.tenant?.subdomain;
+    const userSlug = profile.tenant?.subdomain || tenantSlug;
     const rolePath = profile.role?.toLowerCase().replace('_', '-');
     
     if (userSlug && rolePath) {
@@ -42,16 +42,18 @@ function HomeRedirect() {
     return <Navigate to="/login" replace />;
   }
   
-  if (slug) {
-    return <Navigate to={`/${slug}/login`} replace />;
+  // Tenta usar o slug da URL atual ou do perfil carregado (se houver)
+  const finalSlug = tenantSlug || profile?.tenant?.subdomain;
+
+  if (finalSlug) {
+    return <Navigate to={`/${finalSlug}/login`} replace />;
   }
   
   return <Navigate to="/admin/login" replace />;
 }
 
 function LoginDispatcher() {
-  const { slug } = useTenant();
-  return slug ? <Login /> : <Navigate to="/admin/login" replace />;
+  return <Login />;
 }
 
 function App() {

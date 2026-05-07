@@ -1,5 +1,5 @@
 import { supabaseAdmin } from '../../config/supabase';
-import { EntryRequest, Material, RequestStatus } from '../../domain/entities/EntryRequest';
+import { EntryRequest, Material, RequestStatus, MaterialStatus } from '../../domain/entities/EntryRequest';
 import { IRequestRepository, ListFilters } from '../../domain/repositories/IRequestRepository';
 
 export class SupabaseRequestRepository implements IRequestRepository {
@@ -171,7 +171,7 @@ export class SupabaseRequestRepository implements IRequestRepository {
     if (error) throw error;
   }
 
-  async updateMaterialStatus(materialId: string, status: any, timestampField?: 'entry_at' | 'exit_at', movedBy?: string, tenantId?: string, fromSectorId?: string, toSectorId?: string): Promise<void> {
+  async updateMaterialStatus(materialId: string, status: any, timestampField?: 'entry_at' | 'exit_at', movedBy?: string, tenantId?: string, fromSectorId?: string, toSectorId?: string, signature?: string): Promise<void> {
     const updateData: any = { status };
     if (timestampField) {
       updateData[timestampField] = new Date().toISOString();
@@ -201,13 +201,14 @@ export class SupabaseRequestRepository implements IRequestRepository {
             moved_at: new Date().toISOString(),
             tenant_id: tenantId,
             from_sector_id: fromSectorId,
-            to_sector_id: toSectorId
+            to_sector_id: toSectorId,
+            signature: signature || null
         });
         if (moveError) console.error("[SupabaseRequestRepository.updateMaterialStatus] Erro ao logar movimento:", moveError.message);
     }
   }
 
-  async updateMultipleMaterialsStatus(materialIds: string[], status: any, timestampField?: 'entry_at' | 'exit_at', movedBy?: string, tenantId?: string, fromSectorId?: string, toSectorId?: string): Promise<void> {
+  async updateMultipleMaterialsStatus(materialIds: string[], status: any, timestampField?: 'entry_at' | 'exit_at', movedBy?: string, tenantId?: string, fromSectorId?: string, toSectorId?: string, signature?: string): Promise<void> {
     const updateData: any = { status };
     if (timestampField) {
       updateData[timestampField] = new Date().toISOString();
@@ -236,7 +237,8 @@ export class SupabaseRequestRepository implements IRequestRepository {
             moved_at: new Date().toISOString(),
             tenant_id: tenantId,
             from_sector_id: fromSectorId,
-            to_sector_id: toSectorId
+            to_sector_id: toSectorId,
+            signature: signature || null
         }));
         const { error: moveError } = await supabaseAdmin.from('material_movements').insert(movements);
         if (moveError) console.error("[SupabaseRequestRepository.updateMultipleMaterialsStatus] Erro ao logar movimentos:", moveError.message);
@@ -280,5 +282,32 @@ export class SupabaseRequestRepository implements IRequestRepository {
 
     if (error || !data || data.length === 0) return null;
     return data[0].id;
+  }
+
+  async listMaterialsBySector(tenantId: string, sectorId: string, status?: MaterialStatus): Promise<Material[]> {
+    let query = supabaseAdmin
+      .from('materials')
+      .select('*, request:entry_requests!inner(*, profile:profiles!profile_id(*))')
+      .eq('request.tenant_id', tenantId)
+      .eq('current_sector_id', sectorId);
+
+    if (status) {
+      query = query.eq('status', status);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+    return data || [];
+  }
+
+  async findMaterialById(id: string): Promise<Material | null> {
+    const { data, error } = await supabaseAdmin
+      .from('materials')
+      .select('*, request:entry_requests!inner(*, profile:profiles!profile_id(*))')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (error) throw error;
+    return data;
   }
 }

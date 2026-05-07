@@ -59,45 +59,45 @@ export function ManualRegisterForm({ usinaCnpj, onSuccess, onError }: ManualRegi
   return (
     <form onSubmit={handleSubmit} className="max-w-xl space-y-6">
       <div className="space-y-1">
-        <h4 className="font-black text-navy text-sm uppercase">Novo Colaborador Interno</h4>
+        <h4 className="font-bold text-navy text-sm uppercase">Novo Colaborador Interno</h4>
         <p className="text-xs text-slate-400 font-medium">Cadastre diretamente membros da sua equipe UsinaLins.</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-1.5 w-full">
-          <label className="text-[10px] font-black text-slate-400 uppercase ml-1 tracking-widest">Nome Completo</label>
+          <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 tracking-widest">Nome Completo</label>
           <input 
             required
             value={formData.fullName} 
             onChange={e => setFormData({...formData, fullName: e.target.value})} 
             placeholder="Ex: João Silva"
-            className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-navy placeholder:text-slate-300 focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all font-bold text-xs"
+            className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-xl text-navy placeholder:text-slate-300 focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all font-bold text-xs"
           />
         </div>
         <div className="space-y-1.5 w-full">
-          <label className="text-[10px] font-black text-slate-400 uppercase ml-1 tracking-widest">E-mail Usina</label>
+          <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 tracking-widest">E-mail Usina</label>
           <input 
             type="email"
             required
             value={formData.email} 
             onChange={e => setFormData({...formData, email: e.target.value})} 
             placeholder="email@usinalins.com.br"
-            className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-navy placeholder:text-slate-300 focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all font-bold text-xs"
+            className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-xl text-navy placeholder:text-slate-300 focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all font-bold text-xs"
           />
         </div>
         <div className="space-y-1.5 w-full">
-          <label className="text-[10px] font-black text-slate-400 uppercase ml-1 tracking-widest">Senha Inicial</label>
+          <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 tracking-widest">Senha Inicial</label>
           <input 
             type="password"
             required
             value={formData.password} 
             onChange={e => setFormData({...formData, password: e.target.value})} 
             placeholder="••••••••"
-            className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-navy placeholder:text-slate-300 focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all font-bold text-xs"
+            className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-xl text-navy placeholder:text-slate-300 focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all font-bold text-xs"
           />
         </div>
         <div className="space-y-1.5">
-          <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Função / Cargo</label>
+          <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Função / Cargo</label>
           <CustomSelect
             value={formData.role}
             onChange={(val: string) => setFormData({...formData, role: val})}
@@ -112,7 +112,7 @@ export function ManualRegisterForm({ usinaCnpj, onSuccess, onError }: ManualRegi
 
       {formData.role === 'LIDER_SETOR' && (
         <div className="space-y-1.5 md:col-span-2">
-          <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Setor / Subsetor Responsável</label>
+          <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Setor / Subsetor Responsável</label>
           <CustomSelect
             value={formData.sector_id}
             onChange={(val: string) => {
@@ -135,7 +135,7 @@ export function ManualRegisterForm({ usinaCnpj, onSuccess, onError }: ManualRegi
       <button 
         type="submit"
         disabled={loading}
-        className="px-10 py-4 bg-navy text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-navy/20 hover:bg-[#002880] transition-all disabled:opacity-50"
+        className="px-10 py-4 bg-navy text-white rounded-xl font-bold text-xs uppercase tracking-widest shadow-lg shadow-navy/20 hover:bg-[#002880] transition-all disabled:opacity-50"
       >
         {loading ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : 'Finalizar Cadastro'}
       </button>

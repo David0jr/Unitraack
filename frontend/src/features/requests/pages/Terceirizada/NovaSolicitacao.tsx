@@ -13,9 +13,12 @@ import {
   Package,
   Calendar,
   MapPin,
-  ChevronDown
+  ChevronDown,
+  Check,
+  AlertCircle
 } from 'lucide-react';
 import axios from 'axios';
+import { SignaturePad } from '../../../../components/SignaturePad';
 
 interface MaterialItem {
   id: string;
@@ -83,9 +86,15 @@ export default function NovaSolicitacao() {
     }
   }, [sectors, sectorId, editMode]);
 
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [driverName, setDriverName] = useState('');
+  const [plate, setPlate] = useState('');
+  const [signature, setSignature] = useState('');
+
   const fetchSectors = async () => {
     try {
-      const response = await axios.get(`${import.meta.env.VITE_API_URL}/gestor/sectors`, {
+      const response = await axios.get(`${import.meta.env.VITE_API_URL}/sectors`, {
         headers: { 'Authorization': `Bearer ${getAuthToken()}` }
       });
       setSectors(response.data.data || []);
@@ -93,6 +102,13 @@ export default function NovaSolicitacao() {
       console.error('Erro ao carregar setores:', err);
     }
   };
+
+  useEffect(() => {
+     if (editMode && editRequest) {
+        setDriverName(editRequest.driver_name || '');
+        setPlate(editRequest.plate || '');
+     }
+  }, [editMode, editRequest]);
 
   const fetchProfile = async () => {
     if (!user) return;
@@ -134,25 +150,21 @@ export default function NovaSolicitacao() {
   const handleFileUpload = async (id: string, file: File) => {
     if (!file) return;
 
-    // 1. Otimista (Instantâneo): Mostra a imagem na tela na mesma hora que o usuário clica
     const localBlobUrl = URL.createObjectURL(file);
     updateMaterial(id, 'imageUrl', localBlobUrl);
     updateMaterial(id, 'uploading', true);
 
     try {
-      // 2. Prepara o nome do arquivo único usando timestamp
       const fileExt = file.name.split('.').pop();
       const fileName = `${id}-${Date.now()}.${fileExt}`;
       const filePath = `requests/${fileName}`;
 
-      // 3. Faz o upload real
       const { error: uploadError } = await supabase.storage
         .from('material-images')
         .upload(filePath, file, { cacheControl: '3600', upsert: false });
 
       if (uploadError) throw uploadError;
 
-      // 4. Pega a URL pública oficial e substitui no banco local (sai o blob:, entra o https:)
       const { data: { publicUrl } } = supabase.storage
         .from('material-images')
         .getPublicUrl(filePath);
@@ -160,9 +172,8 @@ export default function NovaSolicitacao() {
       updateMaterial(id, 'imageUrl', publicUrl);
     } catch (err: any) {
       console.error('Erro no upload:', err);
-      // Se deu erro real, removemos a foto falsa (blob) para o usuário não ser enganado e tentar enviar
       updateMaterial(id, 'imageUrl', '');
-      alert('Falha ao subir a imagem no servidor: ' + (err?.message || 'Verifique sua conexão.'));
+      setErrorMessage('Falha ao subir a imagem no servidor. Verifique sua conexão.');
     } finally {
       updateMaterial(id, 'uploading', false);
     }
@@ -171,18 +182,23 @@ export default function NovaSolicitacao() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (materials.length === 0) {
-      alert('Adicione pelo menos um equipamento.');
+      setErrorMessage('Adicione pelo menos um equipamento para continuar.');
       return;
     }
 
     if (!parentSectorId || !sectorId) {
-      alert('Por favor, selecione o Setor Geral e o Local Específico.');
+      setErrorMessage('Por favor, selecione o Setor Geral e o Local Específico.');
+      return;
+    }
+
+    if (!driverName || !plate) {
+      setErrorMessage('Por favor, informe o Nome do Motorista e a Placa do Veículo.');
       return;
     }
 
     const itemDeFalta = materials.find((m) => !m.imageUrl);
     if (itemDeFalta) {
-      alert(`Você esqueceu de adicionar a foto do equipamento.`);
+      setErrorMessage(`Você esqueceu de anexar a foto de um dos equipamentos.`);
       return;
     }
 
@@ -191,7 +207,10 @@ export default function NovaSolicitacao() {
       const payload = {
         sector: sectorName,
         sector_id: sectorId,
-        entry_date: entryDate,
+        entry_date: entryDate ? new Date(entryDate).toISOString() : null,
+        driver_name: driverName,
+        plate: plate,
+        signature: signature,
         materials: materials.map(({ name, brand, model, serial_number, description, condition, code, imageUrl }) => ({
           name, brand, model, serial_number, description, condition, code, image_url: imageUrl
         }))
@@ -214,20 +233,57 @@ export default function NovaSolicitacao() {
       });
 
       if (response.status === 201 || response.status === 200) {
-        alert(editMode ? 'Solicitação atualizada com sucesso!' : 'Solicitação enviada com sucesso!');
-        navigate('/painel');
+        setShowSuccess(true);
+        setTimeout(() => {
+          navigate('/painel');
+        }, 3000);
       }
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Erro ao enviar solicitação.');
+      setErrorMessage(err.response?.data?.error || 'Ocorreu um erro ao enviar sua solicitação.');
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] font-brand antialiased text-navy">
+    <div className="min-h-screen bg-[#F8FAFC] font-brand antialiased text-navy relative">
+      
+      {/* Premium Feedback Overlays */}
+      {showSuccess && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-navy/40 backdrop-blur-md animate-in fade-in duration-500">
+           <div className="bg-white rounded-[2.5rem] p-12 max-w-sm w-full text-center shadow-[0_40px_80px_-15px_rgba(0,0,0,0.3)] border border-white/20 animate-in zoom-in-95 duration-500 scale-110">
+              <div className="w-24 h-24 bg-emerald-500 rounded-full flex items-center justify-center mx-auto mb-8 shadow-lg shadow-emerald-500/20 relative">
+                 <div className="absolute inset-0 bg-emerald-500 rounded-full animate-ping opacity-20"></div>
+                 <Check className="w-12 h-12 text-white stroke-[3px]" />
+              </div>
+              <h3 className="text-2xl font-black text-navy uppercase tracking-tighter mb-3">Protocolo Enviado!</h3>
+              <p className="text-slate-400 font-medium leading-relaxed mb-6">Sua solicitação foi processada e já está na fila de aprovação do Líder.</p>
+              <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                 <div className="h-full bg-emerald-500 animate-progress origin-left"></div>
+              </div>
+              <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest mt-6">Redirecionando para o painel...</p>
+           </div>
+        </div>
+      )}
+
+      {errorMessage && (
+        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[200] w-full max-w-md px-6 animate-in slide-in-from-bottom-10 duration-500">
+           <div className="bg-rose-600 text-white p-5 rounded-2xl shadow-2xl shadow-rose-600/20 flex items-center justify-between border border-white/10 backdrop-blur-xl">
+              <div className="flex items-center gap-4">
+                 <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center flex-shrink-0">
+                    <AlertCircle className="w-5 h-5 text-white" />
+                 </div>
+                 <p className="text-sm font-bold tracking-tight">{errorMessage}</p>
+              </div>
+              <button onClick={() => setErrorMessage('')} className="p-2 hover:bg-white/10 rounded-lg transition-all ml-4">
+                 <ArrowLeft className="w-4 h-4 rotate-90" />
+              </button>
+           </div>
+        </div>
+      )}
+
       {/* Header */}
-      <nav className="bg-white border-b border-slate-100 sticky top-0 z-50 shadow-sm">
+      <nav className="bg-white/80 backdrop-blur-md border-b border-slate-100 sticky top-0 z-50 shadow-sm">
         <div className="max-w-7xl mx-auto px-6 h-20 flex justify-between items-center">
           <div className="flex items-center gap-4">
              <button 
@@ -244,31 +300,36 @@ export default function NovaSolicitacao() {
             />
           </div>
           <div className="hidden sm:flex items-center gap-3">
-             <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest leading-none">Status Autenticado</span>
+             <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest leading-none">Status Autenticado</span>
              <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
           </div>
         </div>
       </nav>
 
-      <main className="max-w-4xl mx-auto px-6 py-10">
-        <form onSubmit={handleSubmit} className="space-y-8">
+      <main className="max-w-4xl mx-auto px-6 py-12">
+        <form onSubmit={handleSubmit} className="space-y-10">
           
-          <div className="mb-10 text-center">
-             <span className="text-[10px] font-black text-primary uppercase tracking-[0.4em] bg-primary/5 px-6 py-2 rounded-full mb-4 inline-block">Módulo de Logística</span>
-             <h2 className="text-4xl font-black text-navy uppercase tracking-tighter">
-               {editMode ? 'Editar' : 'Agendar'} <span className="text-primary italic">{editMode ? 'Solicitação' : 'Entrada'}</span>
+          <div className="mb-12 text-center">
+             <span className="text-[10px] font-black text-primary uppercase tracking-[0.2em] bg-primary/5 px-6 py-2.5 rounded-full mb-5 inline-block">Módulo de Logística Industrial</span>
+             <h2 className="text-5xl font-bold text-navy uppercase tracking-tighter leading-none mb-4">
+               {editMode ? 'Editar' : 'Agendar'} <span className="text-primary italic font-serif lowercase">{editMode ? 'Solicitação' : 'Entrada'}</span>
              </h2>
-             <p className="text-slate-400 font-medium mt-2 italic">
-               {editMode ? 'Ao salvar, o pedido voltará para análise do Líder.' : 'Preencha os dados técnicos para aprovação do Líder de Setor.'}
+             <p className="text-slate-400 font-medium max-w-lg mx-auto leading-relaxed">
+               {editMode ? 'Ao salvar as alterações, o protocolo retornará para o fluxo de análise do Líder Responsável.' : 'Preencha os dados técnicos e anexe as fotos para validação do Líder de Setor e Monitoria de Segurança.'}
              </p>
           </div>
 
            {/* Core Info Section */}
-          <div className="bg-white rounded-[40px] p-10 shadow-xl shadow-navy/5 border border-slate-100 grid grid-cols-1 md:grid-cols-2 gap-10">
-             <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6 items-end">
-                <div className="space-y-2">
-                   <label className="text-[10px] font-black text-slate-400 uppercase ml-1 tracking-widest flex items-center gap-2">
-                      <MapPin className="w-3.5 h-3.5 text-primary" /> 1. Setor Geral
+          <div className="bg-white rounded-[2rem] p-12 shadow-[0_32px_64px_-12px_rgba(0,50,160,0.08)] border border-slate-100 relative overflow-hidden group">
+             <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-bl-full -mr-10 -mt-10 opacity-50 group-hover:scale-110 transition-transform"></div>
+             
+             <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-8 mb-10 items-end relative z-10">
+                <div className="space-y-3">
+                   <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 tracking-[0.15em] flex items-center gap-2">
+                      <div className="w-5 h-5 bg-primary/10 rounded-md flex items-center justify-center">
+                        <MapPin className="w-3 h-3 text-primary" />
+                      </div>
+                      1. Setor Destino (Geral)
                    </label>
                    <CustomSelect 
                      value={parentSectorId}
@@ -282,9 +343,12 @@ export default function NovaSolicitacao() {
                    />
                 </div>
 
-                <div className="space-y-2 relative z-40">
-                   <label className="text-[10px] font-black text-slate-400 uppercase ml-1 tracking-widest flex items-center gap-2">
-                      <MapPin className="w-3.5 h-3.5 text-primary" /> 2. Local Específico (Fim)
+                <div className="space-y-3 relative z-40">
+                   <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 tracking-[0.15em] flex items-center gap-2">
+                      <div className="w-5 h-5 bg-primary/10 rounded-md flex items-center justify-center">
+                        <MapPin className="w-3 h-3 text-primary" />
+                      </div>
+                      2. Sub-setor / Área Específica
                    </label>
                    <CustomSelect 
                      value={sectorId}
@@ -294,54 +358,105 @@ export default function NovaSolicitacao() {
                        setSectorId(val);
                        setSectorName(sel?.name || '');
                      }}
-                     placeholder="ESCOLHA O LOCAL..."
+                     placeholder={!parentSectorId ? "AGUARDANDO SETOR PAI..." : "ESCOLHA O LOCAL..."}
                      options={sectors.filter(s => s.parent_id === parentSectorId).map(s => ({ type: 'option', value: s.id, label: s.name }))}
                    />
                 </div>
              </div>
 
+             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-end relative z-10 pt-10 border-t border-slate-50">
+                <div className="space-y-3">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 tracking-[0.15em] flex items-center gap-2">
+                      <div className="w-5 h-5 bg-primary/10 rounded-md flex items-center justify-center">
+                        <Calendar className="w-3 h-3 text-primary" />
+                      </div>
+                      3. Previsão de Chegada
+                    </label>
+                    <input 
+                      type="datetime-local" 
+                      required
+                      value={entryDate}
+                      onChange={(e) => setEntryDate(e.target.value)}
+                      className="w-full px-6 py-4 bg-[#F8FAFC] border border-slate-100 rounded-2xl text-navy font-bold text-sm focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary/30 transition-all shadow-inner"
+                    />
+                </div>
 
-             <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase ml-1 tracking-widest flex items-center gap-2">
-                   <Calendar className="w-3.5 h-3.5 text-primary" /> Data e Hora da Chegada
-                </label>
-                <input 
-                  type="datetime-local" 
-                  required
-                  value={entryDate}
-                  onChange={(e) => setEntryDate(e.target.value)}
-                  className="w-full px-6 py-4 bg-[#F8FAFC] border border-slate-100 rounded-2xl text-navy font-bold text-sm focus:outline-none focus:ring-4 focus:ring-primary/5 transition-all"
-                />
+                <div className="space-y-3">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 tracking-[0.15em] flex items-center gap-2">
+                      <div className="w-5 h-5 bg-primary/10 rounded-md flex items-center justify-center">
+                        <Check className="w-3 h-3 text-primary" />
+                      </div>
+
+                       4. Assinatura Digital (Desenhe)
+                    </label>
+                    <div className="bg-[#F8FAFC] border border-slate-100 rounded-2xl p-4 shadow-inner">
+                      <SignaturePad onSave={setSignature} />
+                    </div>
+                 </div>
+
+                 <div className="space-y-3">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 tracking-[0.15em] flex items-center gap-2">
+                       <div className="w-5 h-5 bg-primary/10 rounded-md flex items-center justify-center">
+                         <Package className="w-3 h-3 text-primary" />
+                       </div>
+                       5. Nome do Motorista
+                    </label>
+                    <input 
+                      type="text" 
+                      required
+                      placeholder="EX: JOÃO DA SILVA"
+                      value={driverName}
+                      onChange={(e) => setDriverName(e.target.value.toUpperCase())}
+                      className="w-full px-6 py-4 bg-[#F8FAFC] border border-slate-100 rounded-2xl text-navy font-bold text-sm focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary/30 transition-all shadow-inner"
+                    />
+                </div>
+
+                <div className="space-y-3">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 tracking-[0.15em] flex items-center gap-2">
+                      <div className="w-5 h-5 bg-primary/10 rounded-md flex items-center justify-center">
+                        <Package className="w-3 h-3 text-primary" />
+                      </div>
+                      6. Placa do Veículo
+                    </label>
+                    <input 
+                      type="text" 
+                      required
+                      placeholder="EX: ABC1D23"
+                      value={plate}
+                      onChange={(e) => setPlate(e.target.value.toUpperCase())}
+                      className="w-full px-6 py-4 bg-[#F8FAFC] border border-slate-100 rounded-2xl text-navy font-bold text-sm focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary/30 transition-all shadow-inner"
+                    />
+                </div>
              </div>
           </div>
 
           {/* Materials Section */}
           <div className="space-y-6">
             <div className="flex items-center justify-between px-4">
-              <h3 className="font-black text-navy text-xs uppercase tracking-widest flex items-center gap-3">
+              <h3 className="font-bold text-navy text-xs uppercase tracking-widest flex items-center gap-3">
                  <Package className="w-5 h-5 text-primary" /> Equipamentos a Transportar
               </h3>
               <button 
                 type="button" 
                 onClick={addMaterial}
-                className="flex items-center gap-2 bg-navy text-white text-[10px] font-black uppercase tracking-widest px-6 py-3 rounded-full hover:bg-[#002880] transition-all shadow-lg"
+                className="flex items-center gap-2 bg-navy text-white text-[10px] font-bold uppercase tracking-widest px-6 py-3 rounded-full hover:bg-[#002880] transition-all shadow-lg"
               >
                 <Plus className="w-4 h-4" /> Adicionar Item
               </button>
             </div>
 
             {materials.length === 0 && (
-              <div className="p-16 border-2 border-dashed border-slate-200 rounded-[40px] text-center bg-white/50">
-                 <p className="text-slate-400 font-bold uppercase text-[10px] tracking-[0.2em] mb-4 italic">Nenhum equipamento listado no protocolo.</p>
-                 <button type="button" onClick={addMaterial} className="text-primary font-black text-xs uppercase underline">Clique para começar</button>
+              <div className="p-16 border-2 border-dashed border-slate-200 rounded-2xl text-center bg-white/50">
+                 <p className="text-slate-400 font-bold uppercase text-[10px] tracking-widest mb-4 italic">Nenhum equipamento listado no protocolo.</p>
+                 <button type="button" onClick={addMaterial} className="text-primary font-bold text-xs uppercase underline">Clique para começar</button>
               </div>
             )}
 
             <div className="grid grid-cols-1 gap-6">
               {materials.map((mat, index) => (
-                <div key={mat.id} className="bg-white rounded-[40px] p-8 shadow-sm border border-slate-100 hover:border-primary/30 transition-all group animate-in fade-in slide-in-from-bottom-4">
+                <div key={mat.id} className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100 hover:border-primary/30 transition-all group animate-in fade-in slide-in-from-bottom-4">
                   <div className="flex items-center justify-between mb-8 border-b border-slate-50 pb-6">
-                    <span className="bg-navy text-white text-[10px] font-black px-4 py-1.5 rounded-full uppercase tracking-widest">Equipamento #{index + 1}</span>
+                    <span className="bg-navy text-white text-[10px] font-bold px-4 py-1.5 rounded-full uppercase tracking-widest">Equipamento #{index + 1}</span>
                     <button type="button" onClick={() => removeMaterial(mat.id)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all">
                       <Trash2 className="w-5 h-5" />
                     </button>
@@ -349,7 +464,7 @@ export default function NovaSolicitacao() {
 
                   <div className="grid grid-cols-1 md:grid-cols-12 gap-10">
                     <div className="md:col-span-3">
-                       <div className="relative aspect-square bg-[#F8FAFC] border border-slate-100 rounded-[32px] overflow-hidden group/img flex flex-col items-center justify-center text-center p-4">
+                       <div className="relative aspect-square bg-[#F8FAFC] border border-slate-100 rounded-2xl overflow-hidden group/img flex flex-col items-center justify-center text-center p-4">
                           {mat.imageUrl ? (
                             <>
                               <img src={mat.imageUrl} alt="Material" className="w-full h-full object-cover" />
@@ -360,8 +475,8 @@ export default function NovaSolicitacao() {
                           ) : (
                              <label className="cursor-pointer w-full h-full flex flex-col items-center justify-center hover:bg-slate-100 transition-colors gap-2">
                                 {mat.uploading ? <Loader2 className="w-10 h-10 animate-spin text-primary opacity-20" /> : <Camera className="w-10 h-10 text-slate-200" />}
-                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Foto / Upload</p>
-                                <span className="text-[8px] text-red-500 uppercase font-black tracking-widest mt-1 bg-red-50 px-2 py-1 rounded-full">(Foto Obrigatória)</span>
+                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Foto / Upload</p>
+                                <span className="text-[8px] text-red-500 uppercase font-bold tracking-widest mt-1 bg-red-50 px-2 py-1 rounded-full">(Foto Obrigatória)</span>
                                 <input type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && handleFileUpload(mat.id, e.target.files[0])} />
                              </label>
                           )}
@@ -376,7 +491,7 @@ export default function NovaSolicitacao() {
                        
                        <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-6">
                          <div className="space-y-1.5 md:col-span-1">
-                            <label className="text-[9px] font-black text-slate-400 uppercase ml-1 tracking-widest leading-none">Condição Fís.</label>
+                            <label className="text-[9px] font-bold text-slate-400 uppercase ml-1 tracking-widest leading-none">Condição Fís.</label>
                             <CustomSelect 
                               value={mat.condition}
                               onChange={(val: string) => updateMaterial(mat.id, 'condition', val)}
@@ -405,7 +520,7 @@ export default function NovaSolicitacao() {
              <button 
                 type="submit" 
                 disabled={submitting}
-                className="w-full max-w-sm py-6 bg-[#0032A0] hover:bg-[#002880] text-white font-black uppercase tracking-[0.3em] rounded-[30px] shadow-2xl shadow-navy/20 flex items-center justify-center gap-4 transition-all active:scale-[0.98] disabled:opacity-50"
+                className="w-full max-w-sm py-6 bg-[#0032A0] hover:bg-[#002880] text-white font-bold uppercase tracking-widest rounded-xl shadow-xl shadow-navy/20 flex items-center justify-center gap-4 transition-all active:scale-[0.98] disabled:opacity-50"
              >
                 {submitting ? <Loader2 className="w-6 h-6 animate-spin" /> : (
                   <>
@@ -428,14 +543,14 @@ export default function NovaSolicitacao() {
 function InputGroup({ label, placeholder, type = "text", value, onChange }: { label: string, placeholder: string, type?: string, value: string, onChange: (v: string) => void }) {
   return (
     <div className="space-y-1.5 w-full">
-      <label className="text-[9px] font-black text-slate-400 uppercase ml-1 tracking-widest leading-none">{label}</label>
+      <label className="text-[9px] font-bold text-slate-400 uppercase ml-1 tracking-widest leading-none">{label}</label>
       <input 
         type={type}
         required
         value={value}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full px-5 py-3.5 bg-[#F8FAFC] border border-slate-100 rounded-2xl text-navy placeholder-slate-300 focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all font-bold text-xs"
+        className="w-full px-5 py-3.5 bg-[#F8FAFC] border border-slate-100 rounded-xl text-slate-900 placeholder-slate-300 focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all font-bold text-xs"
       />
     </div>
   );
@@ -472,46 +587,54 @@ function CustomSelect({ value, onChange, options, placeholder, direction = 'down
   }
 
   return (
-    <div className={`relative w-full ${disabled ? 'opacity-50 pointer-events-none' : ''}`} ref={dropdownRef}>
+    <div className={`relative w-full ${disabled ? 'opacity-40 cursor-not-allowed' : ''}`} ref={dropdownRef}>
       <div 
         onClick={() => !disabled && setIsOpen(!isOpen)}
-        className="w-full px-6 py-4 bg-[#F8FAFC] border border-slate-100 rounded-2xl text-navy font-bold text-sm cursor-pointer flex items-center justify-between hover:border-primary/30 transition-all select-none uppercase"
+        className={`w-full px-6 py-4 bg-white border ${isOpen ? 'border-primary shadow-[0_0_0_4px_rgba(0,50,160,0.05)]' : 'border-slate-100 shadow-sm'} rounded-2xl text-navy font-bold text-sm cursor-pointer flex items-center justify-between hover:border-primary/30 transition-all select-none uppercase tracking-tight`}
       >
         <span className="truncate">{selectedLabel}</span>
-        <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform flex-shrink-0 ${isOpen ? 'rotate-180' : ''}`} />
+        <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 flex-shrink-0 ${isOpen ? 'rotate-180 text-primary' : ''}`} />
       </div>
 
       {isOpen && (
-        <div className={`absolute ${direction === 'up' ? 'bottom-[calc(100%+8px)]' : 'top-[calc(100%+8px)]'} left-0 right-0 bg-white border border-slate-100 rounded-2xl shadow-xl z-50 animate-in fade-in zoom-in-95 duration-100 max-h-60 overflow-y-auto`}>
-          {options.map((opt: any, i: number) => {
-            if (opt.type === 'group') {
-              return (
-                <div key={i} className="py-1">
-                  <div className="px-5 pt-3 pb-1.5 text-[9px] font-black uppercase tracking-widest text-slate-400 bg-[#F8FAFC]">
-                    {opt.label}
-                  </div>
-                  {opt.items.map((item: any) => (
-                    <div 
-                      key={item.value}
-                      onClick={() => { onChange(item.value); setIsOpen(false); }}
-                      className={`px-5 py-3 text-xs font-bold cursor-pointer uppercase hover:bg-[#F8FAFC] transition-all ${value === item.value ? 'text-primary bg-primary/5' : 'text-slate-600'}`}
-                    >
-                      {item.label}
+        <div className={`absolute ${direction === 'up' ? 'bottom-[calc(100%+12px)]' : 'top-[calc(100%+12px)]'} left-0 right-0 bg-white/95 backdrop-blur-xl border border-slate-100 rounded-2xl shadow-[0_20px_50px_rgba(0,50,160,0.15)] z-[100] animate-in fade-in slide-in-from-top-2 duration-200 max-h-80 overflow-hidden flex flex-col`}>
+          <div className="overflow-y-auto custom-scrollbar flex-1">
+            {options.length === 0 ? (
+              <div className="px-6 py-8 text-center">
+                 <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">Nenhuma opção encontrada</p>
+              </div>
+            ) : options.map((opt: any, i: number) => {
+              if (opt.type === 'group') {
+                return (
+                  <div key={i} className="border-b border-slate-50 last:border-0">
+                    <div className="px-6 pt-4 pb-2 text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 bg-slate-50/50">
+                      {opt.label}
                     </div>
-                  ))}
+                    {opt.items.map((item: any) => (
+                      <div 
+                        key={item.value}
+                        onClick={() => { onChange(item.value); setIsOpen(false); }}
+                        className={`px-6 py-3.5 text-xs font-bold cursor-pointer uppercase hover:bg-primary hover:text-white transition-all flex items-center justify-between group/item ${value === item.value ? 'text-primary bg-primary/5' : 'text-navy'}`}
+                      >
+                        {item.label}
+                        {value === item.value && <div className="w-1.5 h-1.5 bg-primary rounded-full group-hover/item:bg-white"></div>}
+                      </div>
+                    ))}
+                  </div>
+                );
+              }
+              return (
+                <div 
+                  key={opt.value || i}
+                  onClick={() => { onChange(opt.value); setIsOpen(false); }}
+                  className={`px-6 py-3.5 text-xs font-bold cursor-pointer uppercase hover:bg-primary hover:text-white transition-all flex items-center justify-between group/item ${value === opt.value ? 'text-primary bg-primary/5' : 'text-navy'} border-b border-slate-50 last:border-0`}
+                >
+                  {opt.label}
+                  {value === opt.value && <div className="w-1.5 h-1.5 bg-primary rounded-full group-hover/item:bg-white"></div>}
                 </div>
               );
-            }
-            return (
-              <div 
-                key={opt.value || i}
-                onClick={() => { onChange(opt.value); setIsOpen(false); }}
-                className={`px-5 py-3 text-xs font-bold cursor-pointer uppercase hover:bg-[#F8FAFC] transition-all ${value === opt.value ? 'text-primary bg-primary/5' : 'text-slate-600'} ${i === 0 ? 'rounded-t-2xl' : ''} ${i === options.length - 1 ? 'rounded-b-2xl' : ''}`}
-              >
-                {opt.label}
-              </div>
-            );
-          })}
+            })}
+          </div>
         </div>
       )}
     </div>

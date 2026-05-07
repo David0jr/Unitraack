@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { 
-  Network, 
   Package, 
   ArrowRightLeft, 
   Loader2, 
@@ -81,19 +80,42 @@ export default function MonitoringDashboard({ parentSectorId }: { parentSectorId
     .filter(s => parentSectorId ? s.id === parentSectorId : true);
   const getSubsectors = (parentId: string) => sectors.filter(s => s.parent_id === parentId);
   
-  const getSectorMaterials = (sectorId: string) => 
-    materials.filter(m => m.current_sector_id === sectorId)
-      .filter(m => filterText ? 
-        m.name.toLowerCase().includes(filterText.toLowerCase()) || 
-        m.request.profile.full_name.toLowerCase().includes(filterText.toLowerCase()) 
-        : true
-      );
+  const getSectorMaterials = (sectorId: string) => {
+    const sector = sectors.find(s => s.id === sectorId);
+    const sectorNameMatches = filterText ? (sector?.name?.toLowerCase() || '').includes(filterText.toLowerCase()) : false;
+
+    return materials.filter(m => m.current_sector_id === sectorId)
+      .filter(m => {
+        if (!filterText) return true;
+        if (sectorNameMatches) return true;
+        
+        return (
+          (m.name?.toLowerCase() || '').includes(filterText.toLowerCase()) || 
+          (m.request?.profile?.full_name?.toLowerCase() || '').includes(filterText.toLowerCase()) ||
+          (m.code?.toLowerCase() || '').includes(filterText.toLowerCase())
+        );
+      });
+  };
+
+  const filteredParentSectors = parentSectors.filter(parent => {
+    if (!filterText) return true;
+    
+    const subsectors = getSubsectors(parent.id);
+    const hasMatchingMaterial = getSectorMaterials(parent.id).length > 0;
+    const hasMatchingSubsectorMaterial = subsectors.some(sub => getSectorMaterials(sub.id).length > 0);
+    
+    // Também mostrar se o nome do setor pai ou de algum sub-setor combina com a busca
+    const nameMatches = (parent.name?.toLowerCase() || '').includes(filterText.toLowerCase());
+    const subsectorNameMatches = subsectors.some(sub => (sub.name?.toLowerCase() || '').includes(filterText.toLowerCase()));
+
+    return nameMatches || subsectorNameMatches || hasMatchingMaterial || hasMatchingSubsectorMaterial;
+  });
 
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-40">
         <Loader2 className="w-10 h-10 animate-spin text-primary opacity-20" />
-        <p className="mt-4 text-slate-300 font-black text-[10px] uppercase tracking-widest text-center">
+        <p className="mt-4 text-slate-300 font-bold text-[10px] uppercase tracking-widest text-center">
           Mapeando unidades e ativos...
         </p>
       </div>
@@ -115,7 +137,7 @@ export default function MonitoringDashboard({ parentSectorId }: { parentSectorId
                 placeholder="Buscar por equipamento, empresa ou patrimônio..."
                 value={filterText}
                 onChange={e => setFilterText(e.target.value)}
-                className="pl-11 pr-5 py-3 bg-slate-50 border border-slate-100 rounded-lg text-[11px] font-bold text-navy placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/10 focus:border-primary transition-all w-full"
+                className="pl-11 pr-5 py-3 bg-slate-50 border border-slate-100 rounded-lg text-[11px] font-bold text-slate-900 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/10 focus:border-primary transition-all w-full"
               />
             </div>
           </div>
@@ -125,15 +147,22 @@ export default function MonitoringDashboard({ parentSectorId }: { parentSectorId
             {parentSectors.length === 0 && (
               <div className="bg-white rounded-xl border border-slate-200 border-dashed p-20 text-center">
                 <Building className="w-10 h-10 text-slate-200 mx-auto mb-4" />
-                <p className="text-slate-300 font-black text-[10px] uppercase tracking-widest">Nenhuma unidade operacional encontrada</p>
+                <p className="text-slate-300 font-bold text-[10px] uppercase tracking-widest">Nenhuma unidade operacional encontrada</p>
               </div>
             )}
 
-            {parentSectors.map(parent => {
-              const subsectors = getSubsectors(parent.id);
+            {filteredParentSectors.map(parent => {
+              const subsectors = getSubsectors(parent.id).filter(sub => {
+                if (!filterText) return true;
+                // Mostrar sub-setor se o nome dele combina ou se tem materiais que combinam
+                return (sub.name?.toLowerCase() || '').includes(filterText.toLowerCase()) || getSectorMaterials(sub.id).length > 0;
+              });
               const parentMaterials = getSectorMaterials(parent.id);
-              const totalMaterialsCount = materials.filter(m => m.current_sector_id === parent.id || subsectors.some(s => s.id === m.current_sector_id)).length;
-              const isExpanded = expandedParents.includes(parent.id) || !!parentSectorId;
+              
+              // Contagem total filtrada
+              const filteredTotalCount = parentMaterials.length + subsectors.reduce((acc, sub) => acc + getSectorMaterials(sub.id).length, 0);
+              
+              const isExpanded = expandedParents.includes(parent.id) || !!parentSectorId || !!filterText;
 
               return (
                 <div key={parent.id} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden transition-all min-h-[400px]">
@@ -148,13 +177,13 @@ export default function MonitoringDashboard({ parentSectorId }: { parentSectorId
                           <Building className="w-4 h-4" />
                         </div>
                         <div>
-                          <span className="font-black text-navy text-[11px] uppercase tracking-tight group-hover:text-primary transition-colors">{parent.name}</span>
+                          <span className="font-bold text-navy text-[11px] uppercase tracking-tight group-hover:text-primary transition-colors">{parent.name}</span>
                         </div>
                       </div>
                       
                       <div className="flex items-center gap-4">
                         <div className="hidden md:flex gap-2">
-                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{totalMaterialsCount} Equipamentos Alocados</span>
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{filteredTotalCount} Equipamentos</span>
                         </div>
                         <ChevronDown className={`w-4 h-4 transition-all ${isExpanded ? 'rotate-180 text-primary' : 'text-slate-300'}`} />
                       </div>
@@ -166,7 +195,7 @@ export default function MonitoringDashboard({ parentSectorId }: { parentSectorId
                     {/* Materiais Diretos */}
                     {parentMaterials.length > 0 && (
                       <div className="p-4 border-b border-slate-50 bg-slate-50/20">
-                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3">Itens sem subsetor definido</p>
+                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-3">Itens sem subsetor definido</p>
                         <AssetList 
                           items={parentMaterials} 
                           onTransfer={(id, name) => setTransferModal({ materialId: id, materialName: name })}
@@ -187,9 +216,9 @@ export default function MonitoringDashboard({ parentSectorId }: { parentSectorId
                             <div className="flex items-center justify-between mb-4">
                               <div className="flex items-center gap-2">
                                 <div className="w-1.5 h-1.5 rounded-full bg-primary shadow-sm"></div>
-                                <span className="font-black text-navy text-[10px] uppercase tracking-widest">{sub.name}</span>
+                                <span className="font-bold text-navy text-[10px] uppercase tracking-widest">{sub.name}</span>
                               </div>
-                              <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">
+                              <span className="text-[9px] font-bold text-slate-300 uppercase tracking-widest">
                                 {subMaterials.length} Itens
                               </span>
                             </div>
@@ -221,13 +250,13 @@ export default function MonitoringDashboard({ parentSectorId }: { parentSectorId
           <div className="bg-navy rounded-xl p-5 text-white shadow-xl shadow-navy/20 relative overflow-hidden h-full">
             <div className="flex items-center gap-2 mb-6">
                <ArrowRightLeft className="w-4 h-4 text-primary" />
-               <h3 className="font-black text-[10px] uppercase tracking-widest">Movimentações Recentes</h3>
+               <h3 className="font-bold text-[10px] uppercase tracking-widest">Movimentações Recentes</h3>
             </div>
             
             <div className="space-y-6">
               {movements.length === 0 ? (
                 <p className="text-[10px] text-white/40 font-medium py-10 text-center border border-dashed border-white/10 rounded-lg">Sem histórico</p>
-              ) : movements.map(move => (
+              ) : movements.map((move: any) => (
                 <div key={move.id} className="flex gap-3 relative group">
                   <div className="flex flex-col items-center gap-1">
                      <div className="w-1.5 h-1.5 bg-primary rounded-full group-hover:scale-125 transition-transform"></div>
@@ -235,10 +264,10 @@ export default function MonitoringDashboard({ parentSectorId }: { parentSectorId
                   </div>
                   <div className="pb-4 flex-1">
                      <p className="text-[8px] font-medium text-white/40 mb-0.5">{new Date(move.moved_at).toLocaleString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p>
-                     <p className="text-[10px] font-black uppercase text-white leading-tight mb-1 truncate max-w-[150px]">
+                     <p className="text-[10px] font-bold uppercase text-white leading-tight mb-1 truncate max-w-[150px]">
                         {move.material?.name || 'Ativo'}
                      </p>
-                     <div className="flex items-center gap-1.5 text-[8px] font-black uppercase">
+                     <div className="flex items-center gap-1.5 text-[8px] font-bold uppercase">
                         <span className="text-white/30 truncate max-w-[60px]">{move.from_sector?.name || 'Gate'}</span>
                         <ArrowRight className="w-2.5 h-2.5 text-primary" />
                         <span className="text-primary truncate max-w-[60px]">{move.to_sector?.name || 'Unidade'}</span>
@@ -254,20 +283,20 @@ export default function MonitoringDashboard({ parentSectorId }: { parentSectorId
       {/* Modal de Transferência */}
       {transferModal && (
         <div className="fixed inset-0 bg-navy/80 backdrop-blur-sm z-[100] flex items-center justify-center p-6 transition-all">
-          <div className="bg-white w-full max-w-md rounded-xl p-6 shadow-2xl animate-in zoom-in-95 duration-200 border border-slate-200">
+          <div className="bg-white w-full max-w-md rounded-xl p-6 shadow-xl animate-in zoom-in-95 duration-200 border border-slate-200">
              <div className="flex items-center gap-4 mb-6">
                 <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary">
                   <ArrowRightLeft className="w-5 h-5" />
                 </div>
                 <div>
-                  <h4 className="text-lg font-black text-navy uppercase tracking-tighter">Mover Ativo</h4>
+                  <h4 className="text-lg font-bold text-navy uppercase tracking-tighter">Mover Ativo</h4>
                   <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{transferModal.materialName}</p>
                 </div>
              </div>
 
              <div className="space-y-5">
                 <div className="space-y-2">
-                   <label className="text-[9px] font-black text-navy uppercase ml-1 tracking-widest">Unidade / Setor de Destino</label>
+                   <label className="text-[9px] font-bold text-navy uppercase ml-1 tracking-widest">Unidade / Setor de Destino</label>
                    <select 
                      value={targetSectorId}
                      onChange={e => setTargetSectorId(e.target.value)}
@@ -285,14 +314,14 @@ export default function MonitoringDashboard({ parentSectorId }: { parentSectorId
                 <div className="flex gap-3 pt-2">
                    <button 
                      onClick={() => setTransferModal(null)}
-                     className="flex-1 py-3 bg-slate-100 text-slate-400 rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-slate-200 transition-all"
+                     className="flex-1 py-3 bg-slate-100 text-slate-400 rounded-lg font-bold text-[9px] uppercase tracking-widest hover:bg-slate-200 transition-all"
                    >
                      Cancelar
                    </button>
                    <button 
                      onClick={handleTransfer}
                      disabled={!targetSectorId}
-                     className="flex-1 py-3 bg-navy text-white rounded-lg font-black text-[9px] uppercase tracking-widest shadow-md hover:bg-primary transition-all disabled:opacity-50"
+                     className="flex-1 py-3 bg-navy text-white rounded-lg font-bold text-[9px] uppercase tracking-widest shadow-md hover:bg-primary transition-all disabled:opacity-50"
                    >
                      Mover Equipamento
                    </button>
@@ -316,7 +345,7 @@ export default function MonitoringDashboard({ parentSectorId }: { parentSectorId
               ) : (
                 <div className="w-full h-full flex flex-col items-center justify-center text-slate-700">
                   <Package className="w-8 h-8 opacity-10" />
-                  <p className="text-[8px] font-black uppercase tracking-widest mt-2">Sem imagem</p>
+                  <p className="text-[8px] font-bold uppercase tracking-widest mt-2">Sem imagem</p>
                 </div>
               )}
             </div>
@@ -327,8 +356,8 @@ export default function MonitoringDashboard({ parentSectorId }: { parentSectorId
                       <Package className="w-4 h-4 text-primary" />
                     </div>
                     <div>
-                      <p className="text-[7px] text-primary font-black uppercase tracking-[0.2em] leading-none">Ativo Industrial</p>
-                      <h3 className="text-white font-black uppercase text-[11px] mt-0.5 tracking-tight truncate max-w-[160px]">{selectedMaterial.name}</h3>
+                      <p className="text-[7px] text-primary font-bold uppercase tracking-widest leading-none">Ativo Industrial</p>
+                      <h3 className="text-white font-bold uppercase text-[11px] mt-0.5 tracking-tight truncate max-w-[160px]">{selectedMaterial.name}</h3>
                     </div>
                  </div>
                  <button onClick={() => setSelectedMaterial(null)} className="w-6 h-6 bg-white/10 hover:bg-white/20 text-white rounded-md flex items-center justify-center transition-all">
@@ -338,33 +367,33 @@ export default function MonitoringDashboard({ parentSectorId }: { parentSectorId
               <div className="flex-1 overflow-y-auto">
                 <div className="p-4 space-y-4">
                   <div className="flex items-center justify-between">
-                    <span className="text-[8px] text-slate-400 font-black uppercase tracking-widest">Especificações Técnicas</span>
-                    <span className="bg-primary/10 text-primary text-[8px] font-black px-2 py-0.5 rounded-md uppercase border border-primary/20">
+                    <span className="text-[8px] text-slate-400 font-bold uppercase tracking-widest">Especificações Técnicas</span>
+                    <span className="bg-primary/10 text-primary text-[8px] font-bold px-2 py-0.5 rounded-md uppercase border border-primary/20">
                       Condição: {selectedMaterial.condition}
                     </span>
                   </div>
                   <div className="grid grid-cols-2 gap-x-6 gap-y-4 pt-2 border-t border-slate-50">
                     <div>
-                      <p className="text-[7px] text-slate-400 font-black uppercase tracking-widest mb-0.5">Fabricante</p>
+                      <p className="text-[7px] text-slate-400 font-bold uppercase tracking-widest mb-0.5">Fabricante</p>
                       <p className="font-bold text-navy text-[10px] truncate">{selectedMaterial.brand || '---'}</p>
                     </div>
                     <div>
-                      <p className="text-[7px] text-slate-400 font-black uppercase tracking-widest mb-0.5">Modelo</p>
+                      <p className="text-[7px] text-slate-400 font-bold uppercase tracking-widest mb-0.5">Modelo</p>
                       <p className="font-bold text-navy text-[10px] truncate">{selectedMaterial.model || '---'}</p>
                     </div>
                     <div>
-                      <p className="text-[7px] text-slate-400 font-black uppercase tracking-widest mb-0.5">Nº de Série</p>
+                      <p className="text-[7px] text-slate-400 font-bold uppercase tracking-widest mb-0.5">Nº de Série</p>
                       <p className="font-bold text-navy text-[10px] font-mono tracking-tighter truncate">{selectedMaterial.serial_number || '---'}</p>
                     </div>
                     <div>
-                      <p className="text-[7px] text-slate-400 font-black uppercase tracking-widest mb-0.5">Patrimônio</p>
+                      <p className="text-[7px] text-slate-400 font-bold uppercase tracking-widest mb-0.5">Patrimônio</p>
                       <p className="font-bold text-navy text-[10px] font-mono tracking-tighter truncate">{selectedMaterial.code || '---'}</p>
                     </div>
                   </div>
                 </div>
               </div>
               <div className="px-5 pb-5 pt-2">
-                <button onClick={() => setSelectedMaterial(null)} className="w-full bg-navy text-white font-black text-[9px] uppercase tracking-[0.2em] py-3 rounded-lg hover:bg-primary transition-all shadow-md active:scale-[0.98]">
+                <button onClick={() => setSelectedMaterial(null)} className="w-full bg-navy text-white font-bold text-[9px] uppercase tracking-widest py-3 rounded-lg hover:bg-primary transition-all shadow-md active:scale-[0.98]">
                   Fechar Detalhes
                 </button>
               </div>
@@ -376,11 +405,11 @@ export default function MonitoringDashboard({ parentSectorId }: { parentSectorId
       {/* Company Detail Modal */}
       {selectedCompany && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-navy/70 backdrop-blur-md animate-in fade-in duration-300">
-          <div className="bg-white w-full max-w-md rounded-[32px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 border border-slate-200">
+          <div className="bg-white w-full max-w-md rounded-2xl overflow-hidden shadow-xl animate-in zoom-in-95 duration-200 border border-slate-200">
              <div className="p-8">
                 <div className="flex justify-between items-start mb-8">
                    <div 
-                    className="w-20 h-20 rounded-3xl flex items-center justify-center text-white font-black text-3xl shadow-xl"
+                    className="w-20 h-20 rounded-2xl flex items-center justify-center text-white font-bold text-3xl shadow-xl"
                     style={{ backgroundColor: selectedCompany.theme_color || '#0032A0' }}
                    >
                       {selectedCompany.logo_url ? (
@@ -398,8 +427,8 @@ export default function MonitoringDashboard({ parentSectorId }: { parentSectorId
                 </div>
 
                 <div className="mb-8">
-                   <span className="text-[10px] font-black text-primary uppercase tracking-[0.2em]">Perfil da Empresa</span>
-                   <h3 className="text-2xl font-black text-navy uppercase leading-tight mt-1">{selectedCompany.full_name}</h3>
+                   <span className="text-[10px] font-bold text-primary uppercase tracking-widest">Perfil da Empresa</span>
+                   <h3 className="text-2xl font-bold text-navy uppercase leading-tight mt-1">{selectedCompany.full_name}</h3>
                 </div>
 
                 <div className="space-y-6">
@@ -410,7 +439,7 @@ export default function MonitoringDashboard({ parentSectorId }: { parentSectorId
 
                 <button 
                   onClick={() => setSelectedCompany(null)}
-                  className="w-full bg-navy text-white font-black text-xs uppercase tracking-widest py-4 rounded-2xl mt-10 hover:bg-[#002880] transition-all shadow-xl shadow-navy/20"
+                  className="w-full bg-navy text-white font-bold text-xs uppercase tracking-widest py-4 rounded-xl mt-10 hover:bg-[#002880] transition-all shadow-xl shadow-navy/20"
                 >
                   Fechar Detalhes
                 </button>
@@ -425,7 +454,7 @@ export default function MonitoringDashboard({ parentSectorId }: { parentSectorId
 function DetailItem({ label, value }: { label: string, value: string }) {
   return (
     <div className="flex flex-col">
-       <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1.5">{label}</p>
+       <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1.5">{label}</p>
        <p className="font-bold text-navy text-sm uppercase">{value}</p>
     </div>
   );
@@ -448,10 +477,10 @@ function AssetList({
     <div className="w-full">
       {/* Header da Lista (Desktop) */}
       <div className="hidden md:grid grid-cols-12 gap-4 px-4 py-2 border-b border-slate-100 mb-2">
-        <div className="col-span-5 text-[8px] font-black text-slate-300 uppercase tracking-[0.2em]">Equipamento / Empresa</div>
-        <div className="col-span-3 text-[8px] font-black text-slate-300 uppercase tracking-[0.2em]">Patrimônio</div>
-        <div className="col-span-2 text-[8px] font-black text-slate-300 uppercase tracking-[0.2em]">Condição</div>
-        <div className="col-span-2 text-right text-[8px] font-black text-slate-300 uppercase tracking-[0.2em]">Ações</div>
+        <div className="col-span-5 text-[8px] font-bold text-slate-300 uppercase tracking-widest">Equipamento / Empresa</div>
+        <div className="col-span-3 text-[8px] font-bold text-slate-300 uppercase tracking-widest">Patrimônio</div>
+        <div className="col-span-2 text-[8px] font-bold text-slate-300 uppercase tracking-widest">Condição</div>
+        <div className="col-span-2 text-right text-[8px] font-bold text-slate-300 uppercase tracking-widest">Ações</div>
       </div>
 
       <div className="space-y-1">
@@ -489,7 +518,7 @@ function AssetListItem({
       <div className="col-span-12 md:col-span-5 flex items-center gap-3">
         <button 
           onClick={onViewCompany}
-          className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-black text-[10px] shadow-sm overflow-hidden flex-shrink-0"
+          className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-[10px] shadow-sm overflow-hidden flex-shrink-0"
           style={{ backgroundColor: item.request.profile.theme_color || '#0032A0' }}
         >
           {item.request.profile.logo_url ? (
@@ -501,7 +530,7 @@ function AssetListItem({
         <div className="flex flex-col overflow-hidden">
           <button 
             onClick={onView}
-            className="text-[10px] font-black text-navy uppercase leading-tight text-left hover:text-primary transition-colors truncate"
+            className="text-[10px] font-bold text-navy uppercase leading-tight text-left hover:text-primary transition-colors truncate"
           >
             {item.name}
           </button>
@@ -520,7 +549,7 @@ function AssetListItem({
 
       {/* Condição */}
       <div className="hidden md:block md:col-span-2">
-        <span className={`text-[8px] font-black uppercase tracking-widest ${
+        <span className={`text-[8px] font-bold uppercase tracking-widest ${
           item.condition === 'NOVO' ? 'text-emerald-600' : 'text-amber-600'
         }`}>
           {item.condition}

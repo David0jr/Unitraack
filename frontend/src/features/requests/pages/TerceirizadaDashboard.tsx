@@ -70,6 +70,19 @@ export default function TerceirizadaDashboard() {
     'CANCELED': { label: 'Cancelado', color: 'text-slate-400', bg: 'bg-slate-50', icon: XOctagon },
   };
 
+  const formatDateTime = (dateStr: string) => {
+    if (!dateStr) return { date: 'N/A', time: 'N/A' };
+    try {
+      const d = new Date(dateStr);
+      return {
+        date: d.toLocaleDateString('pt-BR'),
+        time: d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+      };
+    } catch (e) {
+      return { date: 'Data Inválida', time: '--:--' };
+    }
+  };
+
   const handleCancel = async (id: string) => {
     const result = await Swal.fire({
       title: 'Cancelar Solicitação?',
@@ -133,9 +146,11 @@ export default function TerceirizadaDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-navy font-brand antialiased">
+    <div className="min-h-screen bg-[#F8FAFC] bg-industrial-grid text-navy font-brand antialiased relative">
+      <div className="absolute inset-0 bg-gradient-to-b from-white/50 to-transparent pointer-events-none"></div>
+      
       {/* Navbar Superior */}
-      <nav className="bg-white border-b border-slate-100 sticky top-0 z-50 shadow-sm">
+      <nav className="bg-white/80 backdrop-blur-md border-b border-slate-100 sticky top-0 z-50 shadow-sm relative">
         <div className="max-w-7xl mx-auto px-6 h-20 flex justify-between items-center">
           <div className="flex items-center gap-4">
              <img 
@@ -145,14 +160,14 @@ export default function TerceirizadaDashboard() {
             />
             <div className="h-6 w-px bg-slate-200 mx-2 hidden md:block"></div>
             <div className="hidden md:block">
-              <span className="text-[10px] text-slate-400 font-black uppercase tracking-[0.2em] leading-none">Canal do Parceiro</span>
-              <h1 className="font-black text-navy text-sm uppercase">Painel de Logística</h1>
+              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-none">Canal do Parceiro</span>
+              <h1 className="font-bold text-navy text-sm uppercase">Painel de Logística</h1>
             </div>
           </div>
 
           <div className="flex items-center gap-6">
             <div className="hidden sm:flex flex-col items-end">
-              <p className="text-xs font-black text-navy uppercase leading-none">{profile?.full_name || 'Carregando...'}</p>
+              <p className="text-xs font-bold text-navy uppercase leading-none">{profile?.full_name || 'Carregando...'}</p>
               <p className="text-[10px] text-primary font-bold uppercase tracking-widest mt-1">Fornecedor Ativo</p>
             </div>
             <button 
@@ -166,12 +181,12 @@ export default function TerceirizadaDashboard() {
         </div>
       </nav>
 
-      <main className="max-w-7xl mx-auto px-6 py-10">
+      <main className="max-w-7xl mx-auto px-6 py-10 relative z-10">
         {/* Welcome Section */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
           <div>
-            <h2 className="text-3xl font-black text-navy uppercase tracking-tighter">
-              Olá, <span className="text-primary italic">{profile?.representative_name?.split(' ')[0] || 'Representante'}</span>
+            <h2 className="text-3xl font-bold text-navy uppercase tracking-tighter">
+              Olá, <span className="text-primary italic">{profile?.full_name || 'Empresa'}</span>
             </h2>
             <p className="text-slate-400 font-medium mt-1">Gerencie suas solicitações de entrada e remessas de materiais.</p>
           </div>
@@ -186,7 +201,7 @@ export default function TerceirizadaDashboard() {
                 navigate('/painel/nova-solicitacao');
               }
             }}
-            className="flex items-center gap-3 bg-navy hover:bg-[#002880] text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-navy/20 transition-all active:scale-[0.98]"
+            className="flex items-center gap-3 bg-navy hover:bg-[#002880] text-white px-8 py-4 rounded-xl font-bold text-xs uppercase tracking-widest shadow-xl shadow-navy/20 transition-all active:scale-[0.98]"
           >
             <Plus className="w-5 h-5" />
             Nova Solicitação
@@ -216,20 +231,20 @@ export default function TerceirizadaDashboard() {
         </div>
 
         {/* Requests Table/List */}
-        <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
           <div className="p-6 border-b border-slate-50 flex items-center justify-between">
-            <h3 className="font-black text-navy uppercase tracking-widest text-xs">Histórico Recente</h3>
-            <span className="bg-slate-50 text-slate-400 text-[10px] font-black px-3 py-1 rounded-full uppercase">Últimas 30 dias</span>
+            <h3 className="font-bold text-navy uppercase tracking-widest text-xs">Histórico Recente</h3>
+            <span className="bg-slate-50 text-slate-400 text-[10px] font-bold px-3 py-1 rounded-full uppercase">Últimas 30 dias</span>
           </div>
 
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-slate-50/50">
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Equipamento/Nota</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Setor Destino</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Data Solicitação</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
+                  <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Equipamento/Nota</th>
+                  <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Setor Destino</th>
+                  <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Data Solicitação</th>
+                  <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Status</th>
                   <th className="px-6 py-4"></th>
                 </tr>
               </thead>
@@ -274,7 +289,7 @@ export default function TerceirizadaDashboard() {
                          </div>
                       </td>
                       <td className="px-6 py-5">
-                        <span className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${status.bg} ${status.color}`}>
+                        <span className={`px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest ${status.bg} ${status.color}`}>
                           {status.label}
                         </span>
                       </td>
@@ -335,11 +350,11 @@ export default function TerceirizadaDashboard() {
       {/* Request Details Modal */}
       {selectedRequest && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-navy/70 backdrop-blur-md animate-in fade-in duration-300">
-          <div className="bg-white w-full max-w-2xl rounded-[32px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 border border-slate-200 flex flex-col max-h-[90vh]">
+          <div className="bg-white w-full max-w-2xl rounded-2xl overflow-hidden shadow-xl animate-in zoom-in-95 duration-200 border border-slate-200 flex flex-col max-h-[90vh]">
             <div className="p-8 border-b border-slate-50 flex justify-between items-center">
                <div>
-                  <span className="text-[10px] font-black text-primary uppercase tracking-widest">Protocolo #{selectedRequest.id.slice(0, 8)}</span>
-                  <h3 className="text-2xl font-black text-navy uppercase tracking-tighter">Detalhes da Solicitação</h3>
+                  <span className="text-[10px] font-bold text-primary uppercase tracking-widest">Protocolo #{selectedRequest.id.slice(0, 8)}</span>
+                  <h3 className="text-2xl font-bold text-navy uppercase tracking-tighter">Detalhes da Solicitação</h3>
                </div>
                <button onClick={() => setSelectedRequest(null)} className="p-2 bg-slate-50 text-slate-400 hover:text-navy hover:bg-slate-100 rounded-xl transition-all">
                   <XOctagon className="w-6 h-6" />
@@ -351,28 +366,28 @@ export default function TerceirizadaDashboard() {
                   <DetailItem label="Motorista" value={selectedRequest.driver_name} />
                   <DetailItem label="Placa" value={selectedRequest.plate} />
                   <DetailItem label="Setor" value={selectedRequest.sector} />
-                  <DetailItem label="Data Agendada" value={new Date(selectedRequest.entry_date).toLocaleDateString()} />
+                  <DetailItem label="Data Agendada" value={`${formatDateTime(selectedRequest.entry_date).date} às ${formatDateTime(selectedRequest.entry_date).time}`} />
                </div>
 
                <div className="space-y-4">
-                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Materiais na Remessa ({selectedRequest.materials?.length || 0})</h4>
+                  <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Materiais na Remessa ({selectedRequest.materials?.length || 0})</h4>
                   <div className="grid grid-cols-1 gap-3">
                      {selectedRequest.materials?.map((mat: any) => (
                        <button 
                         key={mat.id}
                         onClick={() => setSelectedMaterial(mat)}
-                        className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 hover:border-primary/30 transition-all group"
+                        className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100 hover:border-primary/30 transition-all group"
                        >
                           <div className="flex items-center gap-4">
                              <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow-sm">
                                 <Package className="w-5 h-5 text-primary" />
                              </div>
                              <div className="text-left">
-                                <p className="text-xs font-black text-navy uppercase leading-none mb-1">{mat.name}</p>
+                                <p className="text-xs font-bold text-navy uppercase leading-none mb-1">{mat.name}</p>
                                 <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">SN: {mat.serial_number || 'REGISTRO ÚNICO'}</p>
                              </div>
                           </div>
-                          <div className="text-[9px] font-black text-primary uppercase tracking-widest bg-primary/5 px-3 py-1 rounded-full group-hover:bg-primary group-hover:text-white transition-all">
+                          <div className="text-[9px] font-bold text-primary uppercase tracking-widest bg-primary/5 px-3 py-1 rounded-full group-hover:bg-primary group-hover:text-white transition-all">
                              Ver Foto/Specs
                           </div>
                        </button>
@@ -382,7 +397,7 @@ export default function TerceirizadaDashboard() {
             </div>
 
             <div className="p-8 border-t border-slate-50">
-               <button onClick={() => setSelectedRequest(null)} className="w-full py-4 bg-navy text-white font-black uppercase text-xs tracking-widest rounded-2xl hover:bg-primary transition-all">
+               <button onClick={() => setSelectedRequest(null)} className="w-full py-4 bg-navy text-white font-bold uppercase text-xs tracking-widest rounded-xl hover:bg-primary transition-all">
                   Fechar
                </button>
             </div>
@@ -404,7 +419,7 @@ export default function TerceirizadaDashboard() {
               ) : (
                 <div className="w-full h-full flex flex-col items-center justify-center text-slate-700">
                   <Package className="w-8 h-8 opacity-10" />
-                  <p className="text-[8px] font-black uppercase tracking-widest mt-2">Sem imagem</p>
+                  <p className="text-[8px] font-bold uppercase tracking-widest mt-2">Sem imagem</p>
                 </div>
               )}
             </div>
@@ -415,8 +430,8 @@ export default function TerceirizadaDashboard() {
                       <Package className="w-4 h-4 text-primary" />
                     </div>
                     <div>
-                      <p className="text-[7px] text-primary font-black uppercase tracking-[0.2em] leading-none">Ativo Industrial</p>
-                      <h3 className="text-white font-black uppercase text-[11px] mt-0.5 tracking-tight truncate max-w-[160px]">{selectedMaterial.name}</h3>
+                      <p className="text-[7px] text-primary font-bold uppercase tracking-widest leading-none">Ativo Industrial</p>
+                      <h3 className="text-white font-bold uppercase text-[11px] mt-0.5 tracking-tight truncate max-w-[160px]">{selectedMaterial.name}</h3>
                     </div>
                  </div>
                  <button onClick={() => setSelectedMaterial(null)} className="w-6 h-6 bg-white/10 hover:bg-white/20 text-white rounded-md flex items-center justify-center transition-all">
@@ -426,32 +441,32 @@ export default function TerceirizadaDashboard() {
               <div className="flex-1 overflow-y-auto">
                 <div className="p-4 space-y-4">
                   <div className="flex items-center justify-between">
-                    <span className="text-[8px] text-slate-400 font-black uppercase tracking-widest">Especificações Técnicas</span>
-                    <span className="bg-primary/10 text-primary text-[8px] font-black px-2 py-0.5 rounded-md uppercase border border-primary/20">
+                    <span className="text-[8px] text-slate-400 font-bold uppercase tracking-widest">Especificações Técnicas</span>
+                    <span className="bg-primary/10 text-primary text-[8px] font-bold px-2 py-0.5 rounded-md uppercase border border-primary/20">
                       Condição: {selectedMaterial.condition}
                     </span>
                   </div>
                   <div className="grid grid-cols-2 gap-x-6 gap-y-4 pt-2 border-t border-slate-50">
                     <div>
-                      <p className="text-[7px] text-slate-400 font-black uppercase tracking-widest mb-0.5">Fabricante</p>
+                      <p className="text-[7px] text-slate-400 font-bold uppercase tracking-widest mb-0.5">Fabricante</p>
                       <p className="font-bold text-navy text-[10px] truncate">{selectedMaterial.brand || '---'}</p>
                     </div>
                     <div>
-                      <p className="text-[7px] text-slate-400 font-black uppercase tracking-widest mb-0.5">Modelo</p>
+                      <p className="text-[7px] text-slate-400 font-bold uppercase tracking-widest mb-0.5">Modelo</p>
                       <p className="font-bold text-navy text-[10px] truncate">{selectedMaterial.model || '---'}</p>
                     </div>
                     <div>
-                      <p className="text-[7px] text-slate-400 font-black uppercase tracking-widest mb-0.5">Nº de Série</p>
+                      <p className="text-[7px] text-slate-400 font-bold uppercase tracking-widest mb-0.5">Nº de Série</p>
                       <p className="font-bold text-navy text-[10px] font-mono tracking-tighter truncate">{selectedMaterial.serial_number || '---'}</p>
                     </div>
                     <div>
-                      <p className="text-[7px] text-slate-400 font-black uppercase tracking-widest mb-0.5">Patrimônio</p>
+                      <p className="text-[7px] text-slate-400 font-bold uppercase tracking-widest mb-0.5">Patrimônio</p>
                       <p className="font-bold text-navy text-[10px] font-mono tracking-tighter truncate">{selectedMaterial.code || '---'}</p>
                     </div>
                   </div>
                   {selectedMaterial.description && (
                     <div className="pt-3 border-t border-slate-50">
-                       <p className="text-[7px] text-slate-400 font-black uppercase tracking-widest mb-1.5">Notas de Campo</p>
+                       <p className="text-[7px] text-slate-400 font-bold uppercase tracking-widest mb-1.5">Notas de Campo</p>
                        <div className="bg-slate-50/50 p-3 rounded-lg border border-slate-100/50">
                           <p className="text-[10px] text-slate-500 leading-relaxed font-medium italic">
                             "{selectedMaterial.description}"
@@ -462,7 +477,7 @@ export default function TerceirizadaDashboard() {
                 </div>
               </div>
               <div className="px-5 pb-5 pt-2">
-                <button onClick={() => setSelectedMaterial(null)} className="w-full bg-navy text-white font-black text-[9px] uppercase tracking-[0.2em] py-3 rounded-lg hover:bg-primary transition-all shadow-md active:scale-[0.98]">
+                <button onClick={() => setSelectedMaterial(null)} className="w-full bg-navy text-white font-bold text-[9px] uppercase tracking-widest py-3 rounded-lg hover:bg-primary transition-all shadow-md active:scale-[0.98]">
                   Fechar Detalhes
                 </button>
               </div>
@@ -477,7 +492,7 @@ export default function TerceirizadaDashboard() {
 function DetailItem({ label, value }: { label: string, value: string }) {
   return (
     <div className="flex flex-col">
-       <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1.5">{label}</p>
+       <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1.5">{label}</p>
        <p className="font-bold text-navy text-sm uppercase">{value}</p>
     </div>
   );
@@ -485,12 +500,12 @@ function DetailItem({ label, value }: { label: string, value: string }) {
 
 function StatCard({ label, value, icon, color }: { label: string, value: string, icon: any, color: string }) {
   return (
-    <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center justify-between">
+    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
       <div>
-        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">{label}</p>
-        <p className="text-3xl font-black text-navy">{value}</p>
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{label}</p>
+        <p className="text-3xl font-bold text-navy">{value}</p>
       </div>
-      <div className={`p-4 rounded-2xl ${color}`}>
+      <div className={`p-4 rounded-xl ${color}`}>
         {icon}
       </div>
     </div>

@@ -53,11 +53,11 @@ export default function AdminLogin() {
       <div className="w-full max-w-5xl z-10">
         {/* Logo Section */}
         <div className="flex flex-col items-center mb-8">
-          <span className="text-[12px] font-bold uppercase tracking-[0.3em] text-[#2D3A4B]">Unitraack</span>
+          <span className="text-[12px] font-bold uppercase tracking-widest text-[#2D3A4B]">Unitraack</span>
         </div>
 
         {/* Main Card */}
-        <div className="bg-white rounded-[2rem] shadow-2xl overflow-hidden flex flex-col md:flex-row min-h-[500px]">
+        <div className="bg-white rounded-2xl shadow-xl overflow-hidden flex flex-col md:flex-row min-h-[500px]">
           {/* Left Side - Illustration / Particle Background */}
           <div className="w-full md:w-1/2 bg-[#F8FAFF] p-12 flex items-center justify-center relative overflow-hidden hidden md:flex">
             {/* Particle Canvas */}
@@ -96,7 +96,7 @@ export default function AdminLogin() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="seuemail@gmail.com"
-                    className="w-full px-5 py-4 bg-[#F8FAFF] border border-slate-100 rounded-2xl text-[#2D3A4B] placeholder-slate-300 focus:outline-none focus:ring-2 focus:ring-[#7C5CFF]/20 focus:border-[#7C5CFF] transition-all pr-12"
+                    className="w-full px-5 py-4 bg-[#F8FAFF] border border-slate-100 rounded-xl text-[#2D3A4B] placeholder-slate-300 focus:outline-none focus:ring-2 focus:ring-[#7C5CFF]/20 focus:border-[#7C5CFF] transition-all pr-12"
                     required
                   />
                   <UserCircle2 className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 w-6 h-6" />
@@ -108,7 +108,7 @@ export default function AdminLogin() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full px-5 py-4 bg-[#F8FAFF] border border-slate-100 rounded-2xl text-[#2D3A4B] placeholder-slate-300 focus:outline-none focus:ring-2 focus:ring-[#7C5CFF]/20 focus:border-[#7C5CFF] transition-all pr-12"
+                    className="w-full px-5 py-4 bg-[#F8FAFF] border border-slate-100 rounded-xl text-[#2D3A4B] placeholder-slate-300 focus:outline-none focus:ring-2 focus:ring-[#7C5CFF]/20 focus:border-[#7C5CFF] transition-all pr-12"
                     required
                   />
                   <Lock className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 w-6 h-6" />
@@ -118,7 +118,7 @@ export default function AdminLogin() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-4 bg-[#7C5CFF] hover:bg-[#6A4BE0] text-white font-bold rounded-2xl shadow-lg shadow-purple-200 flex items-center justify-center gap-3 transition-all active:scale-[0.98] disabled:opacity-70 uppercase tracking-widest text-sm"
+                className="w-full py-4 bg-[#7C5CFF] hover:bg-[#6A4BE0] text-white font-bold rounded-xl shadow-lg shadow-purple-200 flex items-center justify-center gap-3 transition-all active:scale-[0.98] disabled:opacity-70 uppercase tracking-widest text-sm"
               >
                 {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (
                   <>
