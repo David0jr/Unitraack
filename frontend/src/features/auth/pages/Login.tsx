@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useTenant } from '../../../contexts/TenantContext';
@@ -10,16 +10,26 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const { login } = useAuth();
+  const { login, signOut, user, profile, loading: authLoading } = useAuth();
   const { tenant } = useTenant();
   const navigate = useNavigate();
+  const isLoggingIn = useRef(false);
+
+  // SECURITY: Se o usuário chegar nesta página já estando logado (ex: via botão 'Voltar'), 
+  // forçamos o logout para proteger a rota e impedir o re-ingresso via botão 'Avançar'.
+  useEffect(() => {
+    if (!authLoading && user && profile && !isLoggingIn.current) {
+      console.warn('[Login] Sessão ativa detectada na página de login. Invalidando sessão para proteção...');
+      signOut();
+    }
+  }, [user, profile, authLoading, signOut]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
-    
     try {
+      isLoggingIn.current = true;
       // 10 second timeout for the entire login process
       const loginPromise = login(email, password);
       const timeoutPromise = new Promise((_, reject) => 
@@ -48,6 +58,7 @@ export default function Login() {
         navigate('/painel');
       }
     } catch (err: any) {
+      isLoggingIn.current = false;
       console.error('[Login] Erro:', err);
       setError(err.message || 'Credenciais inválidas.');
     } finally {

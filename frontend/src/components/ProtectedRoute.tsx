@@ -45,10 +45,13 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
     }
 
     // 2. Tentar acessar painel de outra usina (se estiver logado em usina-a mas tentar entrar em /usina-b/painel)
-    // Nota: isso exige que o slug na URL corresponda ao profile.tenant.subdomain
     if (slug && profile.tenant?.subdomain && slug !== profile.tenant.subdomain && profile.role !== 'SUPER_ADMIN') {
       return <Navigate to={`/${profile.tenant.subdomain}/painel`} replace />;
     }
+  } else if (!loading && user) {
+    // SECURITY: Se houver user mas não houver profile após carregar, a conta é inválida para o sistema
+    console.warn('[ProtectedRoute] Usuário autenticado sem perfil. Redirecionando...');
+    return <Navigate to="/login" state={{ error: 'Perfil não encontrado.' }} replace />;
   }
 
   return <>{children}</>;

@@ -6,7 +6,14 @@ export type ReviewAction = 'APPROVE' | 'REJECT';
 export class ReviewEntryRequest {
   constructor(private requestRepository: IRequestRepository) {}
 
-  async execute(requestId: string, action: ReviewAction, role: string, reviewerId: string, reason?: string): Promise<void> {
+  async execute(requestId: string, action: ReviewAction, role: string, reviewerId: string, tenantId: string, reason?: string): Promise<void> {
+    // Verificar se a requisição existe e pertence ao tenant
+    const request = await this.requestRepository.findById(requestId);
+    if (!request) throw new Error('Requisição não encontrada.');
+    if (request.tenant_id !== tenantId) {
+      throw new Error('Acesso negado: Esta requisição não pertence à sua unidade.');
+    }
+
     let newStatus: RequestStatus;
 
     if (role === 'LIDER_SETOR') {

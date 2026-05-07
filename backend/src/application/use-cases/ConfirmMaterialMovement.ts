@@ -5,11 +5,16 @@ import { supabaseAdmin } from '../../config/supabase';
 export class ConfirmMaterialMovement {
   constructor(private requestRepository: IRequestRepository) {}
 
-  async execute(requestId: string, materialIds: string[], type: 'ENTRY' | 'EXIT', movedBy: string, signature?: string): Promise<void> {
+  async execute(requestId: string, materialIds: string[], type: 'ENTRY' | 'EXIT', movedBy: string, tenantId: string, signature?: string): Promise<void> {
     const request = await this.requestRepository.findById(requestId);
     
     if (!request) {
       throw new Error('Requisição não encontrada.');
+    }
+
+    // SECURITY: Garantir isolamento de dados (Prevenção IDOR)
+    if (request.tenant_id !== tenantId) {
+      throw new Error('Acesso negado: Esta requisição pertence a outra unidade industrial.');
     }
 
     const status: MaterialStatus = type === 'ENTRY' ? 'IN_PLANTA' : 'OUT_PLANTA';

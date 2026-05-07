@@ -31,29 +31,39 @@ function HomeRedirect() {
     if (userSlug) {
       return <Navigate to={`/${userSlug}/painel`} replace />;
     }
-    return <Navigate to="/painel" replace />;
-  }
-  
-  if (isAdmin) {
+    // Fallback de segurança se não houver slug (não deveria acontecer)
     return <Navigate to="/admin/login" replace />;
   }
   
-  if (isSubdomain) {
-    return <Navigate to="/login" replace />;
-  }
-  
-  // Tenta usar o slug da URL atual ou do perfil carregado (se houver)
-  const finalSlug = tenantSlug || profile?.tenant?.subdomain;
-
-  if (finalSlug) {
-    return <Navigate to={`/${finalSlug}/login`} replace />;
-  }
-  
+  // Se não houver nada (no slug, no subdomain, no login), 
+  // o único destino válido sem contexto é o login administrativo global.
   return <Navigate to="/admin/login" replace />;
 }
 
-function LoginDispatcher() {
-  return <Login />;
+/**
+ * Componente para garantir que rotas genéricas (sem slug na URL) 
+ * só funcionem em ambiente de subdomínio.
+ */
+/**
+ * Componente para garantir que rotas genéricas (sem slug na URL) 
+ * só funcionem em ambiente de subdomínio.
+ */
+function SubdomainOrNotFound({ children }: { children: React.ReactNode }) {
+  const { isSubdomain } = useTenant();
+  
+  // No localhost, se não houver um slug no path (ex: /usina-lins/...),
+  // esta rota genérica deve ser tratada como inexistente.
+  if (!isSubdomain && window.location.hostname === 'localhost') {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-4">
+        <h1 className="text-4xl font-bold text-navy mb-2">404</h1>
+        <p className="text-slate-500 text-center">Esta rota requer um identificador de usina válido.</p>
+        <p className="text-xs text-slate-400 mt-4">Exemplo: /usina-lins/login</p>
+      </div>
+    );
+  }
+  
+  return <>{children}</>;
 }
 
 function App() {
@@ -72,7 +82,11 @@ function App() {
 
             {/* Tenant Routes */}
             <Route path="/:tenantSlug/login" element={<Login />} />
-            <Route path="/login" element={<LoginDispatcher />} />
+            <Route path="/login" element={
+              <SubdomainOrNotFound>
+                <Login />
+              </SubdomainOrNotFound>
+            } />
             
             <Route path="/:tenantSlug/cadastro" element={<RegisterTerceirizada />} />
             <Route path="/:tenantSlug/registro-interno" element={<RegisterInternal />} />
@@ -91,9 +105,11 @@ function App() {
             } />
 
             <Route path="/painel" element={
-              <ProtectedRoute>
-                <RoleDispatcher />
-              </ProtectedRoute>
+              <SubdomainOrNotFound>
+                <ProtectedRoute>
+                  <RoleDispatcher />
+                </ProtectedRoute>
+              </SubdomainOrNotFound>
             } />
 
             <Route path="/:tenantSlug/:role/painel/nova-solicitacao" element={
@@ -109,9 +125,11 @@ function App() {
             } />
 
             <Route path="/painel/nova-solicitacao" element={
-              <ProtectedRoute>
-                <NovaSolicitacao />
-              </ProtectedRoute>
+              <SubdomainOrNotFound>
+                <ProtectedRoute>
+                  <NovaSolicitacao />
+                </ProtectedRoute>
+              </SubdomainOrNotFound>
             } />
 
             {/* Smart Redirects for Root and unknown paths */}

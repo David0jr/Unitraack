@@ -4,9 +4,14 @@ import { EntryRequest, Material } from '../../domain/entities/EntryRequest';
 export class UpdateEntryRequest {
   constructor(private requestRepository: IRequestRepository) {}
 
-  async execute(requestId: string, requestData: Partial<EntryRequest>, materials: Partial<Material>[]): Promise<void> {
+  async execute(requestId: string, requestData: Partial<EntryRequest>, materials: Partial<Material>[], tenantId: string): Promise<void> {
     const existing = await this.requestRepository.findById(requestId);
     if (!existing) throw new Error('Solicitação não encontrada.');
+
+    // SECURITY: Garantir isolamento de dados
+    if (existing.tenant_id !== tenantId) {
+      throw new Error('Acesso negado: Esta requisição pertence a outra unidade industrial.');
+    }
 
     // Só permite editar se não estiver em estados finais ou dentro da planta
     // Só permite editar se não for finalizado ou já cancelado

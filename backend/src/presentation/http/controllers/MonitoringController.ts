@@ -53,7 +53,10 @@ export class MonitoringController {
   static async updateMaterialPosition(req: AuthRequest, res: Response): Promise<any> {
     try {
       const { material_id, x, y } = req.body;
-      await monitoringService.updateMaterialPosition(material_id, x, y);
+      const profile = await userService.findProfileById(req.user.id);
+      if (!profile || !profile.tenant_id) return ApiResponse.error(res, 'Acesso negado.', 403);
+
+      await monitoringService.updateMaterialPosition(profile.tenant_id as string, material_id, x, y);
       return ApiResponse.success(res, { message: 'Posição do material atualizada.' });
     } catch (error: any) {
       return ApiResponse.error(res, error.message);

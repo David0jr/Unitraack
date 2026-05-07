@@ -3,7 +3,7 @@ import { IRequestRepository } from '../../domain/repositories/IRequestRepository
 export class DeleteEntryRequest {
   constructor(private requestRepository: IRequestRepository) {}
 
-  async execute(requestId: string, userRole?: string): Promise<void> {
+  async execute(requestId: string, userRole: string, tenantId: string): Promise<void> {
     const existing = await this.requestRepository.findById(requestId);
     if (!existing) throw new Error('Solicitação não encontrada.');
 
@@ -11,6 +11,11 @@ export class DeleteEntryRequest {
     if (userRole === 'SUPER_ADMIN') {
       await this.requestRepository.delete(requestId);
       return;
+    }
+
+    // Validar isolamento de tenant para outros papéis
+    if (existing.tenant_id !== tenantId) {
+      throw new Error('Acesso negado: Esta requisição não pertence à sua unidade.');
     }
 
     // Apenas permite deletar se estiver cancelada ou recusada

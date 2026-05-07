@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../contexts/AuthContext';
 
@@ -10,8 +10,18 @@ export default function AdminLogin() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const { login } = useAuth();
+  const { login, signOut, user, profile, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const isLoggingIn = useRef(false);
+
+  // SECURITY: Se o usuário chegar nesta página já estando logado (ex: via botão 'Voltar'), 
+  // forçamos o logout para proteger a rota e impedir o re-ingresso via botão 'Avançar'.
+  useEffect(() => {
+    if (!authLoading && user && profile && !isLoggingIn.current) {
+      console.warn('[AdminLogin] Sessão ativa detectada na página de login. Invalidando sessão para proteção...');
+      signOut();
+    }
+  }, [user, profile, authLoading, signOut]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -19,6 +29,7 @@ export default function AdminLogin() {
     setError('');
 
     try {
+      isLoggingIn.current = true;
       const startTime = Date.now();
       console.log('[Login] Iniciando autenticação administrativa...');
 
@@ -35,6 +46,7 @@ export default function AdminLogin() {
       console.log('[Login] Sucesso! Redirecionando para o painel...');
       navigate('/admin/painel');
     } catch (err: any) {
+      isLoggingIn.current = false;
       console.error('[Login] Erro:', err);
       setError(err.message || 'Credenciais inválidas.');
     } finally {

@@ -199,13 +199,19 @@ export class MonitoringService {
     }
   }
 
-  /**
-   * Atualiza a posição manual de um material (ícone) no mapa.
-   * @param materialId ID do material
-   * @param x Posição X (layout)
-   * @param y Posição Y (layout)
-   */
-  async updateMaterialPosition(materialId: string, x: number, y: number) {
+  async updateMaterialPosition(tenantId: string, materialId: string, x: number, y: number) {
+    // Verificar se o material pertence ao tenant
+    const { data, error: checkError } = await supabaseAdmin
+      .from('materials')
+      .select('id')
+      .eq('id', materialId)
+      .eq('tenant_id', tenantId)
+      .single();
+
+    if (checkError || !data) {
+      throw new Error('Acesso negado: Este material não pertence à sua unidade.');
+    }
+
     const { error } = await supabaseAdmin
       .from('materials')
       .update({ layout_x: x, layout_y: y })

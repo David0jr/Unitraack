@@ -158,16 +158,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     let mounted = true;
-    const isInitialLoad = { current: true };
 
-    // Safety timeout: prevents infinite loading if Supabase connection hangs
+    // Timeout de segurança: 5 segundos para não travar a UI infinitamente
     const safeTimeout = setTimeout(() => {
       if (mounted) {
-        console.warn('[Auth] Initialization timed out (10s). Forcing UI to render.');
+        console.warn('[Auth] Timeout atingido na inicialização da sessão.');
         setLoading(false);
-        isInitialLoad.current = false;
       }
-    }, 10000);
+    }, 5000);
 
     const initSession = async () => {
       try {
@@ -178,8 +176,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (mounted) setUser(session?.user ?? null);
 
         if (session?.user) {
-          // If fetchProfile hangs, we don't want to block UI infinitely, but we still await
-          // We rely on the safeTimeout to unlock the UI if it takes too long
           await fetchProfile(session.user.id);
         }
 
@@ -193,7 +189,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (mounted) {
           clearTimeout(safeTimeout);
           setLoading(false);
-          isInitialLoad.current = false;
         }
       }
     };
@@ -262,7 +257,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signOut = async () => {
-    await authService.signOut();
+    try {
+      await authService.signOut();
+      const tokenKey = getTokenKey();
+      sessionStorage.removeItem(tokenKey);
+      sessionStorage.clear(); // Limpeza total por segurança
+      setUser(null);
+      setProfile(null);
+    } catch (err) {
+      console.error('Erro ao fazer logout:', err);
+    }
   };
 
   return (

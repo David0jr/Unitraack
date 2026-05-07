@@ -98,10 +98,10 @@ export class RequestController {
       const id = req.params.id as string;
       const { acao, reason } = req.body;
       const profile = await userService.findProfileById(req.user.id);
-      if (!profile) return ApiResponse.error(res, 'Perfil não encontrado.', 404);
+      if (!profile || !profile.tenant_id) return ApiResponse.error(res, 'Perfil não encontrado.', 404);
 
       const useCase = new ReviewEntryRequest(requestRepo);
-      await useCase.execute(id, acao, profile.role, req.user.id, reason);
+      await useCase.execute(id, acao, profile.role, req.user.id, profile.tenant_id, reason);
       return ApiResponse.success(res, { message: `Requisição processada com sucesso!` });
     } catch (error: any) {
       console.error("[RequestController.review] Erro:", error);
@@ -112,8 +112,11 @@ export class RequestController {
   static async confirmEntry(req: AuthRequest, res: Response) {
     try {
       const id = req.params.id as string;
+      const profile = await userService.findProfileById(req.user.id);
+      if (!profile || !profile.tenant_id) return ApiResponse.error(res, 'Tenant não identificado.', 403);
+
       const useCase = new ConfirmEntry(requestRepo);
-      await useCase.execute(id, req.user.id);
+      await useCase.execute(id, req.user.id, profile.tenant_id);
       return ApiResponse.success(res, { message: 'Entrada confirmada com sucesso!' });
     } catch (error: any) {
       console.error("[RequestController.confirmEntry] Erro:", error);
@@ -125,8 +128,11 @@ export class RequestController {
     try {
       const id = req.params.id as string;
       const { materialIds, type, signature } = req.body; // type: 'ENTRY' | 'EXIT'
+      const profile = await userService.findProfileById(req.user.id);
+      if (!profile || !profile.tenant_id) return ApiResponse.error(res, 'Tenant não identificado.', 403);
+
       const useCase = new ConfirmMaterialMovement(requestRepo);
-      await useCase.execute(id, materialIds, type, req.user.id, signature);
+      await useCase.execute(id, materialIds, type, req.user.id, profile.tenant_id, signature);
       return ApiResponse.success(res, { message: 'Movimentação confirmada com sucesso!' });
     } catch (error: any) {
       console.error("[RequestController.confirmMovement] Erro:", error);
@@ -137,8 +143,11 @@ export class RequestController {
   static async getDetails(req: AuthRequest, res: Response) {
     try {
       const id = req.params.id as string;
+      const profile = await userService.findProfileById(req.user.id);
+      if (!profile || !profile.tenant_id) return ApiResponse.error(res, 'Tenant não identificado.', 403);
+
       const useCase = new GetRequestDetails(requestRepo);
-      const data = await useCase.execute(id);
+      const data = await useCase.execute(id, profile.tenant_id);
       return ApiResponse.success(res, data);
     } catch (error: any) {
       return ApiResponse.error(res, error.message);
@@ -149,8 +158,12 @@ export class RequestController {
     try {
       const id = req.params.id as string;
       const { sector, sector_id, entry_date, materials, driver_name, plate } = req.body;
+      const profile = await userService.findProfileById(req.user.id);
+      if (!profile || !profile.tenant_id) return ApiResponse.error(res, 'Tenant não identificado.', 403);
+
       const useCase = new UpdateEntryRequest(requestRepo);
-      await useCase.execute(id, { sector, sector_id, entry_date, driver_name, plate }, materials);
+      // UpdateEntryRequest agora valida o tenant internamente
+      await useCase.execute(id, { sector, sector_id, entry_date, driver_name, plate }, materials, profile.tenant_id);
       return ApiResponse.success(res, { message: 'Solicitação atualizada com sucesso!' });
     } catch (error: any) {
       console.error("[RequestController.update] Erro:", error);
@@ -161,8 +174,11 @@ export class RequestController {
   static async cancel(req: AuthRequest, res: Response) {
     try {
       const id = req.params.id as string;
+      const profile = await userService.findProfileById(req.user.id);
+      if (!profile || !profile.tenant_id) return ApiResponse.error(res, 'Tenant não identificado.', 403);
+
       const useCase = new CancelEntryRequest(requestRepo);
-      await useCase.execute(id);
+      await useCase.execute(id, profile.tenant_id);
       return ApiResponse.success(res, { message: 'Solicitação cancelada com sucesso!' });
     } catch (error: any) {
       console.error("[RequestController.cancel] Erro:", error);
@@ -174,9 +190,10 @@ export class RequestController {
     try {
       const id = req.params.id as string;
       const profile = await userService.findProfileById(req.user.id);
+      if (!profile || !profile.tenant_id) return ApiResponse.error(res, 'Perfil não encontrado.', 403);
       
       const useCase = new DeleteEntryRequest(requestRepo);
-      await useCase.execute(id, profile?.role);
+      await useCase.execute(id, profile.role, profile.tenant_id);
       return ApiResponse.success(res, { message: 'Solicitação excluída com sucesso!' });
     } catch (error: any) {
       console.error("[RequestController.delete] Erro:", error);
@@ -188,8 +205,11 @@ export class RequestController {
     try {
       const id = req.params.id as string;
       const { reason } = req.body;
+      const profile = await userService.findProfileById(req.user.id);
+      if (!profile || !profile.tenant_id) return ApiResponse.error(res, 'Tenant não identificado.', 403);
+
       const useCase = new NotifyDiscrepancy(requestRepo);
-      await useCase.execute(id, reason);
+      await useCase.execute(id, profile.tenant_id, reason);
       return ApiResponse.success(res, { message: 'Divergência notificada ao Gestor de Segurança!' });
     } catch (error: any) {
       console.error("[RequestController.notifyDiscrepancy] Erro:", error);
@@ -199,9 +219,13 @@ export class RequestController {
 
   static async getAuditHistory(req: AuthRequest, res: Response) {
     try {
-      const tenantId = req.params.tenantId as string;
+      const profile = await userService.findProfileById(req.user.id);
+      if (!profile || !profile.tenant_id) {
+        return ApiResponse.error(res, 'Acesso negado: Unidade não identificada.', 403);
+      }
+
       const useCase = new GetAuditHistory(requestRepo);
-      const data = await useCase.execute(tenantId);
+      const data = await useCase.execute(profile.tenant_id);
       return ApiResponse.success(res, data);
     } catch (error: any) {
       console.error("[RequestController.getAuditHistory] Erro:", error);

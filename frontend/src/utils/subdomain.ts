@@ -34,7 +34,11 @@ export const getSubdomain = (): string | null => {
   if (pathParts.length > 0) {
     const pSlug = pathParts[0];
     // Ignorar palavras reservadas que não seriam slugs de usina
-    const reserved = ['admin', 'api', 'static', 'assets', 'painel', 'undefined', 'null'];
+    const reserved = [
+      'admin', 'api', 'static', 'assets', 'painel', 
+      'login', 'cadastro', 'registro-interno', 'register-gestor',
+      'undefined', 'null'
+    ];
     if (!reserved.includes(pSlug)) {
       return pSlug;
     }
