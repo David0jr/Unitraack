@@ -21,8 +21,9 @@ interface AuditMovement {
   id: string;
   from_sector: { name: string };
   to_sector: { name: string };
-  actor: { full_name: string };
+  actor: { full_name: string; role: string };
   moved_at: string;
+  signature?: string;
 }
 
 interface AuditMaterial {
@@ -30,6 +31,10 @@ interface AuditMaterial {
   name: string;
   brand: string;
   model: string;
+  serial_number?: string;
+  description?: string;
+  condition?: string;
+  code?: string;
   movements: AuditMovement[];
 }
 
@@ -39,9 +44,20 @@ interface AuditRequest {
   entry_date: string;
   gate_checked_at?: string;
   gate_checked_by_profile?: { full_name: string; role: string };
+  approved_leader_profile?: { full_name: string; role: string };
+  approved_gestor_profile?: { full_name: string; role: string };
   exit_at: string | null;
   status: string;
-  profile: { full_name: string; role: string };
+  signature?: string;
+  profile: { 
+    full_name: string; 
+    role: string;
+    cnpj?: string;
+    phone?: string;
+    representative_name?: string;
+    logo_url?: string;
+    company_color?: string;
+  };
   sector?: { name: string };
   materials: AuditMaterial[];
 }
@@ -59,17 +75,21 @@ export function AuditTimeline({ auditData, profileName, onBack }: AuditTimelineP
 
   const exportToPDF = () => {
     const doc = new jsPDF();
+    const p = auditData[0]?.profile;
 
-    // Header
+    // Header Industrial
+    doc.setFillColor(0, 21, 64);
+    doc.rect(0, 0, 210, 50, 'F');
+    
     doc.setFontSize(22);
-    doc.setTextColor(15, 23, 42); 
+    doc.setTextColor(255, 255, 255); 
     doc.text('Relatório de Auditoria e Rastreabilidade', 14, 25);
     
-    doc.setFontSize(10);
-    doc.setTextColor(100);
-    doc.text(`Empresa: ${profileName}`, 14, 35);
-    doc.text(`Emitido em: ${new Date().toLocaleString()}`, 14, 40);
-    doc.text(`Filtros Aplicados: ${filterType === 'all' ? 'Todos' : filterType === 'active' ? 'Ativas' : 'Finalizadas'} | Data: ${dateFilter || 'Sem filtro'} | Busca: ${searchText || 'Sem filtro'}`, 14, 45);
+    doc.setFontSize(9);
+    doc.setTextColor(255, 255, 255);
+    doc.text(`Empresa Parceira: ${profileName.toUpperCase()}`, 14, 35);
+    if (p?.cnpj) doc.text(`CNPJ: ${p.cnpj} | Rep: ${p.representative_name || 'N/A'}`, 14, 40);
+    doc.text(`Emitido em: ${new Date().toLocaleString()} | Protocolo Industrial UsinaLins v4.2`, 14, 45);
 
     // Summary Table
     autoTable(doc, {
@@ -79,16 +99,17 @@ export function AuditTimeline({ auditData, profileName, onBack }: AuditTimelineP
         ['Total de Contratos/Entradas Analisados', auditData.length.toString()],
         ['Tempo Médio de Permanência (Visitas Finalizadas)', calculateAverageStay(auditData)],
         ['Total de Ativos/Materiais Registrados', auditData.reduce((acc, curr) => acc + (curr.materials?.length || 0), 0).toString()],
+        ['Status do Parceiro', auditData.some(d => !d.exit_at) ? 'EM OPERAÇÃO NA PLANTA' : 'NENHUM ATIVO NA PLANTA'],
       ],
       theme: 'striped',
-      headStyles: { fillColor: [15, 23, 42], fontSize: 10, fontStyle: 'bold' },
+      headStyles: { fillColor: [0, 21, 64], fontSize: 10, fontStyle: 'bold' },
       styles: { fontSize: 9 }
     });
 
-    // Access History Table
+    // Access History Table (More Detailed)
     doc.setFontSize(14);
     doc.setTextColor(15, 23, 42);
-    doc.text('Histórico de Acessos (Entradas e Saídas)', 14, (doc as any).lastAutoTable.finalY + 15);
+    doc.text('Histórico de Acessos e Validações', 14, (doc as any).lastAutoTable.finalY + 15);
 
     const entriesBody = filteredData.map(req => {
       const movements = (req.materials || []).flatMap(m => m.movements || []);
@@ -100,36 +121,52 @@ export function AuditTimeline({ auditData, profileName, onBack }: AuditTimelineP
 
       return [
         new Date(entryTime).toLocaleString(),
-        req.exit_at ? new Date(req.exit_at).toLocaleString() : 'Ativo na Planta',
+        req.exit_at ? new Date(req.exit_at).toLocaleString() : 'EM OPERAÇÃO',
         calculateDuration(entryTime, req.exit_at),
-        req.gate_checked_by_profile?.full_name.split(' (')[0] || 'Portaria'
+        req.gate_checked_by_profile?.full_name.split(' (')[0] || 'Portaria',
+        req.approved_leader_profile?.full_name.split(' (')[0] || 'N/A',
+        req.approved_gestor_profile?.full_name.split(' (')[0] || 'N/A',
+        req.signature || 'NÃO ASSINADO'
       ];
     });
 
     autoTable(doc, {
       startY: (doc as any).lastAutoTable.finalY + 20,
-      head: [['Data/Hora Entrada', 'Data/Hora Saída', 'Permanência', 'Confirmado por']],
+      head: [['Check-in', 'Check-out', 'Permanência', 'Portaria', 'Líder', 'Gestor', 'Assinatura']],
       body: entriesBody,
       theme: 'grid',
-      headStyles: { fillColor: [15, 23, 42], fontSize: 10 },
-      styles: { fontSize: 8 }
+      headStyles: { fillColor: [0, 21, 64], fontSize: 8 },
+      styles: { fontSize: 7 }
     });
 
-    // Detailed Internal Movements
+    // Detailed Equipment Tracker
     doc.setFontSize(14);
-    doc.text('Rastreabilidade de Movimentações Internas', 14, (doc as any).lastAutoTable.finalY + 15);
+    doc.text('Rastreabilidade de Ativos e Movimentações Internas', 14, (doc as any).lastAutoTable.finalY + 15);
 
     const movementsBody: any[] = [];
     filteredData.forEach(req => {
       (req.materials || []).forEach(mat => {
         (mat.movements || []).forEach(move => {
+          const isInternalDest = move.to_sector?.name.toLowerCase() !== 'portaria' && move.to_sector?.name.toLowerCase() !== 'entrada';
+          let responsibleName = `${move.actor.full_name.split(' (')[0]} (${move.actor.role === 'LIDER_SETOR' ? 'Líder' : move.actor.role === 'GESTOR_UNIDADE' ? 'Gestor' : 'Agente'})`;
+          
+          if (isInternalDest) {
+            if (req.approved_leader_profile) {
+              responsibleName = `${req.approved_leader_profile.full_name.split(' (')[0]} (Líder)`;
+            } else {
+              // Fallback: Mostrar o responsável do setor de destino se não houver um perfil específico vinculado
+              responsibleName = `Líder ${move.to_sector?.name || 'Setor'}`;
+            }
+          }
+
           movementsBody.push([
-            mat.name,
-            mat.brand + ' ' + mat.model,
-            move.from_sector?.name || 'Portaria',
-            move.to_sector?.name || req.sector?.name || 'Planta',
+            `${mat.name} [SÉRIE: ${mat.serial_number || 'N/A'}]`,
+            `${mat.brand} ${mat.model}`,
+            move.from_sector?.name || 'Entrada',
+            move.to_sector?.name || 'Planta',
             new Date(move.moved_at).toLocaleString(),
-            move.actor.full_name.split(' (')[0]
+            responsibleName,
+            move.signature || 'NÃO ASSINADO'
           ]);
         });
       });
@@ -138,23 +175,24 @@ export function AuditTimeline({ auditData, profileName, onBack }: AuditTimelineP
     if (movementsBody.length > 0) {
       autoTable(doc, {
         startY: (doc as any).lastAutoTable.finalY + 20,
-        head: [['Material', 'Marca/Modelo', 'Origem', 'Destino', 'Data/Hora', 'Responsável']],
+        head: [['Equipamento [Nº Série]', 'Marca/Modelo', 'Origem', 'Destino', 'Data/Hora', 'Responsável', 'Assinatura']],
         body: movementsBody,
         theme: 'striped',
-        headStyles: { fillColor: [15, 23, 42], fontSize: 10 },
-        styles: { fontSize: 7 },
+        headStyles: { fillColor: [0, 21, 64], fontSize: 8 },
+        styles: { fontSize: 6 },
         columnStyles: {
-          0: { cellWidth: 35 },
-          1: { cellWidth: 35 },
-          2: { cellWidth: 25 },
-          3: { cellWidth: 25 },
-          4: { cellWidth: 30 },
-          5: { cellWidth: 30 }
+          0: { cellWidth: 40 },
+          1: { cellWidth: 30 },
+          2: { cellWidth: 20 },
+          3: { cellWidth: 20 },
+          4: { cellWidth: 25 },
+          5: { cellWidth: 30 },
+          6: { cellWidth: 25 }
         }
       });
     }
 
-    doc.save(`Relatorio_Auditoria_${profileName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
+    doc.save(`AUDITORIA_INDUSTRIAL_${profileName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
   };
 
   const filteredData = useMemo(() => {
@@ -227,11 +265,34 @@ export function AuditTimeline({ auditData, profileName, onBack }: AuditTimelineP
                  {profileName}
                </h3>
                
-               <div className="flex flex-wrap gap-4">
+               <div className="flex flex-wrap gap-4 mt-2">
                   <StatBadge icon={Calendar} label="Contratos" value={auditData.length.toString()} />
                   <StatBadge icon={Clock} label="Média" value={calculateAverageStay(auditData)} />
                   <StatBadge icon={Package} label="Ativos" value={auditData.reduce((acc, curr) => acc + (curr.materials?.length || 0), 0).toString()} />
                </div>
+
+               {auditData[0]?.profile && (
+                 <div className="flex flex-wrap gap-x-8 gap-y-2 mt-6 pt-6 border-t border-white/10">
+                   {auditData[0].profile.cnpj && (
+                     <div className="flex flex-col">
+                       <span className="text-[7px] font-bold text-white/40 uppercase tracking-widest">CNPJ Operacional</span>
+                       <span className="text-xs font-bold text-white/80">{auditData[0].profile.cnpj}</span>
+                     </div>
+                   )}
+                   {auditData[0].profile.representative_name && (
+                     <div className="flex flex-col">
+                       <span className="text-[7px] font-bold text-white/40 uppercase tracking-widest">Representante Legal</span>
+                       <span className="text-xs font-bold text-white/80">{auditData[0].profile.representative_name}</span>
+                     </div>
+                   )}
+                   {auditData[0].profile.phone && (
+                     <div className="flex flex-col">
+                       <span className="text-[7px] font-bold text-white/40 uppercase tracking-widest">Contato Emergência</span>
+                       <span className="text-xs font-bold text-white/80">{auditData[0].profile.phone}</span>
+                     </div>
+                   )}
+                 </div>
+               )}
             </div>
          </div>
       </div>
@@ -358,10 +419,22 @@ export function AuditTimeline({ auditData, profileName, onBack }: AuditTimelineP
                                    </div>
                                    <div>
                                       <h5 className="font-bold text-navy text-sm uppercase tracking-tight mb-1">{material.name}</h5>
-                                      <div className="flex items-center gap-2">
+                                      <div className="flex flex-wrap items-center gap-2">
                                          <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{material.brand}</span>
                                          <div className="w-1 h-1 rounded-full bg-slate-300"></div>
                                          <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{material.model}</span>
+                                         {material.serial_number && (
+                                            <>
+                                               <div className="w-1 h-1 rounded-full bg-slate-300"></div>
+                                               <span className="text-[8px] font-bold text-primary bg-navy px-1.5 py-0.5 rounded uppercase tracking-widest">SÉRIE: {material.serial_number}</span>
+                                            </>
+                                         )}
+                                         {material.condition && (
+                                            <>
+                                               <div className="w-1 h-1 rounded-full bg-slate-300"></div>
+                                               <span className="text-[8px] font-bold text-slate-400 border border-slate-200 px-1.5 py-0.5 rounded uppercase tracking-widest">{material.condition}</span>
+                                            </>
+                                         )}
                                       </div>
                                    </div>
                                 </div>
@@ -407,7 +480,21 @@ export function AuditTimeline({ auditData, profileName, onBack }: AuditTimelineP
                                                 <span className="text-[8px] font-bold text-navy">{new Date(move.moved_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                              </div>
                                              <div className="flex items-center gap-1.5">
-                                                <MapPin className="w-2.5 h-2.5 text-slate-200" />
+                                                {move.signature && (
+                                                   <span className="text-[7px] font-black bg-primary/20 text-navy px-1.5 py-0.5 rounded italic">VISTO: {move.signature}</span>
+                                                )}
+                                                <div className="flex flex-col items-end">
+                                                   <span className="text-[7px] font-bold text-navy">
+                                                      {(move.to_sector?.name.toLowerCase() !== 'portaria' && move.to_sector?.name.toLowerCase() !== 'entrada')
+                                                         ? (request.approved_leader_profile?.full_name.split(' (')[0] || `Líder ${move.to_sector?.name || 'Setor'}`)
+                                                         : (move.actor?.full_name?.split(' (')[0] || 'Agente')}
+                                                   </span>
+                                                   <span className="text-[5px] font-bold text-slate-300 uppercase tracking-tighter">
+                                                      {(move.to_sector?.name.toLowerCase() !== 'portaria' && move.to_sector?.name.toLowerCase() !== 'entrada')
+                                                         ? 'Líder'
+                                                         : (move.actor?.role?.split('_')[0] || 'Agente')}
+                                                   </span>
+                                                 </div>
                                              </div>
                                           </div>
                                        </div>
@@ -432,8 +519,17 @@ export function AuditTimeline({ auditData, profileName, onBack }: AuditTimelineP
                         <div className="w-px h-3 bg-slate-200"></div>
                         <span className="text-[8px] font-bold text-slate-400 uppercase">ID: {request.id.slice(0, 8)}</span>
                      </div>
-                     <div className="flex items-center gap-2 text-slate-400">
-                        <p className="text-[8px] font-bold uppercase italic">Confirmado por: {request.gate_checked_by_profile?.full_name || 'Agente de Portaria'}</p>
+                     <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-slate-400">
+                        {request.approved_leader_profile && (
+                           <p className="text-[8px] font-bold uppercase italic">Líder: {request.approved_leader_profile.full_name.split(' (')[0]}</p>
+                        )}
+                        {request.approved_gestor_profile && (
+                           <p className="text-[8px] font-bold uppercase italic">Gestor: {request.approved_gestor_profile.full_name.split(' (')[0]}</p>
+                        )}
+                        <p className="text-[8px] font-bold uppercase italic">Portaria: {request.gate_checked_by_profile?.full_name || 'Agente'}</p>
+                        {request.signature && (
+                           <p className="text-[8px] font-black text-navy uppercase italic">Visto: {request.signature}</p>
+                        )}
                      </div>
                   </div>
                </div>

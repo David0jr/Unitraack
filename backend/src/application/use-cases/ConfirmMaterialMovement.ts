@@ -71,12 +71,12 @@ export class ConfirmMaterialMovement {
           signature
       );
 
-      // Mov 2: Encaminhamento para o Setor (Responsável pela ação no sistema é quem está na portaria: movedBy)
+      // Mov 2: Encaminhamento para o Setor (Atribuímos ao Líder do Setor que aprovou a entrada)
       await this.requestRepository.updateMultipleMaterialsStatus(
           materialIds, 
           status, 
           undefined,
-          movedBy, // Mantemos o guard/operador como ator da ação
+          request.approved_leader_by || targetRespId, // Atribuímos ao responsável do setor de destino
           request.tenant_id,
           portariaSectorId || undefined,
           targetSectorId || undefined,

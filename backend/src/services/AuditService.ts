@@ -22,15 +22,17 @@ export class AuditService {
         .from('entry_requests')
         .select(`
           *,
-          profile:profiles!profile_id(full_name, role),
-          gate_checked_by_profile:profiles!gate_checked_by(full_name, role),
+          profile:profiles!profile_id(full_name, role, cnpj, phone, representative_name, logo_url, company_color),
+          gate_checked_by_profile:profiles!check_in_by(full_name, role),
+          approved_leader_profile:profiles!approved_leader_by(full_name, role),
+          approved_gestor_profile:profiles!approved_gestor_by(full_name, role),
           sector:sectors!sector_id(name),
-          materials(
+          materials:materials(
             *,
             movements:material_movements(
               *,
-              from_sector:sectors!from_sector_id(name),
-              to_sector:sectors!to_sector_id(name),
+              from_sector:sectors!material_movements_from_sector_id_fkey(name),
+              to_sector:sectors!material_movements_to_sector_id_fkey(name),
               actor:profiles!moved_by(full_name, role)
             )
           )
@@ -52,8 +54,16 @@ export class AuditService {
           .from('entry_requests')
           .select(`
             *,
-            profile:profiles!profile_id(full_name, role),
-            materials(*)
+            profile:profiles!profile_id(full_name, role, cnpj, phone, representative_name, logo_url, company_color),
+            materials:materials(
+              *,
+              movements:material_movements(
+                *,
+                from_sector:sectors!material_movements_from_sector_id_fkey(name),
+                to_sector:sectors!material_movements_to_sector_id_fkey(name),
+                actor:profiles!moved_by(full_name, role)
+              )
+            )
           `)
           .eq('tenant_id', tenantId)
           .in('status', statuses)
