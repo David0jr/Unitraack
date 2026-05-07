@@ -33,33 +33,28 @@ export class MonitoringService {
     let materials: any[] = [];
     try {
       console.log('[MonitoringService] Buscando materiais ativos...');
-      // Tentamos buscar com current_sector_id, mas se falhar (coluna não existe), buscamos apenas os básicos
       const { data, error } = await supabaseAdmin
         .from('materials')
         .select(`
           *,
-          request:entry_requests(
+          request:entry_requests!request_id(
             id,
-            profile:profiles(full_name, role, theme_color, logo_url, cnpj, phone, representative_name),
+            profile:profiles!profile_id(full_name, role, theme_color, logo_url, cnpj, phone, representative_name),
             tenant_id,
             status
           )
         `);
 
       if (error) {
-        console.warn('[MonitoringService] Falha na busca completa de materiais, tentando simplificada...');
-        const { data: simpleData, error: simpleError } = await supabaseAdmin
-          .from('materials')
-          .select('*')
-          .limit(100);
-        
-        if (simpleError) throw simpleError;
+        console.warn('[MonitoringService] Falha na busca completa de materiais:', error.message);
+        // Fallback simplificado se a query complexa falhar (ex: coluna nova não migrada)
+        const { data: simpleData } = await supabaseAdmin.from('materials').select('*').limit(200);
         materials = simpleData || [];
       } else {
         materials = data || [];
       }
     } catch (err: any) {
-      console.error('[MonitoringService] Erro ao buscar materiais:', err.message);
+      console.error('[MonitoringService] Erro catastrófico ao buscar materiais:', err.message);
     }
 
     // 3. Buscar histórico das últimas 20 movimentações da unidade
@@ -84,16 +79,28 @@ export class MonitoringService {
       console.warn('[MonitoringService] Tabela de movimentações pode não existir ainda.');
     }
 
-    console.log(`[MonitoringService] Resumo: ${sectors.length} setores, ${materials.length} materiais.`);
+    console.log(`[MonitoringService] Resumo: ${sectors.length} setores, ${materials.length} materiais pré-filtro.`);
 
     return {
       sectors,
-      materials: materials.filter(m => {
-        // Filtro defensivo para tenant_id
-        const mTenantId = (m.request as any)?.tenant_id || m.tenant_id;
-        const status = (m.request as any)?.status;
-        return (!mTenantId || mTenantId === tenantId) && status === 'IN_PLANTA';
-      }),
+      materials: materials
+        .filter(m => {
+          // Normalizar request para o filtro
+          const request = Array.isArray(m.request) ? m.request[0] : m.request;
+          
+          // Identificar tenant_id
+          const mTenantId = m.tenant_id || request?.tenant_id;
+          
+          // Status check
+          const matStatus = m.status || request?.status;
+          
+          const belongsToTenant = !mTenantId || mTenantId === tenantId;
+          return belongsToTenant && matStatus === 'IN_PLANTA';
+        })
+        .map(m => ({
+          ...m,
+          request: Array.isArray(m.request) ? m.request[0] : m.request
+        })),
       movements
     };
   }
