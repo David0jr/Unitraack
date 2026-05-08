@@ -87,6 +87,22 @@ app.use((req: Request, res: Response) => {
   });
 });
 
-app.listen(port, () => {
-  console.log(`Backend Server running at http://localhost:${port}`);
+// Manter o processo vivo (Keep-alive)
+setInterval(() => {}, 1000 * 60 * 60);
+
+try {
+  app.listen(port, () => {
+    console.log(`[Server] Backend Server running at http://localhost:${port}`);
+    console.log('[Server] Auditoria Cross-Tenant: ATIVA');
+  });
+} catch (error) {
+  console.error('[Server] Fatal error during listen:', error);
+}
+
+process.on('uncaughtException', (err) => {
+  console.error('[Server] Uncaught Exception:', err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[Server] Unhandled Rejection at:', promise, 'reason:', reason);
 });

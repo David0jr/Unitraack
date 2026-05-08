@@ -55,10 +55,23 @@ function SubdomainOrNotFound({ children }: { children: React.ReactNode }) {
   // esta rota genérica deve ser tratada como inexistente.
   if (!isSubdomain && window.location.hostname === 'localhost') {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-4">
-        <h1 className="text-4xl font-bold text-navy mb-2">404</h1>
-        <p className="text-slate-500 text-center">Esta rota requer um identificador de usina válido.</p>
-        <p className="text-xs text-slate-400 mt-4">Exemplo: /usina-lins/login</p>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-4 font-brand">
+        <div className="w-16 h-1 bg-primary mb-6 rounded-full"></div>
+        <h1 className="text-6xl font-black text-navy mb-2 tracking-tighter">404</h1>
+        <p className="text-slate-500 text-center font-medium max-w-xs leading-relaxed">
+          Esta rota requer um identificador de usina válido para carregar as configurações de segurança.
+        </p>
+        <div className="mt-8 flex flex-col gap-3 w-full max-w-xs">
+          <a 
+            href="/admin/login" 
+            className="w-full py-4 bg-navy text-white text-center rounded-xl font-bold text-[10px] uppercase tracking-widest shadow-lg shadow-navy/20 hover:scale-[1.02] transition-all"
+          >
+            Acessar Portal Administrativo
+          </a>
+          <p className="text-[10px] text-slate-400 text-center mt-2">
+            Exemplo de uso: <span className="font-mono bg-slate-100 px-1 rounded">localhost:5173/lins/login</span>
+          </p>
+        </div>
       </div>
     );
   }

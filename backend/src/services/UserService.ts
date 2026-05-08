@@ -33,6 +33,34 @@ export class UserService {
       .update(data)
       .eq('id', userId);
 
+    if (error) {
+      console.error('[UserService] Erro ao atualizar perfil:', error.message, error.details);
+      throw error;
+    }
+  }
+
+  async listTeamMembers(tenantId: string): Promise<Profile[]> {
+    const { data: users, error } = await supabaseAdmin
+      .from('profiles')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .in('role', ['LIDER_SETOR', 'PORTARIA'])
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return users as Profile[];
+  }
+
+  async updateUserPassword(userId: string, password: string): Promise<void> {
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+      password: password
+    });
+
+    if (error) throw error;
+  }
+
+  async deleteUser(userId: string): Promise<void> {
+    const { error } = await supabaseAdmin.auth.admin.deleteUser(userId);
     if (error) throw error;
   }
 

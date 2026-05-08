@@ -246,6 +246,7 @@ export class SupabaseRequestRepository implements IRequestRepository {
   }
 
   async getAuditHistory(tenantId: string): Promise<any[]> {
+    console.log(`[SupabaseRequestRepository.getAuditHistory] Buscando logs para tenant: ${tenantId}`);
     const { data, error } = await supabaseAdmin
       .from('material_movements')
       .select(`
@@ -261,7 +262,7 @@ export class SupabaseRequestRepository implements IRequestRepository {
         from_sector:sectors!material_movements_from_sector_id_fkey(name),
         to_sector:sectors!material_movements_to_sector_id_fkey(name)
       `)
-      .eq('material.request.tenant_id', tenantId)
+      .eq('tenant_id', tenantId)
       .order('moved_at', { ascending: false });
 
     if (error) {
@@ -269,6 +270,7 @@ export class SupabaseRequestRepository implements IRequestRepository {
       throw error;
     }
 
+    console.log(`[SupabaseRequestRepository.getAuditHistory] Encontrados ${data?.length || 0} registros.`);
     return data || [];
   }
 

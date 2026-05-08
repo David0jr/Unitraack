@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useTenant } from '../../../contexts/TenantContext';
 import { UserPlus, Loader2, ArrowRight, ShieldAlert, UserCircle2, Lock } from 'lucide-react';
@@ -13,6 +13,7 @@ export default function Login() {
   const { login, signOut, user, profile, loading: authLoading } = useAuth();
   const { tenant } = useTenant();
   const navigate = useNavigate();
+  const location = useLocation();
   const isLoggingIn = useRef(false);
 
   // SECURITY: Se o usuário chegar nesta página já estando logado (ex: via botão 'Voltar'), 
@@ -23,6 +24,15 @@ export default function Login() {
       signOut();
     }
   }, [user, profile, authLoading, signOut]);
+
+  useEffect(() => {
+    const state = location.state as { error?: string } | null;
+    if (state?.error) {
+      setError(state.error);
+      // Limpa o estado para não re-exibir ao dar refresh se não necessário
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,20 +48,41 @@ export default function Login() {
 
       const profile = await Promise.race([loginPromise, timeoutPromise]) as any;
       
-      // 1. Se for Super Admin, vai para o painel global
-      if (profile?.role === 'SUPER_ADMIN') {
+      // 1. Verificação de Isolamento de Portais
+      const isTenantPortal = !!tenant?.subdomain;
+      const isSuperAdmin = profile?.role === 'SUPER_ADMIN';
+
+      // BLOQUEIO: Super Admin tentando entrar pelo portal da usina
+      if (isTenantPortal && isSuperAdmin) {
+        isLoggingIn.current = false;
+        await signOut();
+        setError('Acesso negado: Administradores devem usar o portal administrativo exclusivo.');
+        setLoading(false);
+        return;
+      }
+
+      // BLOQUEIO: Usuário comum tentando entrar pelo portal administrativo
+      if (!isTenantPortal && !isSuperAdmin) {
+        isLoggingIn.current = false;
+        await signOut();
+        setError('Acesso negado: Use o link oficial da sua usina para acessar o sistema.');
+        setLoading(false);
+        return;
+      }
+
+      // 2. Se for Super Admin, vai para o painel global (apenas se não estiver no portal da usina)
+      if (isSuperAdmin) {
         navigate('/admin/painel');
         return;
       }
 
-      // 2. Prioriza a usina à qual o usuário está vinculado no banco de dados
+      // 3. Redirecionamento de Usuários de Usina
       const userTenantSlug = profile?.tenant?.subdomain;
       
       if (userTenantSlug) {
         const rolePath = profile?.role?.toLowerCase().replace('_', '-');
         navigate(`/${userTenantSlug}/${rolePath}/painel`);
       } else if (tenant?.subdomain) {
-        // Fallback para o tenant da URL atual se o perfil não tiver um (improvável para gestores/lideres)
         const rolePath = profile?.role?.toLowerCase().replace('_', '-');
         navigate(`/${tenant.subdomain}/${rolePath}/painel`);
       } else {
@@ -60,7 +91,21 @@ export default function Login() {
     } catch (err: any) {
       isLoggingIn.current = false;
       console.error('[Login] Erro:', err);
-      setError(err.message || 'Credenciais inválidas.');
+      
+      let friendlyMessage = err.message || 'Credenciais inválidas.';
+      
+      if (friendlyMessage.includes('Invalid login credentials')) {
+        friendlyMessage = 'E-mail ou senha incorretos.';
+      } else if (friendlyMessage.includes('desativada')) {
+        friendlyMessage = 'Sua conta está desativada. Fale com o gestor de segurança.';
+      } else if (friendlyMessage.includes('Too many requests')) {
+        friendlyMessage = 'Muitas tentativas de login. Tente novamente em alguns minutos.';
+      } else if (friendlyMessage.includes('Failed to fetch') || friendlyMessage.includes('network')) {
+        friendlyMessage = 'Erro de conexão. Verifique sua internet e tente novamente.';
+      }
+
+      console.log('[Login] Definindo erro amigável:', friendlyMessage);
+      setError(friendlyMessage);
     } finally {
       setLoading(false);
     }

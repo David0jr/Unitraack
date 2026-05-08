@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { getAuthToken } from '../../../../utils/subdomain';
 import { supabase } from '../../../../lib/supabase';
 import { useAuth } from '../../../../contexts/AuthContext';
+import { useTenant } from '../../../../contexts/TenantContext';
 import { 
   Plus, 
   Trash2, 
@@ -18,7 +19,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import axios from 'axios';
-import { SignaturePad } from '../../../../components/SignaturePad';
+// Removida importação do SignaturePad
 
 interface MaterialItem {
   id: string;
@@ -34,7 +35,8 @@ interface MaterialItem {
 }
 
 export default function NovaSolicitacao() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
+  const { slug: tenantSlug } = useTenant();
   const navigate = useNavigate();
   const location = useLocation();
   const editMode = location.state?.editMode || false;
@@ -90,7 +92,7 @@ export default function NovaSolicitacao() {
   const [errorMessage, setErrorMessage] = useState('');
   const [driverName, setDriverName] = useState('');
   const [plate, setPlate] = useState('');
-  const [signature, setSignature] = useState('');
+  // Removido estado da assinatura
 
   const fetchSectors = async () => {
     try {
@@ -210,7 +212,7 @@ export default function NovaSolicitacao() {
         entry_date: entryDate ? new Date(entryDate).toISOString() : null,
         driver_name: driverName,
         plate: plate,
-        signature: signature,
+        // Removido campo signature do payload
         materials: materials.map(({ name, brand, model, serial_number, description, condition, code, imageUrl }) => ({
           name, brand, model, serial_number, description, condition, code, image_url: imageUrl
         }))
@@ -235,7 +237,13 @@ export default function NovaSolicitacao() {
       if (response.status === 201 || response.status === 200) {
         setShowSuccess(true);
         setTimeout(() => {
-          navigate('/painel');
+          const slug = tenantSlug || profile?.tenant?.subdomain || 'painel';
+          const rolePath = profile?.role?.toLowerCase().replace('_', '-') || 'terceirizada';
+          if (slug !== 'painel') {
+            navigate(`/${slug}/${rolePath}/painel`);
+          } else {
+            navigate('/painel');
+          }
         }, 3000);
       }
     } catch (err: any) {
@@ -287,7 +295,15 @@ export default function NovaSolicitacao() {
         <div className="max-w-7xl mx-auto px-6 h-20 flex justify-between items-center">
           <div className="flex items-center gap-4">
              <button 
-                onClick={() => navigate('/painel')}
+                onClick={() => {
+                  const slug = tenantSlug || profile?.tenant?.subdomain || 'painel';
+                  const rolePath = profile?.role?.toLowerCase().replace('_', '-') || 'terceirizada';
+                  if (slug !== 'painel') {
+                    navigate(`/${slug}/${rolePath}/painel`);
+                  } else {
+                    navigate('/painel');
+                  }
+                }}
                 className="p-2.5 bg-slate-50 text-slate-400 hover:text-navy hover:bg-slate-100 rounded-xl transition-all"
              >
                 <ArrowLeft className="w-5 h-5" />
@@ -323,7 +339,7 @@ export default function NovaSolicitacao() {
           <div className="bg-white rounded-[2rem] p-12 shadow-[0_32px_64px_-12px_rgba(0,50,160,0.08)] border border-slate-100 relative overflow-hidden group">
              <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-bl-full -mr-10 -mt-10 opacity-50 group-hover:scale-110 transition-transform"></div>
              
-             <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-8 mb-10 items-end relative z-10">
+             <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-8 mb-10 items-end relative z-30">
                 <div className="space-y-3">
                    <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 tracking-[0.15em] flex items-center gap-2">
                       <div className="w-5 h-5 bg-primary/10 rounded-md flex items-center justify-center">
@@ -364,7 +380,7 @@ export default function NovaSolicitacao() {
                 </div>
              </div>
 
-             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-end relative z-10 pt-10 border-t border-slate-50">
+             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-end relative z-20 pt-10 border-t border-slate-50">
                 <div className="space-y-3">
                     <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 tracking-[0.15em] flex items-center gap-2">
                       <div className="w-5 h-5 bg-primary/10 rounded-md flex items-center justify-center">
@@ -383,23 +399,10 @@ export default function NovaSolicitacao() {
 
                 <div className="space-y-3">
                     <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 tracking-[0.15em] flex items-center gap-2">
-                      <div className="w-5 h-5 bg-primary/10 rounded-md flex items-center justify-center">
-                        <Check className="w-3 h-3 text-primary" />
-                      </div>
-
-                       4. Assinatura Digital (Desenhe)
-                    </label>
-                    <div className="bg-[#F8FAFC] border border-slate-100 rounded-2xl p-4 shadow-inner">
-                      <SignaturePad onSave={setSignature} />
-                    </div>
-                 </div>
-
-                 <div className="space-y-3">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 tracking-[0.15em] flex items-center gap-2">
                        <div className="w-5 h-5 bg-primary/10 rounded-md flex items-center justify-center">
                          <Package className="w-3 h-3 text-primary" />
                        </div>
-                       5. Nome do Motorista
+                       4. Nome do Motorista
                     </label>
                     <input 
                       type="text" 
@@ -416,7 +419,7 @@ export default function NovaSolicitacao() {
                       <div className="w-5 h-5 bg-primary/10 rounded-md flex items-center justify-center">
                         <Package className="w-3 h-3 text-primary" />
                       </div>
-                      6. Placa do Veículo
+                      5. Placa do Veículo
                     </label>
                     <input 
                       type="text" 

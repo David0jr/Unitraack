@@ -57,5 +57,5 @@ export const getTokenKey = (): string => {
 };
 
 export const getAuthToken = (): string | null => {
-  return sessionStorage.getItem(getTokenKey());
+  return localStorage.getItem(getTokenKey());
 };

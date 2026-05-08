@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useAuth } from '../../../contexts/AuthContext';
 import { DashboardSidebar } from '../../requests/components/dashboard/DashboardSidebar';
 import { DashboardHeader } from '../../requests/components/dashboard/DashboardHeader';
 import { DashboardStats } from '../../requests/components/dashboard/DashboardStats';
@@ -7,26 +8,13 @@ import AuditSection from '../../requests/components/AuditSection';
 import MonitoringDashboard from '../components/MonitoringDashboard';
 import TeamManagement from '../../admin/components/TeamManagement';
 import InteractiveMap from '../components/InteractiveMap';
-import { api } from '../../../lib/axios';
 
 export default function GestorDashboard() {
+  const { profile: managerProfile } = useAuth();
   const [activeSection, setActiveSection] = useState<string>('approvals');
-  const [managerProfile, setManagerProfile] = useState<any>(null);
   const [selectedParentId, setSelectedParentId] = useState<string | null>(null);
   const [auditFilterText, setAuditFilterText] = useState('');
   const [selectedAuditProfileId, setSelectedAuditProfileId] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchProfile = async () => {
-      try {
-        const profileRes = await api.get('/auth/me');
-        setManagerProfile(profileRes.data.profile);
-      } catch (err) {
-        console.error('Erro ao carregar perfil do gestor:', err);
-      }
-    };
-    fetchProfile();
-  }, []);
 
   const handleSectionChange = (section: string, parentId?: string | null) => {
     setActiveSection(section);

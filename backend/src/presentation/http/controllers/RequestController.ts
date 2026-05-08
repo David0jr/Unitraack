@@ -220,13 +220,23 @@ export class RequestController {
   static async getAuditHistory(req: AuthRequest, res: Response) {
     try {
       const profile = await userService.findProfileById(req.user.id);
-      if (!profile || !profile.tenant_id) {
+      if (!profile) return ApiResponse.error(res, 'Perfil não encontrado.', 404);
+
+      let tenantIdToAudit = profile.tenant_id;
+
+      // Se for Super Admin, ele pode auditar qualquer tenant via parâmetro
+      if (profile.role === 'SUPER_ADMIN' && req.params.tenantId) {
+        tenantIdToAudit = req.params.tenantId as string;
+      }
+
+      if (!tenantIdToAudit) {
         return ApiResponse.error(res, 'Acesso negado: Unidade não identificada.', 403);
       }
 
       const useCase = new GetAuditHistory(requestRepo);
-      const data = await useCase.execute(profile.tenant_id);
-      return ApiResponse.success(res, data);
+      const history = await useCase.execute(tenantIdToAudit);
+      console.log(`[RequestController] Enviando ${history.length} registros para o cliente.`);
+      return ApiResponse.success(res, history);
     } catch (error: any) {
       console.error("[RequestController.getAuditHistory] Erro:", error);
       return ApiResponse.error(res, error.message);
