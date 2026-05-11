@@ -12,6 +12,7 @@ import {
   Copy
 } from 'lucide-react';
 import { getSubdomain } from '../../../utils/subdomain';
+import ParticleBackground from '../components/ParticleBackground';
 
 export default function RegisterGestor() {
   const [searchParams] = useSearchParams();
@@ -109,7 +110,7 @@ export default function RegisterGestor() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-[#F0F4F8] flex items-center justify-center p-6 font-brand relative overflow-hidden">
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 font-brand relative overflow-hidden">
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-red-500/10 rounded-full blur-[120px]"></div>
         
         <div className="bg-white/70 backdrop-blur-2xl p-12 rounded-[3.5rem] shadow-[0_50px_100px_-20px_rgba(0,0,0,0.15)] max-w-md w-full text-center border border-white/50 animate-in zoom-in-95 duration-500 relative z-10">
@@ -132,7 +133,7 @@ export default function RegisterGestor() {
   if (success) {
     const loginUrl = `${window.location.protocol}//${window.location.host}/${invitation?.tenant?.subdomain}/login`;
     return (
-      <div className="min-h-screen bg-[#F0F4F8] flex items-center justify-center p-6 font-brand relative overflow-hidden text-navy">
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 font-brand relative overflow-hidden text-navy">
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-emerald-500/10 rounded-full blur-[120px]"></div>
         
         <div className="bg-white/70 backdrop-blur-2xl p-12 rounded-[3.5rem] shadow-[0_50px_100px_-20px_rgba(0,0,0,0.15)] max-w-md w-full text-center border border-white/50 animate-in zoom-in-95 duration-500 relative z-10 space-y-8">
@@ -173,59 +174,60 @@ export default function RegisterGestor() {
     );
   }
 
-
   return (
-    <div className="min-h-screen bg-white flex flex-col font-brand antialiased text-navy">
-      <div className="w-full flex-1 grid grid-cols-1 md:grid-cols-12 bg-white overflow-hidden">
-        
-        {/* Banner Lateral */}
-        <div className="hidden md:flex md:col-span-5 flex-col justify-between p-16 bg-navy text-white relative overflow-hidden">
-          <div className="absolute bottom-0 left-0 w-64 h-64 bg-primary/20 rounded-full blur-[100px] -ml-32 -mb-32"></div>
+    <div className="min-h-screen relative flex items-center justify-center p-4 overflow-hidden font-brand selection:bg-primary selection:text-white bg-slate-50">
+      
+      {/* Background Shapes */}
+      <div className="absolute inset-0 z-0 overflow-hidden">
+        <div className="absolute top-0 right-0 w-1/2 h-full bg-primary/10 md:bg-primary transform skew-x-[-20deg] translate-x-1/4"></div>
+        <div className="absolute bottom-0 left-0 w-full h-1/2 bg-navy/5 md:bg-navy transform skew-y-[-10deg] translate-y-1/4"></div>
+      </div>
+
+      <div className="w-full max-w-5xl z-10">
+        <div className="bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col md:flex-row min-h-[580px] border border-white/20 backdrop-blur-sm">
           
-          <div className="relative z-10">
-             <div className="bg-white/10 backdrop-blur-md inline-block p-4 rounded-xl mb-12 border border-white/10">
-               <img 
-                 src={invitation?.tenant?.logo_url || "https://linsagro.com.br/wp-content/uploads/2022/07/cropped-Lins_Logo_Horizontal_RGB_Preferencial_20250512_Keenwork_AF.png"} 
-                 alt={invitation?.tenant?.name || "Lins"} 
-                 className={`h-8 object-contain ${!invitation?.tenant?.logo_url && 'brightness-0 invert'}`} 
-               />
-             </div>
-
-             
-             <div className="space-y-8">
-               <div className="w-16 h-16 bg-primary/20 backdrop-blur-xl text-primary rounded-xl flex items-center justify-center border border-primary/20">
-                 <ShieldCheck className="w-8 h-8" />
-               </div>
-               <div>
-                  <h1 className="text-5xl font-bold mb-4 leading-[0.9] uppercase tracking-tighter max-w-xs">
-                    Portal do <span className="text-primary italic">Gestor</span>
-                  </h1>
-                  <p className="text-blue-100/60 text-lg max-w-sm leading-relaxed">
-                    Provisionamento de acesso administrativo para a unidade <strong>{invitation?.tenant?.name}</strong>.
-                  </p>
-               </div>
-             </div>
-          </div>
-
-          <div className="relative z-10">
-             <div className="space-y-3 pt-10 border-t border-white/10">
-                <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Protocolo de Segurança Ativo</p>
-                <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Identidade Digital Monitorada</p>
-             </div>
-          </div>
-        </div>
-
-        {/* Formulário */}
-        <div className="md:col-span-7 p-8 md:p-20 overflow-y-auto flex flex-col justify-center bg-[#F8FAFC]">
-          <div className="max-w-md w-full mx-auto">
-            <div className="mb-12">
-               <span className="px-4 py-1.5 bg-primary/10 text-primary text-[10px] font-bold uppercase rounded-full tracking-widest">Habilitação de Segurança</span>
-               <h2 className="text-4xl font-bold text-navy uppercase tracking-tighter mt-6 mb-2 leading-none">Crie seu <span className="italic text-primary">Acesso</span></h2>
-               <p className="text-slate-400 font-medium">Defina suas credenciais mestres para o sistema.</p>
+          {/* Left Side - Identity */}
+          <div className="w-full md:w-5/12 bg-navy p-8 lg:p-12 flex flex-col justify-between relative overflow-hidden hidden md:flex">
+            <div className="absolute inset-0 opacity-40 mix-blend-screen">
+              <ParticleBackground />
             </div>
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/30 via-transparent to-black/40 pointer-events-none"></div>
 
-            <form onSubmit={handleSubmit} className="space-y-8">
-              <div className="space-y-6">
+            <div className="relative z-10 flex flex-col h-full">
+              <div className="mb-auto">
+                <img 
+                  src={invitation?.tenant?.logo_url || "https://linsagro.com.br/wp-content/uploads/2022/07/cropped-Lins_Logo_Horizontal_RGB_Preferencial_20250512_Keenwork_AF.png"} 
+                  alt={invitation?.tenant?.name || "Lins"} 
+                  className="h-16 lg:h-20 object-contain brightness-0 invert mb-6" 
+                />
+                <div className="inline-flex items-center gap-3 px-4 py-2 bg-white/10 backdrop-blur-md rounded-full border border-white/10">
+                  <ShieldCheck className="w-4 h-4 text-primary" />
+                  <span className="text-[10px] text-white/70 font-bold uppercase tracking-widest">Acesso Gestor</span>
+                </div>
+              </div>
+
+              <div className="mt-auto">
+                <p className="text-slate-400 text-sm max-w-xs leading-relaxed font-medium mb-8">
+                  Provisionamento de acesso administrativo para a gestão de segurança e operações.
+                </p>
+                
+                <div className="pt-6 border-t border-white/10 flex items-center justify-between">
+                  <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Protocolo Seguro &copy; 2026</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Side - Form */}
+          <div className="w-full md:w-7/12 p-6 md:p-10 flex flex-col justify-center bg-white relative">
+            <div className="max-w-md w-full mx-auto">
+              <div className="mb-8">
+                <span className="px-4 py-1.5 bg-primary/10 text-primary text-[10px] font-bold uppercase rounded-full tracking-widest">Habilitação Mestre</span>
+                <h2 className="text-3xl font-bold text-navy uppercase tracking-tighter mt-6 mb-2 leading-none">Crie seu <span className="italic text-primary">Acesso</span></h2>
+                <p className="text-slate-400 text-sm font-medium">Defina suas credenciais mestres para o sistema.</p>
+              </div>
+
+              <form onSubmit={handleSubmit} className="space-y-5">
                 <InputGroup 
                   label="Nome Completo para Registro" 
                   icon={<UserIcon className="w-4 h-4" />} 
@@ -242,7 +244,7 @@ export default function RegisterGestor() {
                   placeholder="seu@email.com" 
                 />
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <InputGroup 
                     label="Chave de Acesso" 
                     icon={<Lock className="w-4 h-4" />} 
@@ -260,24 +262,24 @@ export default function RegisterGestor() {
                     placeholder="••••••••" 
                   />
                 </div>
+
+                <button 
+                  type="submit" 
+                  disabled={registering}
+                  className="w-full py-4 mt-6 bg-navy text-white font-bold uppercase text-xs tracking-widest rounded-xl shadow-3xl shadow-navy/20 hover:bg-[#002880] transition-all flex items-center justify-center gap-3 active:scale-[0.98]"
+                >
+                  {registering ? <Loader2 className="w-5 h-5 animate-spin" /> : (
+                    <>
+                      ATIVAR ACESSO GESTOR
+                      <ArrowRight className="w-5 h-5" />
+                    </>
+                  )}
+                </button>
+              </form>
+
+              <div className="mt-10 text-center">
+                 <p className="text-[9px] font-bold text-slate-300 uppercase tracking-widest">Unitraack Control &middot; Infraestrutura SaaS</p>
               </div>
-
-              <button 
-                type="submit" 
-                disabled={registering}
-                className="w-full py-6 bg-navy text-white font-bold uppercase text-xs tracking-widest rounded-xl shadow-3xl shadow-navy/20 hover:bg-[#002880] transition-all flex items-center justify-center gap-3 active:scale-[0.98] mt-10"
-              >
-                {registering ? <Loader2 className="w-5 h-5 animate-spin" /> : (
-                  <>
-                    ATIVAR ACESSO GESTOR
-                    <ArrowRight className="w-5 h-5" />
-                  </>
-                )}
-              </button>
-            </form>
-
-            <div className="mt-12 text-center">
-               <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">Unitraack Control &middot; Infraestrutura SaaS</p>
             </div>
           </div>
         </div>
@@ -286,10 +288,26 @@ export default function RegisterGestor() {
   );
 }
 
-function InputGroup({ label, placeholder, type = "text", value, onChange, icon }: any) {
+function InputGroup({ 
+  label, 
+  placeholder, 
+  type = "text", 
+  value, 
+  onChange, 
+  icon 
+}: { 
+  label: string, 
+  placeholder?: string, 
+  type?: string, 
+  value: string, 
+  onChange: (v: string) => void, 
+  icon?: React.ReactNode 
+}) {
   return (
     <div className="space-y-1.5 w-full group">
-      <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 tracking-widest leading-none">{label}</label>
+      <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 tracking-widest leading-none group-focus-within:text-primary transition-colors">
+        {label}
+      </label>
       <div className="relative">
         <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-primary transition-colors">{icon}</div>
         <input 
@@ -298,7 +316,7 @@ function InputGroup({ label, placeholder, type = "text", value, onChange, icon }
           value={value}
           onChange={e => onChange(e.target.value)}
           placeholder={placeholder}
-          className="w-full pl-11 pr-5 py-3.5 bg-slate-50/50 border border-slate-100 rounded-xl text-navy placeholder-slate-300 focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all font-bold text-sm"
+          className="w-full pl-11 pr-5 py-3 bg-slate-50 border border-slate-100 rounded-xl text-navy placeholder-slate-300 focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all font-bold text-sm"
         />
       </div>
     </div>

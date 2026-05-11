@@ -5,7 +5,7 @@ import { supabaseAdmin } from '../../config/supabase';
 export class ConfirmMaterialMovement {
   constructor(private requestRepository: IRequestRepository) {}
 
-  async execute(requestId: string, materialIds: string[], type: 'ENTRY' | 'EXIT', movedBy: string, tenantId: string, signature?: string): Promise<void> {
+  async execute(requestId: string, materialIds: string[], type: 'ENTRY' | 'EXIT', movedBy: string, tenantId: string, signature?: string, photos?: string[]): Promise<void> {
     const request = await this.requestRepository.findById(requestId);
     
     if (!request) {
@@ -73,7 +73,8 @@ export class ConfirmMaterialMovement {
           request.tenant_id,
           undefined,
           portariaSectorId || undefined,
-          signature
+          signature,
+          photos
       );
 
       // Mov 2: Encaminhamento para o Setor (Atribuímos ao Líder do Setor que aprovou a entrada)
@@ -85,7 +86,8 @@ export class ConfirmMaterialMovement {
           request.tenant_id,
           portariaSectorId || undefined,
           targetSectorId || undefined,
-          signature
+          signature,
+          photos
       );
     } else {
       // Saída: Setor Alvo -> Portaria
@@ -97,7 +99,8 @@ export class ConfirmMaterialMovement {
           request.tenant_id,
           request.sector_id || undefined,
           portariaSectorId || undefined,
-          signature
+          signature,
+          photos
       );
     }
 

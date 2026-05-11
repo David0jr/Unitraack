@@ -21,8 +21,10 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronRight,
-  Activity
+  Activity,
+  User
 } from 'lucide-react';
+import { MobileNav } from '../../requests/components/dashboard/MobileNav';
 
 interface Tenant {
   id: string;
@@ -282,9 +284,9 @@ export default function SuperAdminDashboard() {
   );
 
   return (
-    <div className="min-h-screen bg-slate-50/50 font-brand antialiased text-navy flex">
-      {/* Sidebar background with deep navy gradient */}
-      <aside className={`bg-gradient-to-b from-[#001D4A] to-navy border-r border-white/5 shadow-xl transition-all duration-500 flex flex-col z-50 ${isSidebarOpen ? 'w-72' : 'w-24'}`}>
+    <div className="min-h-screen bg-slate-50/50 font-brand antialiased text-navy flex flex-col lg:flex-row">
+      {/* Sidebar background with deep navy gradient - Hidden on mobile */}
+      <aside className={`bg-gradient-to-b from-[#001D4A] to-navy border-r border-white/5 shadow-xl transition-all duration-500 hidden lg:flex flex-col z-50 ${isSidebarOpen ? 'w-72' : 'w-24'}`}>
         <div className="p-6 h-24 flex items-center gap-4 overflow-hidden border-b border-white/5">
           <div className="w-10 h-10 bg-primary/20 rounded-xl flex items-center justify-center shrink-0 border border-primary/20">
             <LayoutDashboard className="w-5 h-5 text-primary shadow-xl" />
@@ -334,14 +336,17 @@ export default function SuperAdminDashboard() {
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-h-screen overflow-hidden">
         <header className="h-20 bg-white/70 backdrop-blur-md border-b border-slate-200/50 px-8 flex items-center justify-between sticky top-0 z-40">
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-3 lg:gap-6">
             <button
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className="p-2.5 hover:bg-slate-100 rounded-xl text-slate-500 transition-all active:scale-95"
+              className="p-2.5 hover:bg-slate-100 rounded-xl text-slate-500 transition-all active:scale-95 hidden lg:block"
             >
               <Menu className="w-5 h-5" />
             </button>
-            <div className="h-6 w-px bg-slate-200"></div>
+            <div className="lg:hidden w-10 h-10 bg-[#001D4A] rounded-xl flex items-center justify-center border border-white/10 shadow-lg">
+              <LayoutDashboard className="w-5 h-5 text-primary" />
+            </div>
+            <div className="h-6 w-px bg-slate-200 hidden lg:block"></div>
             <div className="flex flex-col">
               <h2 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1">
                 {activeTab === 'dashboard' ? 'Infraestrutura' : activeTab === 'tenants' ? 'Unidades' : 'Auditoria'}
@@ -352,11 +357,25 @@ export default function SuperAdminDashboard() {
             </div>
           </div>
           <div className="flex items-center gap-4">
-            {/* Removidas informações do Admin Principal do cabeçalho conforme solicitação */}
+            <div className="lg:hidden flex items-center gap-2 px-3 py-1.5 bg-slate-100 rounded-full border border-slate-200">
+               <div className="w-6 h-6 bg-primary/20 rounded-full flex items-center justify-center text-primary font-bold text-[8px] border border-primary/20">
+                 {profile?.full_name ? profile.full_name[0] : 'A'}
+               </div>
+               <span className="text-[10px] font-bold text-navy truncate max-w-[80px]">
+                 {profile?.full_name?.split(' ')[0] || 'Admin'}
+               </span>
+            </div>
+            <button 
+              onClick={signOut}
+              className="flex items-center justify-center h-8 w-8 bg-rose-50 text-rose-500 rounded-full border border-rose-100 hover:bg-rose-500 hover:text-white transition-all shadow-sm group"
+              title="Sair da conta"
+            >
+              <LogOut className="w-4 h-4 group-hover:scale-110 transition-transform" />
+            </button>
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-12 bg-[#F8FAFC] bg-industrial-grid relative">
+        <main className="flex-1 overflow-y-auto p-4 md:p-12 bg-[#F8FAFC] bg-industrial-grid relative pb-32 md:pb-12">
           <div className="absolute inset-0 bg-gradient-to-b from-white/50 to-transparent pointer-events-none"></div>
           
           <div className="space-y-8 animate-in fade-in duration-500 relative z-10">
@@ -411,8 +430,8 @@ export default function SuperAdminDashboard() {
                 </div>
               </div>
 
-              {/* List View (Table) */}
-              <div className="bg-white rounded-xl shadow-[0_40px_100px_-20px_rgba(0,0,0,0.03)] border border-slate-100/50 overflow-hidden">
+              {/* List View (Table) - Scrollable on mobile */}
+              <div className="bg-white rounded-xl shadow-[0_40px_100px_-20px_rgba(0,0,0,0.03)] border border-slate-100/50 overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead className="bg-[#F8FAFC]">
                     <tr>
@@ -539,7 +558,7 @@ export default function SuperAdminDashboard() {
                   </div>
                 </div>
               ) : (
-                <div className="bg-white rounded-2xl shadow-[0_40px_100px_-20px_rgba(0,0,0,0.03)] border border-slate-100/50 overflow-hidden">
+                <div className="bg-white rounded-2xl shadow-[0_40px_100px_-20px_rgba(0,0,0,0.03)] border border-slate-100/50 overflow-x-auto">
                   <table className="w-full text-left">
                     <thead className="bg-[#F8FAFC]">
                       <tr>
@@ -643,9 +662,9 @@ export default function SuperAdminDashboard() {
                             </div>
                           </button>
 
-                          {/* Group Content (User Table) */}
+                          {/* Group Content (User Table) - Scrollable on mobile */}
                           {isExpanded && (
-                            <div className="border-t border-slate-50 animate-in slide-in-from-top-2 duration-300">
+                            <div className="border-t border-slate-50 animate-in slide-in-from-top-2 duration-300 overflow-x-auto">
                               <table className="w-full text-left">
                                 <thead className="bg-[#F8FAFC]">
                                   <tr>
@@ -701,8 +720,8 @@ export default function SuperAdminDashboard() {
       </div>
 
       {isModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-[#001D4A]/40 backdrop-blur-sm animate-in fade-in duration-500">
-          <div className="bg-white w-full max-w-xl rounded-xl shadow-[0_30px_60px_-15px_rgba(0,0,0,0.2)] overflow-hidden border border-slate-100">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-6 bg-[#001D4A]/40 backdrop-blur-sm animate-in fade-in duration-500">
+          <div className="bg-white w-full max-w-xl rounded-2xl shadow-[0_30px_60px_-15px_rgba(0,0,0,0.2)] overflow-y-auto max-h-[90vh] border border-slate-100">
             <div className="p-10 space-y-8">
               {generatedInvite ? (
                 <div className="space-y-8 py-4 animate-in zoom-in-95 duration-300 text-center">
@@ -817,6 +836,16 @@ export default function SuperAdminDashboard() {
           </div>
         </div>
       )}
+      <MobileNav 
+        activeSection={activeTab} 
+        setActiveSection={(s) => setActiveTab(s as any)} 
+        items={[
+          { id: 'dashboard', label: 'Início', icon: <BarChart3 /> },
+          { id: 'tenants', label: 'Usinas', icon: <Building2 /> },
+          { id: 'users', label: 'Usuários', icon: <Users /> },
+          { id: 'monitoring', label: 'Rastro', icon: <Activity /> },
+        ]} 
+      />
     </div>
   );
 }

@@ -127,12 +127,12 @@ export class RequestController {
   static async confirmMovement(req: AuthRequest, res: Response) {
     try {
       const id = req.params.id as string;
-      const { materialIds, type, signature } = req.body; // type: 'ENTRY' | 'EXIT'
+      const { materialIds, type, signature, photos } = req.body; // type: 'ENTRY' | 'EXIT'
       const profile = await userService.findProfileById(req.user.id);
       if (!profile || !profile.tenant_id) return ApiResponse.error(res, 'Tenant não identificado.', 403);
 
       const useCase = new ConfirmMaterialMovement(requestRepo);
-      await useCase.execute(id, materialIds, type, req.user.id, profile.tenant_id, signature);
+      await useCase.execute(id, materialIds, type, req.user.id, profile.tenant_id, signature, photos);
       return ApiResponse.success(res, { message: 'Movimentação confirmada com sucesso!' });
     } catch (error: any) {
       console.error("[RequestController.confirmMovement] Erro:", error);

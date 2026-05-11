@@ -33,7 +33,7 @@ export const LiderSidebar: React.FC<LiderSidebarProps> = ({
   const { signOut } = useAuth();
 
   return (
-    <aside className="w-72 bg-navy flex flex-col shrink-0 border-r border-navy/10 shadow-xl z-50">
+    <aside className="hidden md:flex w-72 bg-navy flex-col shrink-0 border-r border-navy/10 shadow-xl z-50">
       <div className="p-8 h-24 flex items-center gap-4 border-b border-white/5">
         <div className="w-10 h-10 bg-primary/20 rounded-xl flex items-center justify-center border border-primary/20">
            <ShieldCheck className="w-6 h-6 text-primary shadow-xl" />

@@ -127,7 +127,7 @@ export default function MonitoringDashboard({ parentSectorId }: { parentSectorId
       <div className="grid grid-cols-1 xl:grid-cols-4 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500 relative">
         
         {/* Coluna de Estrutura & Equipamentos */}
-        <div className="xl:col-span-3 space-y-4">
+        <div className="lg:col-span-3 space-y-4">
           {/* Header de Ações Minimalista */}
           <div className="flex items-center justify-between gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
             <div className="relative flex-1">
@@ -165,7 +165,9 @@ export default function MonitoringDashboard({ parentSectorId }: { parentSectorId
               const isExpanded = expandedParents.includes(parent.id) || !!parentSectorId || !!filterText;
 
               return (
-                <div key={parent.id} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden transition-all min-h-[400px]">
+                <div key={parent.id} className={`bg-white rounded-xl border transition-all duration-300 shadow-sm overflow-hidden ${
+                  isExpanded ? 'border-primary/30 shadow-md' : 'border-slate-200'
+                }`}>
                   {/* Cabeçalho de Unidade (Oculto se filtrado via Sidebar para ser mais direto) */}
                   {!parentSectorId && (
                     <button 
@@ -191,7 +193,7 @@ export default function MonitoringDashboard({ parentSectorId }: { parentSectorId
                   )}
 
                   {/* Grid de Ativos em Formato de Lista Profissional */}
-                  <div className={`${parentSectorId ? '' : `transition-all duration-300 ${isExpanded ? 'opacity-100' : 'hidden'} overflow-hidden`}`}>
+                  <div className={`${parentSectorId ? '' : `transition-all duration-500 ease-in-out ${isExpanded ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'} overflow-hidden`}`}>
                     {/* Materiais Diretos */}
                     {parentMaterials.length > 0 && (
                       <div className="p-4 border-b border-slate-50 bg-slate-50/20">
@@ -557,20 +559,22 @@ function AssetListItem({
       </div>
 
       {/* Ações */}
-      <div className="col-span-12 md:col-span-2 flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+      <div className="col-span-12 md:col-span-2 flex justify-end gap-2 md:opacity-0 md:group-hover:opacity-100 transition-opacity pt-2 md:pt-0 border-t md:border-0 border-slate-50 mt-2 md:mt-0">
         <button 
           onClick={onTransfer}
-          className="p-2 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-all"
+          className="flex-1 md:flex-none flex items-center justify-center gap-2 p-3 md:p-2 bg-slate-50 md:bg-transparent text-slate-500 md:text-slate-400 hover:text-primary hover:bg-primary/5 rounded-xl md:rounded-lg transition-all"
           title="Transferir Unidade"
         >
-          <ArrowRightLeft className="w-3.5 h-3.5" />
+          <ArrowRightLeft className="w-4 h-4 md:w-3.5 md:h-3.5" />
+          <span className="md:hidden text-[9px] font-bold uppercase tracking-widest">Mover</span>
         </button>
         <button 
           onClick={onCheckout}
-          className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+          className="flex-1 md:flex-none flex items-center justify-center gap-2 p-3 md:p-2 bg-red-50 md:bg-transparent text-red-500 md:text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl md:rounded-lg transition-all"
           title="Saída Definitiva"
         >
-          <LogOut className="w-3.5 h-3.5" />
+          <LogOut className="w-4 h-4 md:w-3.5 md:h-3.5" />
+          <span className="md:hidden text-[9px] font-bold uppercase tracking-widest">Saída</span>
         </button>
       </div>
     </div>

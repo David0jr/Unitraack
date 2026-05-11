@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { getAuthToken } from '../../../utils/subdomain';
-import { Truck, Search, CheckCircle, Loader2, Package, Hash, Info, LogOut, Eye, AlertTriangle, X, Camera, ShieldAlert, ChevronRight, MapPin, ShieldCheck } from 'lucide-react';
+import { Truck, Search, CheckCircle, Loader2, Package, Hash, Info, LogOut, Eye, AlertTriangle, X, Camera, ShieldAlert, ChevronRight, MapPin, ShieldCheck, ClipboardList, History, Users, Calendar, Clock } from 'lucide-react';
 import { SignaturePad } from '../../../components/SignaturePad';
+import { MobileNav } from '../components/dashboard/MobileNav';
 
 interface Material {
   id: string;
@@ -15,6 +16,7 @@ interface Material {
   code?: string;
   image_url?: string;
   status: 'PENDING' | 'IN_PLANTA' | 'OUT_PLANTA';
+  photos?: string[];
 }
 
 interface Requisicao {
@@ -47,6 +49,12 @@ interface CompanyDetails {
   theme_color?: string;
 }
 
+const portariaNavItems = [
+  { id: 'list', label: 'Fila', icon: <Truck /> },
+  { id: 'details', label: 'Operação', icon: <ClipboardList /> },
+  { id: 'history', label: 'Histórico', icon: <History /> }
+];
+
 export default function PortariaDashboard() {
   const { signOut, profile: userProfile } = useAuth();
   const [requisicoes, setRequisicoes] = useState<Requisicao[]>([]);
@@ -60,11 +68,15 @@ export default function PortariaDashboard() {
   const [detailMaterial, setDetailMaterial] = useState<Material | null>(null);
   const [showDiscrepancyModal, setShowDiscrepancyModal] = useState(false);
   const [discrepancyReason, setDiscrepancyReason] = useState('');
+  const [mobileSection, setMobileSection] = useState<'list' | 'details' | 'history'>('list');
   const [auditHistory, setAuditHistory] = useState<any[]>([]);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [modalConfig, setModalConfig] = useState({ title: '', message: '', type: 'success' as 'success' | 'error' });
   const [signature, setSignature] = useState('');
+  const [photos, setPhotos] = useState<string[]>([]);
+  const [selectedPhotos, setSelectedPhotos] = useState<string[] | null>(null);
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -84,9 +96,9 @@ export default function PortariaDashboard() {
     }
   };
 
-  const fetchAuditHistory = async (tenantId: string) => {
+  const fetchAuditHistory = async (id: string) => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/portaria/audit/${tenantId}`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/portaria/audit/${id}`, {
         headers: { 'Authorization': `Bearer ${getAuthToken()}` }
       });
       const payload = await response.json();
@@ -99,10 +111,10 @@ export default function PortariaDashboard() {
   useEffect(() => {
     if (selectedCompany) {
       fetchAuditHistory(selectedCompany.id);
-    } else {
-      setAuditHistory([]);
+    } else if (mobileSection === 'history' && userProfile?.tenant_id) {
+      fetchAuditHistory(userProfile.tenant_id);
     }
-  }, [selectedCompany]);
+  }, [selectedCompany, mobileSection]);
 
   const fetchRequisicoes = async () => {
     try {
@@ -140,6 +152,7 @@ export default function PortariaDashboard() {
     fetchRequisicoes();
     setSelecionadoId(null);
     setSelectedMaterials([]);
+    setPhotos([]);
   }, [activeTab]);
 
   const selectedReq = Array.isArray(requisicoes) ? requisicoes.find(r => r.id === selecionadoId) : null;
@@ -153,10 +166,73 @@ export default function PortariaDashboard() {
     }
   }, [selecionadoId]);
 
+  useEffect(() => {
+    if (selecionadoId) {
+      setMobileSection('details');
+    }
+  }, [selecionadoId]);
+
   const handleToggleMaterial = (id: string) => {
     setSelectedMaterials(prev => 
       prev.includes(id) ? prev.filter(mid => mid !== id) : [...prev, id]
     );
+  };
+
+  const handleCapturePhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPhotos(prev => [...prev, reader.result as string]);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removePhoto = (index: number) => {
+    setPhotos(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // Real-time Camera Logic
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    let stream: MediaStream | null = null;
+    if (isCameraOpen && videoRef.current) {
+      navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: 'environment' }, 
+        audio: false 
+      }).then(s => {
+        stream = s;
+        if (videoRef.current) videoRef.current.srcObject = s;
+      }).catch(err => {
+        console.error("Erro ao acessar câmera:", err);
+        alert("Não foi possível acessar a câmera. Verifique as permissões.");
+        setIsCameraOpen(false);
+      });
+    }
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [isCameraOpen]);
+
+  const takePhoto = () => {
+    if (videoRef.current && canvasRef.current) {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+        setPhotos(prev => [...prev, dataUrl]);
+        setIsCameraOpen(false);
+      }
+    }
   };
 
   const handleConfirmMovement = async () => {    
@@ -177,13 +253,16 @@ export default function PortariaDashboard() {
         body: JSON.stringify({
           materialIds: selectedMaterials,
           type: activeTab,
-          signature: signature.toUpperCase()
+          signature: signature.toUpperCase(),
+          photos: photos.length > 0 ? photos : undefined
         })
       });
 
       if (response.ok) {
         setRequisicoes(prev => prev.filter(r => r.id !== selecionadoId));
         setSelecionadoId(null);
+        setMobileSection('list');
+        setPhotos([]);
         setModalConfig({
           title: activeTab === 'ENTRY' ? 'Entrada Confirmada' : 'Saída Confirmada',
           message: `O protocolo de ${activeTab === 'ENTRY' ? 'entrada' : 'saída'} foi processado com sucesso e registrado no histórico.`,
@@ -253,12 +332,18 @@ export default function PortariaDashboard() {
     return matchesName || matchesId || matchesMaterials;
   }) : [];
 
+  const portariaNavItems = [
+    { id: 'list', label: 'Fila', icon: <Truck /> },
+    { id: 'details', label: 'Operação', icon: <ClipboardList /> },
+    { id: 'history', label: 'Histórico', icon: <History /> },
+  ];
+
 
   return (
     <div className="min-h-screen bg-[#F1F5F9] font-brand antialiased text-navy selection:bg-primary/10">
       
       {/* Header Premium */}
-      <nav className="h-20 bg-navy border-b border-white/5 px-8 flex items-center justify-between sticky top-0 z-[60] shadow-2xl shadow-navy/20">
+      <nav className="h-20 bg-navy border-b border-white/5 px-4 md:px-8 flex items-center justify-between sticky top-0 z-[60] shadow-2xl shadow-navy/20">
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-4">
              <img 
@@ -301,12 +386,12 @@ export default function PortariaDashboard() {
         </div>
       </nav>
 
-      <main className="max-w-[1600px] mx-auto px-8 py-10">
+      <main className="max-w-[1600px] mx-auto p-4 md:p-10 pb-28 md:pb-10">
         
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           
           {/* Left Column: Navigation & Search */}
-          <div className="lg:col-span-4 space-y-6 sticky top-28">
+          <div className={`lg:col-span-4 space-y-6 sticky top-28 ${mobileSection !== 'list' ? 'hidden lg:block' : ''}`}>
             
             {/* Tab Switcher Industrial */}
             <div className="bg-white p-2 rounded-2xl border border-slate-200 shadow-sm flex gap-2">
@@ -381,7 +466,7 @@ export default function PortariaDashboard() {
                           
                           {req.status === 'DISCREPANCY' && (
                             <div className="absolute -top-1 -right-1 bg-rose-500 rounded-full p-1 border-2 border-white shadow-lg">
-                              <AlertTriangle className="w-2.5 h-2.5 text-white" />
+                               <AlertTriangle className="w-2.5 h-2.5 text-white" />
                             </div>
                           )}
                         </div>
@@ -402,12 +487,18 @@ export default function PortariaDashboard() {
           </div>
 
           {/* Right Column: Detailed View */}
-          <div className="lg:col-span-8">
+          <div className={`lg:col-span-8 ${mobileSection !== 'details' ? 'hidden lg:block' : ''}`}>
              {selectedReq ? (
                <div className="bg-white rounded-3xl shadow-[0_20px_60px_-15px_rgba(0,50,160,0.06)] border border-slate-200 overflow-hidden animate-in fade-in slide-in-from-right-4 duration-500">
                   
                   {/* Header do Cartão */}
-                  <div className="p-10 border-b border-slate-100 flex flex-col md:flex-row justify-between items-start gap-8 relative">
+                  <div className="p-6 md:p-10 border-b border-slate-100 flex flex-col md:flex-row justify-between items-start gap-8 relative">
+                      <button 
+                         onClick={() => setMobileSection('list')}
+                         className="md:hidden flex items-center gap-2 text-slate-400 font-bold text-[10px] uppercase tracking-widest mb-2"
+                       >
+                         <ChevronRight className="w-4 h-4 rotate-180" /> Voltar para Lista
+                       </button>
                       <div className="flex items-center gap-6">
                         <div 
                           className="w-20 h-20 rounded-3xl flex items-center justify-center text-white font-bold text-3xl shadow-2xl relative overflow-hidden group/logo"
@@ -427,115 +518,182 @@ export default function PortariaDashboard() {
                              <span className={`text-[9px] font-black uppercase tracking-[0.2em] px-4 py-1.5 rounded-full ${activeTab === 'ENTRY' ? 'bg-emerald-500 text-white' : 'bg-navy text-white'}`}>
                                 {activeTab === 'ENTRY' ? 'Autorização de Entrada' : 'Controle de Saída'}
                              </span>
-                             <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">ID {selectedReq.id}</span>
                           </div>
-                          <h3 className="text-4xl font-black text-navy uppercase tracking-tighter leading-none mb-1">{selectedReq.profile.full_name}</h3>
-                          <p className="text-slate-400 font-bold uppercase text-[10px] tracking-widest flex items-center gap-2">
-                             <MapPin className="w-3 h-3" /> Destino: <span className="text-navy">{selectedReq.sector}</span>
-                          </p>
+                          <h2 className="text-3xl font-black text-navy uppercase tracking-tighter leading-none mb-2">{selectedReq.profile.full_name}</h2>
+                          <div className="flex items-center gap-4">
+                             <div className="flex items-center gap-2">
+                                <div className="w-1.5 h-1.5 rounded-full bg-primary"></div>
+                                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Protocolo de {selectedReq.sector}</span>
+                             </div>
+                             <div className="w-1 h-1 bg-slate-200 rounded-full"></div>
+                             <span className="text-[10px] text-primary font-black uppercase tracking-widest">#{selectedReq.id.slice(0, 8)}</span>
+                          </div>
                         </div>
                       </div>
 
-                      <div className="flex flex-col items-end">
-                         <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 text-right min-w-[180px]">
-                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Horário Previsto</p>
-                            <p className="text-2xl font-black text-navy leading-none">{formatDateTime(selectedReq.entry_date).time}</p>
-                            <p className="text-[10px] font-bold text-slate-400 mt-1">{formatDateTime(selectedReq.entry_date).date}</p>
+                      <div className="flex items-center gap-3">
+                         <div className="text-right hidden md:block">
+                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Status do Registro</p>
+                            <span className="text-xs font-black text-navy uppercase">Agendamento Válido</span>
+                         </div>
+                         <div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-500 shadow-sm">
+                            <ShieldCheck className="w-6 h-6" />
                          </div>
                       </div>
                   </div>
 
-                  {/* Alerta de Divergência */}
                   {selectedReq.status === 'DISCREPANCY' && (
-                    <div className="m-10 p-8 bg-rose-50 border-2 border-rose-100 rounded-3xl flex items-center gap-8 animate-pulse shadow-lg shadow-rose-500/5">
-                        <div className="w-16 h-16 bg-rose-500 rounded-2xl shadow-xl shadow-rose-500/20 flex items-center justify-center flex-shrink-0">
-                           <ShieldAlert className="w-8 h-8 text-white" />
-                        </div>
-                        <div>
-                           <p className="text-[10px] font-black text-rose-600 uppercase tracking-[0.2em] mb-1">Protocolo Bloqueado</p>
-                           <p className="text-lg font-black text-rose-900 uppercase tracking-tight">Divergência notificada - Aguardando Auditoria de Segurança.</p>
-                        </div>
+                    <div className="bg-rose-50 p-6 flex items-center gap-4 border-b border-rose-100">
+                       <div className="p-3 bg-rose-500 rounded-xl text-white shadow-lg shadow-rose-500/20">
+                          <ShieldAlert className="w-6 h-6" />
+                       </div>
+                       <div>
+                          <p className="text-rose-600 font-black uppercase text-[10px] tracking-widest mb-0.5">Divergência Detectada</p>
+                          <p className="text-rose-900 font-bold text-xs">Este veículo está sob análise de segurança e sua entrada está bloqueada.</p>
+                       </div>
                     </div>
                   )}
 
                   {/* Info Grid */}
-                  <div className="px-10 py-12 grid grid-cols-1 md:grid-cols-2 gap-12">
+                  <div className="px-6 md:px-10 py-8 md:py-12 grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12">
                      <div className="space-y-8">
                         <div className="flex items-center gap-5 p-6 bg-[#F8FAFC] rounded-2xl border border-slate-100 group hover:border-primary/20 transition-all">
                            <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-sm text-primary group-hover:bg-primary group-hover:text-white transition-all">
-                              <Truck className="w-6 h-6" />
+                              <MapPin className="w-6 h-6" />
                            </div>
                            <div>
-                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Veículo / Motorista</p>
-                              <p className="text-sm font-black text-navy uppercase">{selectedReq.driver_name || 'NÃO INFORMADO'} • {selectedReq.plate || 'S/ PLACA'}</p>
+                              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Destino Designado</p>
+                              <p className="text-lg font-black text-navy uppercase leading-none">{selectedReq.sector}</p>
                            </div>
                         </div>
 
-                        <div className="flex items-center gap-5 p-6 bg-[#F8FAFC] rounded-2xl border border-slate-100 group hover:border-primary/20 transition-all">
-                           <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-sm text-primary group-hover:bg-primary group-hover:text-white transition-all">
-                              <CheckCircle className="w-6 h-6" />
-                           </div>
-                           <div>
-                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Status da Requisição</p>
-                              <div className="flex items-center gap-2">
-                                 <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
-                                 <p className="text-sm font-black text-navy uppercase">{selectedReq.status}</p>
-                              </div>
-                           </div>
+                        <div className="grid grid-cols-2 gap-6">
+                           <InfoItem label="Motorista" value={selectedReq.driver_name || 'NÃO INFORMADO'} icon={<Users className="w-5 h-5 text-slate-400" />} />
+                           <InfoItem label="Placa" value={selectedReq.plate || '---'} icon={<Hash className="w-5 h-5 text-slate-400" />} />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-6">
+                           <InfoItem label="Data Agendada" value={formatDateTime(selectedReq.entry_date).date} icon={<Calendar className="w-5 h-5 text-slate-400" />} />
+                           <InfoItem label="Horário" value={formatDateTime(selectedReq.entry_date).time} icon={<Clock className="w-5 h-5 text-slate-400" />} />
                         </div>
                      </div>
 
-                     <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-inner">
-                        <div className="flex items-center justify-between mb-8 pb-4 border-b border-slate-100">
-                           <div className="flex items-center gap-3">
-                              <Package className="w-5 h-5 text-primary" />
-                              <h4 className="font-black text-navy text-[10px] uppercase tracking-widest">Conferência de Carga ({selectedReq.materials.length})</h4>
-                           </div>
+                     <div className="space-y-6">
+                        <div className="flex items-center justify-between">
+                           <p className="text-[10px] font-black text-navy uppercase tracking-widest">Itens para Conferência ({selectedMaterials.length}/{selectedReq.materials.length})</p>
                            <button 
-                            onClick={() => setSelectedMaterials(selectedReq.materials.map(m => m.id))}
-                            className="text-[9px] font-black text-primary uppercase tracking-[0.1em] px-3 py-1.5 hover:bg-primary/5 rounded-lg transition-all"
+                            onClick={() => {
+                              const allIds = selectedReq.materials.map(m => m.id);
+                              setSelectedMaterials(selectedMaterials.length === allIds.length ? [] : allIds);
+                            }}
+                            className="text-[9px] font-black text-primary uppercase tracking-widest hover:underline"
                            >
-                              Selecionar Todos
+                              {selectedMaterials.length === selectedReq.materials.length ? 'Desmarcar Todos' : 'Marcar Todos'}
                            </button>
                         </div>
-                        <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                           {selectedReq.materials.map(mat => (
-                             <div key={mat.id} className={`flex items-center justify-between p-4 rounded-xl border transition-all ${selectedMaterials.includes(mat.id) ? 'bg-primary/5 border-primary/20' : 'bg-slate-50/50 border-transparent hover:border-slate-200'}`}>
-                                <label className="flex items-center gap-4 cursor-pointer flex-1 group/item">
-                                   <div className="relative flex items-center justify-center">
-                                      <input 
-                                       type="checkbox" 
-                                       checked={selectedMaterials.includes(mat.id)}
-                                       onChange={() => handleToggleMaterial(mat.id)}
-                                       className="w-6 h-6 rounded-lg border-2 border-slate-200 text-navy focus:ring-navy transition-all cursor-pointer checked:border-primary"
-                                      />
-                                      {selectedMaterials.includes(mat.id) && <div className="absolute w-3 h-3 bg-primary rounded-sm pointer-events-none"></div>}
-                                   </div>
-                                   <div>
-                                      <p className={`text-xs font-black uppercase transition-colors ${selectedMaterials.includes(mat.id) ? 'text-navy' : 'text-slate-400'}`}>{mat.name}</p>
-                                      <p className="text-[9px] text-slate-300 font-bold uppercase tracking-widest leading-none mt-1">Cód: {mat.code || mat.serial_number || 'N/A'}</p>
-                                   </div>
-                                </label>
-                                <button 
-                                  onClick={() => setDetailMaterial(mat)}
-                                  className="p-2.5 bg-white shadow-sm border border-slate-100 rounded-xl text-slate-400 hover:text-primary transition-all hover:scale-110"
-                                >
-                                  <Eye className="w-4 h-4" />
-                                </button>
-                             </div>
+                        
+                        <div className="space-y-3 max-h-[400px] overflow-y-auto pr-4 custom-scrollbar">
+                           {selectedReq.materials
+                             .filter(m => activeTab === 'ENTRY' ? m.status !== 'IN_PLANTA' : m.status === 'IN_PLANTA')
+                             .map(item => (
+                              <button 
+                                key={item.id}
+                                onClick={() => handleToggleMaterial(item.id)}
+                                className={`w-full group p-5 rounded-2xl border transition-all flex items-center justify-between text-left ${selectedMaterials.includes(item.id) ? 'bg-primary/5 border-primary/20' : 'bg-white border-slate-100 hover:border-slate-300'}`}
+                              >
+                                 <div className="flex items-center gap-4">
+                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${selectedMaterials.includes(item.id) ? 'bg-primary text-white scale-110' : 'bg-slate-50 text-slate-300 group-hover:bg-slate-100'}`}>
+                                       {selectedMaterials.includes(item.id) ? <CheckCircle className="w-5 h-5" /> : <Package className="w-5 h-5" />}
+                                    </div>
+                                    <div>
+                                       <p className="text-[11px] font-black text-navy uppercase leading-tight group-hover:text-primary transition-colors">{item.name}</p>
+                                       <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">{item.brand} {item.model}</p>
+                                    </div>
+                                 </div>
+                                 
+                                 <div className="flex items-center gap-3">
+                                    <div className="text-right">
+                                       <p className="text-[8px] text-slate-300 font-bold uppercase tracking-tighter mb-0.5">Nº de Série</p>
+                                       <p className={`text-[9px] font-black uppercase ${selectedMaterials.includes(item.id) ? 'text-primary' : 'text-slate-400'}`}>
+                                          {item.code || (
+                                             item.serial_number ? 
+                                             (item.serial_number.length > 12 ? item.serial_number.slice(0, 12) + '...' : item.serial_number) 
+                                             : 'N/A'
+                                          )}
+                                       </p>
+                                    </div>
+
+                                    {item.photos && item.photos.length > 0 && (
+                                      <button 
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setSelectedPhotos(item.photos);
+                                        }}
+                                        className="p-1.5 bg-primary/10 text-primary rounded-lg hover:bg-primary hover:text-white transition-all flex items-center gap-1.5"
+                                      >
+                                         <Camera className="w-3 h-3" />
+                                         <span className="text-[8px] font-black uppercase">{item.photos.length}</span>
+                                      </button>
+                                    )}
+                                 </div>
+                              </button>
                            ))}
                         </div>
                      </div>
                   </div>
 
                   {/* Actions Area */}
+                  {activeTab === 'EXIT' && (
+                    <div className="px-6 md:px-10 pb-8">
+                       <div className="bg-slate-50/50 rounded-3xl border border-dashed border-slate-200 p-6 md:p-8">
+                          <div className="flex items-center justify-between mb-6">
+                             <div className="flex items-center gap-3">
+                                <Camera className="w-5 h-5 text-primary" />
+                                <div>
+                                   <p className="text-[10px] font-black text-navy uppercase tracking-widest">Evidências de Saída</p>
+                                   <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Obrigatório 1+ fotos da carga</p>
+                                </div>
+                             </div>
+                             <div className="flex gap-2">
+                                <button 
+                                  onClick={() => setIsCameraOpen(true)}
+                                  className="px-4 py-2 bg-primary text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 flex items-center gap-2"
+                                >
+                                   <Camera className="w-4 h-4" /> Câmera
+                                </button>
+                                <label className="px-4 py-2 bg-white border border-slate-200 text-slate-400 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-slate-50 cursor-pointer transition-all flex items-center gap-2">
+                                   <Package className="w-4 h-4" /> Galeria
+                                   <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handleCapturePhoto} />
+                                </label>
+                             </div>
+                          </div>
+
+                          {photos.length > 0 && (
+                             <div className="grid grid-cols-4 md:grid-cols-6 gap-4">
+                                {photos.map((p, i) => (
+                                  <div key={i} className="aspect-square rounded-xl overflow-hidden border-2 border-white shadow-sm relative group/photo">
+                                     <img src={p} className="w-full h-full object-cover" />
+                                     <button 
+                                       onClick={() => removePhoto(i)}
+                                       className="absolute top-2 right-2 p-1.5 bg-rose-500 text-white rounded-lg opacity-0 group-hover/photo:opacity-100 transition-all hover:scale-110"
+                                     >
+                                       <X className="w-3 h-3" />
+                                     </button>
+                                  </div>
+                                ))}
+                             </div>
+                          )}
+                       </div>
+                    </div>
+                  )}
+
                   <SignaturePad 
                      placeholder="Assinatura Digital"
                      onSave={setSignature}
                      onClear={() => setSignature('')}
                   />
 
-                  <div className="p-10 bg-slate-50/50 border-t border-slate-100 flex flex-col md:flex-row gap-5">
+                  <div className="p-6 md:p-10 bg-slate-50/50 border-t border-slate-100 flex flex-col md:flex-row gap-5">
                      <button 
                         onClick={handleConfirmMovement}
                         disabled={processing || selectedMaterials.length === 0 || !signature || selectedReq.status === 'DISCREPANCY'}
@@ -573,6 +731,69 @@ export default function PortariaDashboard() {
                </div>
              )}
           </div>
+
+          {/* Mobile History View */}
+          {mobileSection === 'history' && (
+            <div className="lg:hidden space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+               <div>
+                  <h2 className="text-3xl font-black text-navy uppercase tracking-tighter italic">
+                    Histórico de <span className="text-primary not-italic">Portaria</span>
+                  </h2>
+                  <p className="text-slate-400 font-bold uppercase text-[9px] tracking-[0.2em] mt-1">Registros recentes de entrada e saída.</p>
+               </div>
+
+               <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden divide-y divide-slate-50">
+                  {auditHistory.length === 0 ? (
+                    <div className="p-20 text-center flex flex-col items-center gap-4">
+                       <History className="w-10 h-10 text-slate-200" />
+                       <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Nenhum registro encontrado</p>
+                    </div>
+                  ) : auditHistory.map((audit, i) => (
+                    <div key={i} className="p-6 space-y-4">
+                        <div className="flex justify-between items-start">
+                           <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-black text-sm" style={{ backgroundColor: audit.material?.request?.profile?.theme_color || '#0032A0' }}>
+                                 {audit.material?.request?.profile?.logo_url ? (
+                                    <img src={audit.material?.request?.profile?.logo_url} className="w-full h-full object-cover rounded-xl" />
+                                 ) : audit.material?.request?.profile?.full_name?.[0]}
+                              </div>
+                              <div>
+                                 <p className="text-[11px] font-black text-navy uppercase leading-tight">{audit.material?.name}</p>
+                                 <p className="text-[9px] text-primary font-black uppercase tracking-widest mt-0.5">{audit.material?.request?.profile?.full_name}</p>
+                              </div>
+                           </div>
+                           <div className="text-right shrink-0">
+                              <p className="text-[10px] font-black text-navy">{new Date(audit.moved_at).toLocaleDateString('pt-BR')}</p>
+                              <p className="text-[9px] text-slate-400 font-bold">{new Date(audit.moved_at).toLocaleTimeString('pt-BR')}</p>
+                           </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                           <span className="text-[9px] font-black text-slate-500 uppercase bg-slate-100 px-2 py-1 rounded-md">{audit.from_sector?.name || '---'}</span>
+                           <ChevronRight className="w-3 h-3 text-slate-300" />
+                           <span className="text-[9px] font-black text-primary uppercase bg-primary/10 px-2 py-1 rounded-md">{audit.to_sector?.name || '---'}</span>
+                        </div>
+
+                        <div className="flex justify-between items-center pt-2 border-t border-slate-50">
+                           <div className="flex items-center gap-2">
+                              <div className="w-6 h-6 bg-navy text-white rounded-full flex items-center justify-center text-[9px] font-bold">
+                                 {audit.actor?.full_name?.[0]}
+                              </div>
+                              <span className="text-[10px] font-black text-navy uppercase tracking-tighter">{audit.actor?.full_name}</span>
+                           </div>
+                           <div className="flex items-center gap-3">
+                              {audit.photos && audit.photos.length > 0 && (
+                                <button onClick={() => setSelectedPhotos(audit.photos)} className="p-2.5 bg-primary/10 text-primary rounded-xl active:scale-90 transition-transform">
+                                   <Camera className="w-4 h-4" />
+                                </button>
+                              )}
+                           </div>
+                        </div>
+                    </div>
+                  ))}
+               </div>
+            </div>
+          )}
 
         </div>
       </main>
@@ -751,35 +972,50 @@ export default function PortariaDashboard() {
                               {formatDateTime(item.moved_at).date} {formatDateTime(item.moved_at).time}
                             </span>
                          </div>
-                         <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-50">
-                            <div className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-[8px] font-bold text-slate-400">
-                               {item.actor?.full_name?.[0]}
-                            </div>
-                            <p className="text-[9px] font-bold text-slate-500 uppercase tracking-tight">
-                               Ação por: <span className="text-navy">{item.actor?.full_name}</span>
-                               {item.signature && (
-                                 item.signature.startsWith('data:image/') ? (
-                                   <div className="ml-2 inline-block bg-white border border-slate-100 rounded p-0.5 align-middle">
-                                      <img src={item.signature} alt="Visto" className="h-4 object-contain" />
-                                   </div>
-                                 ) : (
-                                   <span className="ml-2 text-primary">[{item.signature}]</span>
-                                 )
-                               )}
-                            </p>
-                         </div>
+                          <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-50">
+                             <div className="flex items-center gap-2">
+                                <div className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-[8px] font-bold text-slate-400">
+                                   {item.actor?.full_name?.[0]}
+                                </div>
+                                <p className="text-[9px] font-bold text-slate-500 uppercase tracking-tight">
+                                   Ação por: <span className="text-navy">{item.actor?.full_name}</span>
+                                   {item.signature && (
+                                     item.signature.startsWith('data:image/') ? (
+                                       <div className="ml-2 inline-block bg-white border border-slate-100 rounded p-0.5 align-middle">
+                                          <img src={item.signature} alt="Visto" className="h-4 object-contain" />
+                                       </div>
+                                     ) : (
+                                       <span className="ml-2 text-primary">[{item.signature}]</span>
+                                     )
+                                   )}
+                                </p>
+                             </div>
+
+                             {item.photos && item.photos.length > 0 && (
+                               <button 
+                                 onClick={(e) => {
+                                   e.stopPropagation();
+                                   setSelectedPhotos(item.photos);
+                                 }}
+                                 className="p-1.5 bg-primary/10 text-primary rounded-lg hover:bg-primary hover:text-white transition-all flex items-center gap-1.5"
+                               >
+                                  <Camera className="w-3 h-3" />
+                                  <span className="text-[8px] font-black uppercase">{item.photos.length}</span>
+                               </button>
+                             )}
+                          </div>
                       </div>
                    ))}
                 </div>
               </div>
-           </div>
+          </div>
         </div>
       )}
 
       {/* Success/Error Modal */}
       {showSuccessModal && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-navy/60 backdrop-blur-sm animate-in fade-in duration-300">
-           <div className="bg-white w-full max-w-sm rounded-[2rem] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 border border-slate-100">
+           <div className="bg-white w-full max-sm rounded-[2rem] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 border border-slate-100">
               <div className="p-10 text-center">
                  <div className={`w-20 h-20 mx-auto rounded-3xl flex items-center justify-center mb-6 shadow-lg ${modalConfig.type === 'success' ? 'bg-emerald-500 shadow-emerald-500/20' : 'bg-rose-500 shadow-rose-500/20'}`}>
                     {modalConfig.type === 'success' ? (
@@ -799,8 +1035,92 @@ export default function PortariaDashboard() {
                  </button>
               </div>
            </div>
-        </div>
-      )}
+         </div>
+       )}
+       {selectedPhotos && (
+         <div className="fixed inset-0 z-[200] flex items-center justify-center p-8 bg-navy/95 backdrop-blur-md animate-in fade-in duration-300">
+            <div className="w-full max-w-6xl h-full flex flex-col">
+               <div className="flex justify-between items-center mb-8">
+                  <div className="flex items-center gap-4">
+                     <div className="p-3 bg-primary rounded-2xl text-white">
+                        <Camera className="w-6 h-6" />
+                     </div>
+                     <div>
+                        <h3 className="text-2xl font-black text-white uppercase tracking-tighter">Evidências Fotográficas</h3>
+                        <p className="text-white/40 text-[10px] font-black uppercase tracking-widest">Protocolo de Portaria • {selectedPhotos.length} Fotos</p>
+                     </div>
+                  </div>
+                  <button 
+                    onClick={() => setSelectedPhotos(null)}
+                    className="p-4 bg-white/5 text-white/40 hover:text-white hover:bg-white/10 rounded-2xl transition-all"
+                  >
+                    <X className="w-8 h-8" />
+                  </button>
+               </div>
+               <div className="flex-1 overflow-y-auto pr-4 custom-scrollbar">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 pb-12">
+                     {selectedPhotos.map((p, i) => (
+                       <div key={i} className="group relative aspect-video bg-navy-900 rounded-3xl overflow-hidden border border-white/5 shadow-2xl">
+                          <img src={p} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity p-6 flex items-end">
+                             <p className="text-[9px] font-black text-white uppercase tracking-widest">Evidência #{i + 1}</p>
+                          </div>
+                       </div>
+                     ))}
+                  </div>
+               </div>
+            </div>
+         </div>
+       )}
+       {isCameraOpen && (
+         <div className="fixed inset-0 z-[300] bg-black flex flex-col items-center justify-center animate-in fade-in duration-300">
+            <div className="relative w-full h-full flex flex-col">
+               {/* Viewfinder */}
+               <video 
+                 ref={videoRef} 
+                 autoPlay 
+                 playsInline 
+                 className="flex-1 w-full h-full object-cover"
+               />
+               
+               {/* Overlay Controls */}
+               <div className="absolute inset-0 flex flex-col justify-between p-8 pointer-events-none">
+                  <div className="flex justify-end pointer-events-auto">
+                     <button 
+                       onClick={() => setIsCameraOpen(false)}
+                       className="p-4 bg-white/10 backdrop-blur-md text-white rounded-full hover:bg-white/20 transition-all"
+                     >
+                        <X className="w-8 h-8" />
+                     </button>
+                  </div>
+                  
+                  <div className="flex justify-center items-center gap-12 pointer-events-auto pb-8">
+                     <div className="w-16 h-16 rounded-full border-2 border-white/20 flex items-center justify-center">
+                        {/* Empty spacer for alignment */}
+                     </div>
+                     
+                     <button 
+                       onClick={takePhoto}
+                       className="w-24 h-24 bg-white rounded-full shadow-2xl flex items-center justify-center active:scale-90 transition-transform"
+                     >
+                        <div className="w-20 h-20 rounded-full border-4 border-navy/10"></div>
+                     </button>
+                     
+                     <div className="w-16 h-16 rounded-full border-2 border-white/20 flex items-center justify-center">
+                        {/* Future: camera switch button could go here */}
+                     </div>
+                  </div>
+               </div>
+            </div>
+            <canvas ref={canvasRef} className="hidden" />
+         </div>
+       )}
+
+        <MobileNav 
+          activeSection={mobileSection} 
+          setActiveSection={(s: any) => setMobileSection(s)} 
+          items={portariaNavItems} 
+        />
     </div>
   );
 }
@@ -827,4 +1147,3 @@ function InfoItem({ label, value, icon }: { label: string, value: string, icon: 
     </div>
   );
 }
-

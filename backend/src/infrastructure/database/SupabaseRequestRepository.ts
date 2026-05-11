@@ -171,7 +171,7 @@ export class SupabaseRequestRepository implements IRequestRepository {
     if (error) throw error;
   }
 
-  async updateMaterialStatus(materialId: string, status: any, timestampField?: 'entry_at' | 'exit_at', movedBy?: string, tenantId?: string, fromSectorId?: string, toSectorId?: string, signature?: string): Promise<void> {
+  async updateMaterialStatus(materialId: string, status: any, timestampField?: 'entry_at' | 'exit_at', movedBy?: string, tenantId?: string, fromSectorId?: string, toSectorId?: string, signature?: string, photos?: string[]): Promise<void> {
     const updateData: any = { status };
     if (timestampField) {
       updateData[timestampField] = new Date().toISOString();
@@ -202,13 +202,14 @@ export class SupabaseRequestRepository implements IRequestRepository {
             tenant_id: tenantId,
             from_sector_id: fromSectorId,
             to_sector_id: toSectorId,
-            signature: signature || null
+            signature: signature || null,
+            photos: photos || null
         });
         if (moveError) console.error("[SupabaseRequestRepository.updateMaterialStatus] Erro ao logar movimento:", moveError.message);
     }
   }
 
-  async updateMultipleMaterialsStatus(materialIds: string[], status: any, timestampField?: 'entry_at' | 'exit_at', movedBy?: string, tenantId?: string, fromSectorId?: string, toSectorId?: string, signature?: string): Promise<void> {
+  async updateMultipleMaterialsStatus(materialIds: string[], status: any, timestampField?: 'entry_at' | 'exit_at', movedBy?: string, tenantId?: string, fromSectorId?: string, toSectorId?: string, signature?: string, photos?: string[]): Promise<void> {
     const updateData: any = { status };
     if (timestampField) {
       updateData[timestampField] = new Date().toISOString();
@@ -238,7 +239,8 @@ export class SupabaseRequestRepository implements IRequestRepository {
             tenant_id: tenantId,
             from_sector_id: fromSectorId,
             to_sector_id: toSectorId,
-            signature: signature || null
+            signature: signature || null,
+            photos: photos || null
         }));
         const { error: moveError } = await supabaseAdmin.from('material_movements').insert(movements);
         if (moveError) console.error("[SupabaseRequestRepository.updateMultipleMaterialsStatus] Erro ao logar movimentos:", moveError.message);
@@ -252,6 +254,8 @@ export class SupabaseRequestRepository implements IRequestRepository {
       .select(`
         id,
         moved_at,
+        photos,
+        signature,
         material:materials!inner(
           name,
           request:entry_requests!inner(
