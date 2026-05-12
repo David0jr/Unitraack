@@ -12,7 +12,11 @@
 
 @layer base {
   body {
-    @apply bg-white text-navy font-brand antialiased;
+    background-color: white;
+    color: #001D4A; /* navy */
+    font-family: "Noto Sans", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   /* Minimalist Scrollbar Implementation */

@@ -16,12 +16,14 @@ import {
   XOctagon
 } from 'lucide-react';
 import { useAuth } from '../../../contexts/AuthContext';
+import { useTenant } from '../../../contexts/TenantContext';
 import { api } from '../../../lib/axios';
 import Swal from 'sweetalert2';
 import 'sweetalert2/dist/sweetalert2.min.css';
 
 export default function TerceirizadaDashboard() {
   const { signOut, user, profile: authProfile } = useAuth();
+  const { slug: tenantSlug } = useTenant();
   const navigate = useNavigate();
   const [requests, setRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -135,10 +137,10 @@ export default function TerceirizadaDashboard() {
   };
 
   const handleEdit = (req: any) => {
-    const slug = authProfile?.tenant?.subdomain || 'painel';
-    const rolePath = authProfile?.role?.toLowerCase().replace('_', '-');
+    const slug = tenantSlug || authProfile?.tenant?.subdomain || 'painel';
+    const rolePath = authProfile?.role?.toLowerCase().replace('_', '-') || 'terceirizada';
     
-    if (slug !== 'painel' && rolePath) {
+    if (slug !== 'painel') {
       navigate(`/${slug}/${rolePath}/painel/nova-solicitacao`, { state: { editMode: true, request: req } });
     } else {
       navigate('/painel/nova-solicitacao', { state: { editMode: true, request: req } });
@@ -193,9 +195,9 @@ export default function TerceirizadaDashboard() {
 
           <button 
             onClick={() => {
-              const slug = authProfile?.tenant?.subdomain || 'painel';
-              const rolePath = authProfile?.role?.toLowerCase().replace('_', '-');
-              if (slug !== 'painel' && rolePath) {
+              const slug = tenantSlug || authProfile?.tenant?.subdomain || 'painel';
+              const rolePath = authProfile?.role?.toLowerCase().replace('_', '-') || 'terceirizada';
+              if (slug !== 'painel') {
                 navigate(`/${slug}/${rolePath}/painel/nova-solicitacao`);
               } else {
                 navigate('/painel/nova-solicitacao');

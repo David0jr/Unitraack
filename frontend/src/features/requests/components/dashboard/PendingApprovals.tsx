@@ -146,18 +146,18 @@ export const PendingApprovals: React.FC = () => {
       {selectedRequest && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-navy/70 backdrop-blur-md animate-in fade-in duration-300">
           <div className="bg-white w-full max-w-2xl rounded-2xl overflow-hidden shadow-xl animate-in zoom-in-95 duration-200 border border-slate-200 flex flex-col max-h-[90vh]">
-            <div className="p-8 border-b border-slate-50 flex justify-between items-center">
+            <div className="p-6 md:p-8 border-b border-slate-50 flex justify-between items-center">
                <div>
-                  <span className="text-[10px] font-bold text-primary uppercase tracking-widest">Protocolo #{selectedRequest.id.slice(0, 8)}</span>
-                  <h3 className="text-2xl font-bold text-navy uppercase tracking-tighter">Inventário de Remessa</h3>
+                  <span className="text-[9px] md:text-[10px] font-bold text-primary uppercase tracking-widest">Protocolo #{selectedRequest.id.slice(0, 8)}</span>
+                  <h3 className="text-xl md:text-2xl font-bold text-navy uppercase tracking-tighter">Inventário de Remessa</h3>
                </div>
                <button onClick={() => setSelectedRequest(null)} className="p-2 bg-slate-50 text-slate-400 hover:text-navy hover:bg-slate-100 rounded-xl transition-all">
-                  <XCircle className="w-6 h-6" />
+                  <XCircle className="w-5 h-5 md:w-6 md:h-6" />
                </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-8">
-               <div className="grid grid-cols-2 gap-8 mb-10">
+            <div className="flex-1 overflow-y-auto p-6 md:p-8">
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 mb-8 md:mb-10">
                   <DetailItem label="Motorista" value={selectedRequest.driver_name} />
                   <DetailItem label="Placa" value={selectedRequest.plate} />
                   <DetailItem label="Setor" value={selectedRequest.sector_info?.name || selectedRequest.sector} />

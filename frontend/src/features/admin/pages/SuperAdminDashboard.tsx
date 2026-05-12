@@ -18,8 +18,13 @@ import {
   Trash2,
   Copy,
   ExternalLink,
-  CheckCircle2
+  CheckCircle2,
+  ChevronDown,
+  ChevronRight,
+  Activity,
+  User
 } from 'lucide-react';
+import { MobileNav } from '../../requests/components/dashboard/MobileNav';
 
 interface Tenant {
   id: string;
@@ -45,13 +50,14 @@ interface GlobalProfile {
   role: string;
   created_at: string;
   tenant?: {
+    id: string;
     name: string;
   };
 }
 
 export default function SuperAdminDashboard() {
   const { signOut, user, profile, token: authToken } = useAuth();
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'tenants' | 'users'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'tenants' | 'users' | 'monitoring'>('dashboard');
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [allUsers, setAllUsers] = useState<GlobalProfile[]>([]);
   const [stats, setStats] = useState<PlatformStats | null>(null);
@@ -62,6 +68,55 @@ export default function SuperAdminDashboard() {
   const [editingTenant, setEditingTenant] = useState<Tenant | null>(null);
   const [generatedInvite, setGeneratedInvite] = useState<string | null>(null);
   const [copySuccess, setCopySuccess] = useState(false);
+  const [expandedTenants, setExpandedTenants] = useState<string[]>([]);
+  const [selectedMonitoringTenant, setSelectedMonitoringTenant] = useState<string>('');
+  const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [loadingLogs, setLoadingLogs] = useState(false);
+
+  const fetchAuditLogs = async (tenantId: string) => {
+    if (!tenantId) {
+      setAuditLogs([]);
+      return;
+    }
+    console.log('[Dashboard] Buscando logs para o tenantId:', tenantId);
+    setLoadingLogs(true);
+    try {
+      const resp = await fetch(`${import.meta.env.VITE_API_URL}/admin/audit/${tenantId}`, {
+        headers: { 'Authorization': `Bearer ${getAuthToken()}` }
+      });
+      if (resp.ok) {
+        const result = await resp.json();
+        console.log('[Dashboard] Resultado da API:', result);
+        if (result.success && Array.isArray(result.data)) {
+          setAuditLogs(result.data);
+        } else {
+          setAuditLogs([]);
+        }
+      } else {
+        console.error('[Dashboard] Erro na resposta da API');
+        setAuditLogs([]);
+      }
+    } catch (e) {
+      console.error('Erro ao buscar logs', e);
+      setAuditLogs([]);
+    } finally {
+      setLoadingLogs(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'monitoring' && selectedMonitoringTenant) {
+      fetchAuditLogs(selectedMonitoringTenant);
+    }
+  }, [activeTab, selectedMonitoringTenant]);
+
+  const toggleTenant = (tenantId: string) => {
+    setExpandedTenants(prev => 
+      prev.includes(tenantId) 
+        ? prev.filter(id => id !== tenantId) 
+        : [...prev, tenantId]
+    );
+  };
 
   const initialFormData = {
     tenantName: '',
@@ -229,16 +284,16 @@ export default function SuperAdminDashboard() {
   );
 
   return (
-    <div className="min-h-screen bg-slate-50/50 font-brand antialiased text-navy flex">
-      {/* Sidebar background with deep navy gradient */}
-      <aside className={`bg-gradient-to-b from-[#001D4A] to-navy border-r border-white/5 shadow-xl transition-all duration-500 flex flex-col z-50 ${isSidebarOpen ? 'w-72' : 'w-24'}`}>
+    <div className="min-h-screen bg-slate-50/50 font-brand antialiased text-navy flex flex-col lg:flex-row">
+      {/* Sidebar background with deep navy gradient - Hidden on mobile */}
+      <aside className={`bg-gradient-to-b from-[#001D4A] to-navy border-r border-white/5 shadow-xl transition-all duration-500 hidden lg:flex flex-col z-50 ${isSidebarOpen ? 'w-72' : 'w-24'}`}>
         <div className="p-6 h-24 flex items-center gap-4 overflow-hidden border-b border-white/5">
           <div className="w-10 h-10 bg-primary/20 rounded-xl flex items-center justify-center shrink-0 border border-primary/20">
             <LayoutDashboard className="w-5 h-5 text-primary shadow-xl" />
           </div>
           {isSidebarOpen && (
             <div className="flex flex-col">
-              <span className="text-white font-bold uppercase text-sm tracking-tighter">Lins Control</span>
+              <span className="text-white font-bold uppercase text-sm tracking-tighter">Unitraack Control</span>
               <span className="text-[9px] text-primary font-bold uppercase tracking-widest">Global SaaS Infra</span>
             </div>
           )}
@@ -248,6 +303,7 @@ export default function SuperAdminDashboard() {
           <NavItem active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} icon={<BarChart3 />} label="Início / Stats" collapsed={!isSidebarOpen} />
           <NavItem active={activeTab === 'tenants'} onClick={() => setActiveTab('tenants')} icon={<Building2 />} label="Gerenciar Usinas" collapsed={!isSidebarOpen} />
           <NavItem active={activeTab === 'users'} onClick={() => setActiveTab('users')} icon={<Users />} label="Usuários Globais" collapsed={!isSidebarOpen} />
+          <NavItem active={activeTab === 'monitoring'} onClick={() => setActiveTab('monitoring')} icon={<Activity />} label="Monitoramento" collapsed={!isSidebarOpen} />
         </nav>
 
         <div className="p-4 border-t border-white/5">
@@ -280,35 +336,46 @@ export default function SuperAdminDashboard() {
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-h-screen overflow-hidden">
         <header className="h-20 bg-white/70 backdrop-blur-md border-b border-slate-200/50 px-8 flex items-center justify-between sticky top-0 z-40">
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-3 lg:gap-6">
             <button
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className="p-2.5 hover:bg-slate-100 rounded-xl text-slate-500 transition-all active:scale-95"
+              className="p-2.5 hover:bg-slate-100 rounded-xl text-slate-500 transition-all active:scale-95 hidden lg:block"
             >
               <Menu className="w-5 h-5" />
             </button>
-            <div className="h-6 w-px bg-slate-200"></div>
+            <div className="lg:hidden w-10 h-10 bg-[#001D4A] rounded-xl flex items-center justify-center border border-white/10 shadow-lg">
+              <LayoutDashboard className="w-5 h-5 text-primary" />
+            </div>
+            <div className="h-6 w-px bg-slate-200 hidden lg:block"></div>
             <div className="flex flex-col">
               <h2 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1">
                 {activeTab === 'dashboard' ? 'Infraestrutura' : activeTab === 'tenants' ? 'Unidades' : 'Auditoria'}
               </h2>
               <h3 className="text-sm font-bold text-navy uppercase tracking-tighter">
-                {activeTab === 'dashboard' ? 'Overview Geral' : activeTab === 'tenants' ? 'Gestão de Usinas' : 'Usuários Globais'}
+                {activeTab === 'dashboard' ? 'Overview Geral' : activeTab === 'tenants' ? 'Gestão de Usinas' : activeTab === 'users' ? 'Usuários Globais' : 'Logs de Sistema'}
               </h3>
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <div className="text-right hidden sm:block">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Acesso Autoridado</p>
-              <p className="text-xs font-bold text-navy">{profile?.role === 'SUPER_ADMIN' ? 'Admin Principal' : (profile?.role || 'Acesso Admin')}</p>
+            <div className="lg:hidden flex items-center gap-2 px-3 py-1.5 bg-slate-100 rounded-full border border-slate-200">
+               <div className="w-6 h-6 bg-primary/20 rounded-full flex items-center justify-center text-primary font-bold text-[8px] border border-primary/20">
+                 {profile?.full_name ? profile.full_name[0] : 'A'}
+               </div>
+               <span className="text-[10px] font-bold text-navy truncate max-w-[80px]">
+                 {profile?.full_name?.split(' ')[0] || 'Admin'}
+               </span>
             </div>
-            <div className="w-11 h-11 bg-navy text-white rounded-xl flex items-center justify-center font-bold text-sm border-4 border-slate-50 shadow-lg shadow-navy/10 transform transition-transform hover:rotate-3">
-                {profile?.full_name ? profile.full_name[0] : 'AD'}
-            </div>
+            <button 
+              onClick={signOut}
+              className="flex items-center justify-center h-8 w-8 bg-rose-50 text-rose-500 rounded-full border border-rose-100 hover:bg-rose-500 hover:text-white transition-all shadow-sm group"
+              title="Sair da conta"
+            >
+              <LogOut className="w-4 h-4 group-hover:scale-110 transition-transform" />
+            </button>
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-12 bg-[#F8FAFC] bg-industrial-grid relative">
+        <main className="flex-1 overflow-y-auto p-4 md:p-12 bg-[#F8FAFC] bg-industrial-grid relative pb-32 md:pb-12">
           <div className="absolute inset-0 bg-gradient-to-b from-white/50 to-transparent pointer-events-none"></div>
           
           <div className="space-y-8 animate-in fade-in duration-500 relative z-10">
@@ -363,8 +430,8 @@ export default function SuperAdminDashboard() {
                 </div>
               </div>
 
-              {/* List View (Table) */}
-              <div className="bg-white rounded-xl shadow-[0_40px_100px_-20px_rgba(0,0,0,0.03)] border border-slate-100/50 overflow-hidden">
+              {/* List View (Table) - Scrollable on mobile */}
+              <div className="bg-white rounded-xl shadow-[0_40px_100px_-20px_rgba(0,0,0,0.03)] border border-slate-100/50 overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead className="bg-[#F8FAFC]">
                     <tr>
@@ -432,59 +499,220 @@ export default function SuperAdminDashboard() {
                   </tbody>
                 </table>
               </div>
+            </div>
+          )}
 
+          {activeTab === 'monitoring' && (
+            <div className="space-y-8 animate-in slide-in-from-bottom-4 fade-in duration-700">
+              <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-3">
+                    <div className="w-1 h-8 bg-emerald-500 rounded-full"></div>
+                    <h1 className="text-4xl font-bold text-navy uppercase tracking-tighter">Trilha de <span className="text-emerald-500 italic">Auditoria</span></h1>
+                  </div>
+                  <p className="text-slate-400 font-medium ml-4 uppercase text-[10px] tracking-widest">Rastreamento de movimentações e integridade de dados</p>
+                </div>
+
+                <div className="flex flex-col gap-2 min-w-[300px]">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Selecionar Unidade para Auditoria</label>
+                  <select 
+                    value={selectedMonitoringTenant}
+                    onChange={(e) => setSelectedMonitoringTenant(e.target.value)}
+                    className="w-full px-6 py-4 bg-white border border-slate-200 rounded-xl shadow-sm focus:ring-4 focus:ring-emerald-500/5 focus:border-emerald-500 transition-all text-xs font-bold text-navy uppercase tracking-tight appearance-none cursor-pointer"
+                  >
+                    <option value="">Selecione uma Usina...</option>
+                    {tenants.map(t => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {!selectedMonitoringTenant ? (
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-20 text-center space-y-6">
+                  <div className="w-20 h-20 bg-slate-50 text-slate-300 rounded-full flex items-center justify-center mx-auto border-2 border-dashed border-slate-200">
+                    <Search className="w-8 h-8" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-navy uppercase tracking-tight">Aguardando Seleção</h3>
+                    <p className="text-slate-400 max-w-md mx-auto text-sm mt-2 font-medium">
+                      Selecione uma usina acima para carregar o histórico completo de movimentações, entradas e saídas.
+                    </p>
+                  </div>
+                </div>
+              ) : loadingLogs ? (
+                <div className="py-20 text-center">
+                  <Loader2 className="w-10 h-10 text-emerald-500 animate-spin mx-auto" />
+                  <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-4">Sincronizando base de dados...</p>
+                </div>
+              ) : auditLogs.length === 0 ? (
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-20 text-center space-y-6">
+                  <div className="w-20 h-20 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto border border-emerald-100">
+                    <CheckCircle2 className="w-8 h-8" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-navy uppercase tracking-tight">Sem Movimentações</h3>
+                    <p className="text-slate-400 max-w-md mx-auto text-sm mt-2 font-medium">
+                      Nenhuma atividade suspeita ou movimentação de materiais foi registrada nesta unidade até o momento.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-white rounded-2xl shadow-[0_40px_100px_-20px_rgba(0,0,0,0.03)] border border-slate-100/50 overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead className="bg-[#F8FAFC]">
+                      <tr>
+                        <th className="px-8 py-6 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Horário / Data</th>
+                        <th className="px-8 py-6 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Responsável</th>
+                        <th className="px-8 py-6 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Ação / Material</th>
+                        <th className="px-8 py-6 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Fluxo</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50">
+                      {Array.isArray(auditLogs) && auditLogs.map((log: any) => (
+                        <tr key={log.id} className="group hover:bg-slate-50/80 transition-all duration-300">
+                          <td className="px-8 py-6">
+                            <div className="flex flex-col">
+                              <span className="text-xs font-bold text-navy">{new Date(log.moved_at).toLocaleTimeString('pt-BR')}</span>
+                              <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{new Date(log.moved_at).toLocaleDateString('pt-BR')}</span>
+                            </div>
+                          </td>
+                          <td className="px-8 py-6">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center text-[10px] font-bold text-navy border border-slate-200 group-hover:bg-navy group-hover:text-white transition-all">
+                                {log.actor?.full_name?.[0] || 'U'}
+                              </div>
+                              <span className="text-xs font-bold text-navy uppercase tracking-tight">{log.actor?.full_name || 'Usuário do Sistema'}</span>
+                            </div>
+                          </td>
+                          <td className="px-8 py-6">
+                            <div className="flex flex-col">
+                              <span className="text-xs font-bold text-navy uppercase">{log.material?.name || 'Item não identificado'}</span>
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">De: {log.from_sector?.name || 'Origem'}</span>
+                                <div className="w-1 h-1 bg-slate-200 rounded-full"></div>
+                                <span className="text-[9px] font-bold text-primary uppercase tracking-widest">Para: {log.to_sector?.name || 'Destino'}</span>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-8 py-6 text-right">
+                            <span className="px-4 py-1.5 bg-emerald-50 text-emerald-600 text-[9px] font-bold uppercase rounded-full border border-emerald-100">
+                              Confirmado
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
 
           {activeTab === 'users' && (
-            <div className="space-y-6 animate-in slide-in-from-bottom-4 fade-in duration-700">
-              <div>
-                <h1 className="text-3xl font-bold text-navy uppercase tracking-tighter">Auditoria de <span className="text-primary italic">Usuários</span></h1>
-                <p className="text-slate-400 font-medium">Histórico e controle de acessos da plataforma.</p>
+            <div className="space-y-8 animate-in slide-in-from-bottom-4 fade-in duration-700">
+              <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-3">
+                    <div className="w-1 h-8 bg-primary rounded-full"></div>
+                    <h1 className="text-4xl font-bold text-navy uppercase tracking-tighter">Auditoria de <span className="text-primary italic">Usuários</span></h1>
+                  </div>
+                  <p className="text-slate-400 font-medium ml-4 uppercase text-[10px] tracking-widest">Controle de acessos e identidade por unidade</p>
+                </div>
               </div>
-              <div className="bg-white rounded-xl shadow-[0_40px_100px_-20px_rgba(0,0,0,0.04)] border border-slate-100/50 overflow-hidden">
-                <table className="w-full text-left">
-                  <thead className="bg-slate-50/50">
-                    <tr>
-                      <th className="px-8 py-6 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Identidade / Perfil</th>
-                      <th className="px-8 py-6 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Atribuição</th>
-                      <th className="px-8 py-6 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Vinculação</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-50">
-                    {allUsers.map(u => (
-                      <tr key={u.id} className="group hover:bg-slate-50/80 transition-all duration-300">
-                        <td className="px-8 py-6 appearance-none">
-                          <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center font-bold text-navy border border-slate-200 group-hover:bg-navy group-hover:text-white group-hover:border-navy transition-all">
-                              {u.full_name?.[0] || '?'}
+
+              {/* Grouping Logic */}
+              {(() => {
+                const groups = allUsers
+                  .filter(u => u.id !== user?.id)
+                  .reduce((acc, user) => {
+                    const key = user.tenant?.id || 'global';
+                    const name = user.tenant?.name || 'Sistema Global';
+                    if (!acc[key]) acc[key] = { name, users: [] };
+                    acc[key].users.push(user);
+                    return acc;
+                  }, {} as Record<string, { name: string, users: GlobalProfile[] }>);
+
+                return (
+                  <div className="space-y-4">
+                    {Object.entries(groups).sort(([a], [b]) => a === 'global' ? -1 : b === 'global' ? 1 : 0).map(([id, group]) => {
+                      const isExpanded = expandedTenants.includes(id);
+                      return (
+                        <div key={id} className="bg-white rounded-2xl shadow-sm border border-slate-100/50 overflow-hidden transition-all duration-300">
+                          {/* Group Header */}
+                          <button 
+                            onClick={() => toggleTenant(id)}
+                            className="w-full flex items-center justify-between p-6 hover:bg-slate-50/50 transition-colors group"
+                          >
+                            <div className="flex items-center gap-4">
+                              <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${id === 'global' ? 'bg-navy text-white' : 'bg-primary/10 text-primary'}`}>
+                                {id === 'global' ? <ShieldCheck className="w-5 h-5" /> : <Building2 className="w-5 h-5" />}
+                              </div>
+                              <div className="text-left">
+                                <h4 className="font-bold text-navy text-sm uppercase tracking-tight group-hover:text-primary transition-colors">
+                                  {group.name}
+                                </h4>
+                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                                  {group.users.length} {group.users.length === 1 ? 'Usuário vinculado' : 'Usuários vinculados'}
+                                </p>
+                              </div>
                             </div>
-                            <div className="flex flex-col">
-                              <span className="font-bold text-navy text-sm uppercase leading-tight">{u.full_name}</span>
-                              <span className="text-[10px] text-slate-400 font-bold lowercase tracking-wider">{u.email}</span>
+                            <div className={`p-2 rounded-lg bg-slate-50 text-slate-400 group-hover:text-primary transition-all ${isExpanded ? 'rotate-180 bg-primary/5 text-primary' : ''}`}>
+                              <ChevronDown className="w-5 h-5" />
                             </div>
-                          </div>
-                        </td>
-                        <td className="px-8 py-6">
-                          <span className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase border flex items-center gap-2 w-fit ${u.role === 'SUPER_ADMIN'
-                              ? 'bg-navy/5 text-navy border-navy/10'
-                              : u.role === 'GESTOR_SEGURANCA'
-                                ? 'bg-primary/5 text-primary border-primary/10'
-                                : 'bg-slate-100 text-slate-500 border-slate-200'
-                            }`}>
-                            {u.role}
-                          </span>
-                        </td>
-                        <td className="px-8 py-6 text-right">
-                          <span className="text-[11px] font-bold text-navy uppercase tracking-tighter bg-slate-50 px-4 py-2 rounded-xl border border-slate-100 group-hover:bg-white transition-all">
-                            {u.tenant?.name || 'Sistema Global'}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                          </button>
+
+                          {/* Group Content (User Table) - Scrollable on mobile */}
+                          {isExpanded && (
+                            <div className="border-t border-slate-50 animate-in slide-in-from-top-2 duration-300 overflow-x-auto">
+                              <table className="w-full text-left">
+                                <thead className="bg-[#F8FAFC]">
+                                  <tr>
+                                    <th className="px-8 py-4 text-[9px] font-bold text-slate-400 uppercase tracking-widest">Identidade</th>
+                                    <th className="px-8 py-4 text-[9px] font-bold text-slate-400 uppercase tracking-widest">Acesso</th>
+                                    <th className="px-8 py-4 text-[9px] font-bold text-slate-400 uppercase tracking-widest text-right">Data de Registro</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-50">
+                                  {group.users.map(u => (
+                                    <tr key={u.id} className="hover:bg-slate-50/50 transition-colors">
+                                      <td className="px-8 py-4">
+                                        <div className="flex items-center gap-3">
+                                          <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center text-[10px] font-bold text-navy border border-slate-200">
+                                            {u.full_name?.[0] || '?'}
+                                          </div>
+                                          <div className="flex flex-col">
+                                            <span className="font-bold text-navy text-xs uppercase">{u.full_name}</span>
+                                            <span className="text-[9px] text-slate-400 font-medium lowercase">{u.email}</span>
+                                          </div>
+                                        </div>
+                                      </td>
+                                      <td className="px-8 py-4">
+                                        <span className={`px-3 py-1 rounded-full text-[9px] font-bold uppercase border ${
+                                          u.role === 'SUPER_ADMIN' ? 'bg-navy/5 text-navy border-navy/10' :
+                                          u.role === 'GESTOR_SEGURANCA' ? 'bg-primary/5 text-primary border-primary/10' :
+                                          'bg-slate-50 text-slate-500 border-slate-200'
+                                        }`}>
+                                          {u.role.replace('_', ' ')}
+                                        </span>
+                                      </td>
+                                      <td className="px-8 py-4 text-right">
+                                        <span className="text-[10px] text-slate-400 font-bold uppercase">
+                                          {new Date(u.created_at).toLocaleDateString('pt-BR')}
+                                        </span>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
             </div>
           )}
           </div>
@@ -492,8 +720,8 @@ export default function SuperAdminDashboard() {
       </div>
 
       {isModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-[#001D4A]/40 backdrop-blur-sm animate-in fade-in duration-500">
-          <div className="bg-white w-full max-w-xl rounded-xl shadow-[0_30px_60px_-15px_rgba(0,0,0,0.2)] overflow-hidden border border-slate-100">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-6 bg-[#001D4A]/40 backdrop-blur-sm animate-in fade-in duration-500">
+          <div className="bg-white w-full max-w-xl rounded-2xl shadow-[0_30px_60px_-15px_rgba(0,0,0,0.2)] overflow-y-auto max-h-[90vh] border border-slate-100">
             <div className="p-10 space-y-8">
               {generatedInvite ? (
                 <div className="space-y-8 py-4 animate-in zoom-in-95 duration-300 text-center">
@@ -608,6 +836,16 @@ export default function SuperAdminDashboard() {
           </div>
         </div>
       )}
+      <MobileNav 
+        activeSection={activeTab} 
+        setActiveSection={(s) => setActiveTab(s as any)} 
+        items={[
+          { id: 'dashboard', label: 'Início', icon: <BarChart3 /> },
+          { id: 'tenants', label: 'Usinas', icon: <Building2 /> },
+          { id: 'users', label: 'Usuários', icon: <Users /> },
+          { id: 'monitoring', label: 'Rastro', icon: <Activity /> },
+        ]} 
+      />
     </div>
   );
 }

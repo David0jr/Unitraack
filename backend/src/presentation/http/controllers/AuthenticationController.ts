@@ -54,7 +54,8 @@ export class AuthenticationController {
           sector_id: sector_id || null,
           cnpj: cnpj || null,
           representative_name: representativeName || null,
-          phone: phone || null
+          phone: phone || null,
+          is_active: true
         });
 
         return ApiResponse.success(res, { 

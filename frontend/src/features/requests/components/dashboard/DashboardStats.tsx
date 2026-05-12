@@ -6,7 +6,7 @@ export const DashboardStats: React.FC = () => {
   const { stats } = useDashboard();
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12">
+    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 md:gap-6 mb-8 md:mb-12">
       <StatCard 
         label="Casos Pendentes" 
         value={stats.pending.toString()} 

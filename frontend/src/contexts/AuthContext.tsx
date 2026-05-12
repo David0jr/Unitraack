@@ -34,7 +34,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Usamos a chave de token do utilitário para consistência em toda a aplicação
   const tokenKey = getTokenKey();
 
-  const [token, setToken] = useState<string | null>(sessionStorage.getItem(tokenKey));
+  const [token, setToken] = useState<string | null>(localStorage.getItem(tokenKey));
   const [loading, setLoading] = useState(true);
   const fetchingProfile = React.useRef<Promise<any> | null>(null);
 
@@ -57,12 +57,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Define um timeout para a consulta ao Supabase
         const profileRequest = supabase
           .from('profiles')
-          .select('id, role, full_name, tenant_id')
+          .select('id, role, full_name, tenant_id, is_active')
           .eq('id', userId)
           .maybeSingle();
 
         const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Database Request Timeout (15s)')), 15000)
+          setTimeout(() => reject(new Error('Tempo de resposta do banco excedido (15s)')), 15000)
         );
 
         const { data: initialData, error: profileError } = await Promise.race([
@@ -90,7 +90,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           
           const { data: retryData, error: retryError } = await supabase
             .from('profiles')
-            .select('id, role, full_name, tenant_id')
+            .select('id, role, full_name, tenant_id, is_active')
             .eq('id', userId)
             .maybeSingle();
             
@@ -102,6 +102,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.error(`[Auth] ERRO FATAL: O usuário ${userId} (${user?.email}) está autenticado no Auth, mas não existe na tabela 'profiles'.`);
           setProfile(null);
           return null;
+        }
+
+        if (profileData.is_active === false) {
+          console.warn(`[Auth] Conta desativada detectada para o usuário ${userId}. Bloqueando acesso.`);
+          
+          // Limpeza assíncrona sem travar a thread de erro
+          const performSignOut = async () => {
+            await authService.signOut();
+            const tokenKey = getTokenKey();
+            localStorage.removeItem(tokenKey);
+            localStorage.clear();
+            setUser(null);
+            setProfile(null);
+          };
+          
+          performSignOut();
+          throw new Error('Sua conta está desativada. Fale com o gestor de segurança.');
         }
 
         // Carrega dados do tenant (necessário para navegação correta no login)
@@ -181,10 +198,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         if (session?.access_token && mounted) {
           setToken(session.access_token);
-          sessionStorage.setItem(tokenKey, session.access_token);
+          localStorage.setItem(tokenKey, session.access_token);
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error('Erro ao inicializar sessão:', err);
+        // Se o erro for de conta desativada, limpamos a sessão
+        if (err.message?.includes('desativada')) {
+          await signOut();
+        }
       } finally {
         if (mounted) {
           clearTimeout(safeTimeout);
@@ -219,16 +240,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         if (session?.access_token) {
           setToken(session.access_token);
-          sessionStorage.setItem(tokenKey, session.access_token);
+          localStorage.setItem(tokenKey, session.access_token);
         } else if (event === 'SIGNED_OUT') {
           setToken(null);
-          sessionStorage.removeItem(tokenKey);
+          localStorage.removeItem(tokenKey);
         }
 
-      } catch (err) {
+      } catch (err: any) {
         console.error('Erro na mudança de estado auth:', err);
-      } finally {
-        if (mounted) setLoading(false);
+        if (err.message?.includes('desativada')) {
+          await signOut();
+        }
       }
     });
 
@@ -250,7 +272,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const { data: { user }, error } = await authService.signInWithPassword(email, password);
     if (error) throw error;
     if (user) {
-      // Use optimized fetch logic and return the result
+      // O fetchProfile já cuida do signOut e throw se a conta estiver desativada
       return await fetchProfile(user.id);
     }
     return null;
@@ -260,8 +282,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       await authService.signOut();
       const tokenKey = getTokenKey();
-      sessionStorage.removeItem(tokenKey);
-      sessionStorage.clear(); // Limpeza total por segurança
+      localStorage.removeItem(tokenKey);
+      localStorage.clear(); // Limpeza total por segurança
       setUser(null);
       setProfile(null);
     } catch (err) {

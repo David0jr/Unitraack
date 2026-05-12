@@ -18,7 +18,7 @@ console.log(`[Supabase] Initializing with storageKey: ${storageKey} (Path: ${win
 // inside the database, identifying the user from the JWT.
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    storage: window.sessionStorage,
+    storage: window.localStorage,
     storageKey: storageKey,
     autoRefreshToken: true,
     persistSession: true,

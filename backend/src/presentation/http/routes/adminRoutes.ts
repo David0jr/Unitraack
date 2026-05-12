@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { SuperAdminController } from '../controllers/SuperAdminController';
+import { RequestController } from '../controllers/RequestController';
 import { requireAuth, requireSuperAdmin } from '../../../middlewares/authMiddleware';
 
 const router = Router();
@@ -15,5 +16,6 @@ router.put('/tenants/:id', SuperAdminController.updateTenant);
 router.delete('/tenants/:id', SuperAdminController.deleteTenant);
 router.get('/users', SuperAdminController.listAllUsers);
 router.get('/stats', SuperAdminController.getPlatformStats);
+router.get('/audit/:tenantId', RequestController.getAuditHistory);
 
 export default router;

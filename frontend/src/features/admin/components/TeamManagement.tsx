@@ -60,7 +60,7 @@ export default function TeamManagement({ tenantId, usinaCnpj }: { tenantId: stri
         />
       </div>
 
-      <div className="p-8">
+      <div className="p-4 md:p-8">
         {error && (
           <div className="mb-6 p-4 bg-red-50 border border-red-100 rounded-xl text-red-600 text-[10px] font-bold uppercase tracking-widest flex items-center gap-3 animate-in slide-in-from-top-2">
             <AlertTriangle className="w-4 h-4" /> {error}

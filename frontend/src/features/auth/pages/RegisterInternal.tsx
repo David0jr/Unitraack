@@ -1,8 +1,20 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams, useParams } from 'react-router-dom';
-import { ShieldCheck, Loader2, CheckCircle2, ArrowRight, Lock, AlertCircle } from 'lucide-react';
+import { 
+  ShieldCheck, 
+  Loader2, 
+  CheckCircle2, 
+  ArrowRight, 
+  Lock, 
+  AlertCircle,
+  User as UserIcon,
+  Mail,
+  Building2,
+  LayoutGrid
+} from 'lucide-react';
 import { maskCNPJ, validateEmail } from '../../../utils/masks';
 import { useTenant } from '../../../contexts/TenantContext';
+import ParticleBackground from '../components/ParticleBackground';
 
 type Role = 'GESTOR_SEGURANCA' | 'LIDER_SETOR' | 'PORTARIA';
 
@@ -32,8 +44,6 @@ export default function RegisterInternal() {
     const sectorParam = searchParams.get('sector');
     const cnpjParam = searchParams.get('cnpj');
 
-    // Segurança: Permite o acesso caso a função (role) esteja definida na URL.
-    // O CNPJ será obtido preferencialmente do contexto da usina já carregado.
     if (roleParam) {
       setRole(roleParam);
       setFormData(prev => ({
@@ -83,7 +93,7 @@ export default function RegisterInternal() {
 
   if (isValidInvite === false) {
     return (
-      <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center p-6 font-brand">
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 font-brand">
         <div className="bg-white p-10 rounded-2xl shadow-xl max-w-lg w-full text-center border border-slate-100 flex flex-col items-center">
           <div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mb-6">
             <AlertCircle className="w-8 h-8" />
@@ -96,7 +106,6 @@ export default function RegisterInternal() {
           >
             Voltar para o Login
           </button>
-
         </div>
       </div>
     );
@@ -104,7 +113,7 @@ export default function RegisterInternal() {
 
   if (success) {
     return (
-      <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center p-4">
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
         <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full text-center border border-slate-100">
           <CheckCircle2 className="w-16 h-16 text-emerald-500 mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-navy mb-2 uppercase tracking-tighter">CONTA ATIVADA!</h2>
@@ -117,107 +126,198 @@ export default function RegisterInternal() {
 
   if (isValidInvite === null) {
      return (
-        <div className="min-h-screen flex items-center justify-center">
+        <div className="min-h-screen flex items-center justify-center bg-slate-50">
            <Loader2 className="w-8 h-8 animate-spin text-primary opacity-20" />
         </div>
      );
   }
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] flex flex-col font-brand antialiased">
-      <div className="w-full flex-1 grid grid-cols-1 md:grid-cols-2 bg-white overflow-hidden text-navy">
-        
-        {/* Banner Lateral */}
-        <div className="hidden md:flex flex-col justify-center p-12 bg-[#0032A0] text-white relative">
-          <div className="absolute top-12 left-12">
-             <img 
-               src={tenant?.logo_url || "https://linsagro.com.br/wp-content/uploads/2022/07/cropped-Lins_Logo_Horizontal_RGB_Preferencial_20250512_Keenwork_AF.png"} 
-               alt={tenant?.name || "Lins"} 
-               className={`h-10 object-contain ${!tenant?.logo_url && 'brightness-[200%]'}`} 
-             />
-          </div>
+    <div className="min-h-screen relative flex items-center justify-center p-4 overflow-hidden font-brand selection:bg-primary selection:text-white bg-slate-50">
+      
+      {/* Background Shapes */}
+      <div className="absolute inset-0 z-0 overflow-hidden">
+        <div className="absolute top-0 right-0 w-1/2 h-full bg-primary/10 md:bg-primary transform skew-x-[-20deg] translate-x-1/4"></div>
+        <div className="absolute bottom-0 left-0 w-full h-1/2 bg-navy/5 md:bg-navy transform skew-y-[-10deg] translate-y-1/4"></div>
+      </div>
 
-          <ShieldCheck className="w-16 h-16 mb-8 text-[#00B5AD]" />
-          <h1 className="text-4xl font-bold mb-6 leading-tight uppercase tracking-tighter">Portal do Colaborador <br/><span className="text-primary italic">{tenant?.name || 'Lins Agro'}</span></h1>
+      <div className="w-full max-w-5xl z-10">
+        <div className="bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col md:flex-row min-h-[580px] border border-white/20 backdrop-blur-sm">
+          
+          {/* Left Side - Identity */}
+          <div className="w-full md:w-5/12 bg-navy p-8 lg:p-12 flex flex-col justify-between relative overflow-hidden hidden md:flex">
+            <div className="absolute inset-0 opacity-40 mix-blend-screen">
+              <ParticleBackground />
+            </div>
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/30 via-transparent to-black/40 pointer-events-none"></div>
 
-          <p className="text-blue-100/60 text-lg font-medium leading-relaxed">
-            Finalize o cadastro da sua conta administrativa vinculada à planta via convite oficial.
-          </p>
-        </div>
+            <div className="relative z-10 flex flex-col h-full">
+              <div className="mb-auto">
+                <img 
+                  src={tenant?.logo_url || "https://linsagro.com.br/wp-content/uploads/2022/07/cropped-Lins_Logo_Horizontal_RGB_Preferencial_20250512_Keenwork_AF.png"} 
+                  alt={tenant?.name || "Lins"} 
+                  className="h-16 lg:h-20 object-contain brightness-0 invert mb-6" 
+                />
+                <div className="inline-flex items-center gap-3 px-4 py-2 bg-white/10 backdrop-blur-md rounded-full border border-white/10">
+                  <ShieldCheck className="w-4 h-4 text-primary" />
+                  <span className="text-[10px] text-white/70 font-bold uppercase tracking-widest">Portal do Colaborador</span>
+                </div>
+              </div>
 
-        {/* Formulário */}
-        <div className="p-8 md:p-20 overflow-y-auto flex flex-col justify-center bg-[#F8FAFC]">
-          <form onSubmit={handleRegister} className="max-w-md w-full mx-auto space-y-6">
-            <div className="flex flex-col gap-1 mb-6">
-              <span className="text-[10px] font-bold text-[#00B5AD] uppercase tracking-widest italic">DADOS DO CONVITE</span>
-              <div className="flex items-center gap-2">
-                <h2 className="text-2xl font-bold text-navy uppercase tracking-tighter">{role?.replace('_', ' ')}</h2>
-                <Lock className="w-4 h-4 text-slate-300" />
+              <div className="mt-auto">
+                <p className="text-slate-400 text-sm max-w-xs leading-relaxed font-medium mb-8">
+                  Finalize o cadastro da sua conta administrativa vinculada à planta via convite oficial.
+                </p>
+                
+                <div className="pt-6 border-t border-white/10 flex items-center justify-between">
+                  <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Segurança Ativa &copy; 2026</p>
+                  <div className="flex gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></div>
+                    <div className="w-1.5 h-1.5 rounded-full bg-primary/40"></div>
+                  </div>
+                </div>
               </div>
             </div>
+          </div>
 
-            {error && <div className="p-4 bg-red-50 border border-red-100 rounded-xl text-red-500 text-xs font-bold">{error}</div>}
+          {/* Right Side - Form */}
+          <div className="w-full md:w-7/12 p-6 md:p-10 flex flex-col justify-center bg-white relative">
+            <div className="max-w-md w-full mx-auto">
+              <div className="mb-6">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-[10px] font-bold text-primary uppercase tracking-widest italic">DADOS DO CONVITE</span>
+                  <div className="h-px flex-1 bg-slate-100"></div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <h2 className="text-2xl font-bold text-navy uppercase tracking-tighter">{role?.replace('_', ' ')}</h2>
+                  <div className="p-1.5 bg-slate-50 rounded-lg">
+                    <Lock className="w-4 h-4 text-slate-400" />
+                  </div>
+                </div>
+              </div>
 
-            <div className="grid gap-4">
-              <InputGroup label="Seu Nome Completo" value={formData.fullName} onChange={v => setFormData({...formData, fullName: v})} placeholder="Ex: Lucas Ferreira" />
-              <InputGroup label="E-mail Usina" type="email" value={formData.email} onChange={v => setFormData({...formData, email: v})} placeholder="seu.nome@linsagro.com.br" />
-              <InputGroup label="Senha de Acesso" type="password" value={formData.password} onChange={v => setFormData({...formData, password: v})} placeholder="••••••••" />
-              
-              <div className="pt-4 border-t border-slate-100 mt-2 space-y-4">
-                <InputGroup 
-                  label="CNPJ da Unidade" 
-                  value={formData.usinaCnpj} 
-                  onChange={() => {}} 
-                  disabled={true}
-                />
-                {role === 'LIDER_SETOR' && (
+              <form onSubmit={handleRegister} className="space-y-4">
+                {error && (
+                  <div className="p-3 bg-red-50 border border-red-100 rounded-xl text-red-600 text-[11px] font-bold flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4" />
+                    {error}
+                  </div>
+                )}
+
+                <div className="grid gap-4">
+                  <InputGroup 
+                    label="Seu Nome Completo" 
+                    icon={<UserIcon className="w-4 h-4" />}
+                    value={formData.fullName} 
+                    onChange={v => setFormData({...formData, fullName: v})} 
+                    placeholder="Ex: Lucas Ferreira" 
+                  />
+                  
+                  <InputGroup 
+                    label="E-mail Usina" 
+                    icon={<Mail className="w-4 h-4" />}
+                    type="email" 
+                    value={formData.email} 
+                    onChange={v => setFormData({...formData, email: v})} 
+                    placeholder="seu.nome@linsagro.com.br" 
+                  />
+                  
+                  <InputGroup 
+                    label="Senha de Acesso" 
+                    icon={<Lock className="w-4 h-4" />}
+                    type="password" 
+                    value={formData.password} 
+                    onChange={v => setFormData({...formData, password: v})} 
+                    placeholder="••••••••" 
+                  />
+                  
+                  <div className="grid grid-cols-2 gap-4 pt-2">
                     <InputGroup 
-                      label="Setor" 
-                      value={formData.sector} 
+                      label="CNPJ da Unidade" 
+                      icon={<Building2 className="w-4 h-4" />}
+                      value={formData.usinaCnpj} 
                       onChange={() => {}} 
                       disabled={true}
                     />
-                )}
-              </div>
-            </div>
+                    {role === 'LIDER_SETOR' && (
+                        <InputGroup 
+                          label="Setor" 
+                          icon={<LayoutGrid className="w-4 h-4" />}
+                          value={formData.sector} 
+                          onChange={() => {}} 
+                          disabled={true}
+                        />
+                    )}
+                  </div>
+                </div>
 
-            <button 
-              type="submit" 
-              disabled={loading}
-              className="w-full py-5 bg-[#0032A0] hover:bg-[#002880] text-white font-bold uppercase tracking-widest text-xs rounded-xl shadow-xl shadow-navy/20 flex items-center justify-center gap-3 transition-all active:scale-[0.98]"
-            >
-              {loading ? <Loader2 className="animate-spin mx-auto text-white opacity-40" /> : (
-                <>
-                  Confirmar e Ativar Conta
-                  <ArrowRight className="w-4 h-4" />
-                </>
-              )}
-            </button>
-            <p className="text-center text-[9px] text-slate-400 font-bold uppercase tracking-widest">Este cadastro é monitorado pela segurança patrimonial.</p>
-          </form>
+                <button 
+                  type="submit" 
+                  disabled={loading}
+                  className="w-full py-4 mt-4 bg-navy hover:bg-[#001D4A]/90 text-white font-bold uppercase tracking-widest text-xs rounded-xl shadow-xl shadow-navy/20 flex items-center justify-center gap-3 transition-all hover:-translate-y-1 active:translate-y-0 active:scale-[0.98] disabled:opacity-70 group"
+                >
+                  {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (
+                    <>
+                      Confirmar e Ativar Conta
+                      <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                    </>
+                  )}
+                </button>
+                
+                <p className="text-center text-[9px] text-slate-400 font-bold uppercase tracking-widest pt-2">
+                  Cadastro monitorado pela segurança patrimonial
+                </p>
+              </form>
+            </div>
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-function InputGroup({ label, placeholder, type = "text", value, onChange, disabled = false }: { label: string, placeholder?: string, type?: string, value: string, onChange: (v: string) => void, disabled?: boolean }) {
+function InputGroup({ 
+  label, 
+  placeholder, 
+  type = "text", 
+  value, 
+  onChange, 
+  disabled = false,
+  icon
+}: { 
+  label: string, 
+  placeholder?: string, 
+  type?: string, 
+  value: string, 
+  onChange: (v: string) => void, 
+  disabled?: boolean,
+  icon?: React.ReactNode
+}) {
   return (
-    <div className="space-y-1.5 w-full">
-      <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 tracking-widest">{label}</label>
-      <input 
-        type={type}
-        required
-        value={value}
-        disabled={disabled}
-        onChange={e => onChange(e.target.value)}
-        placeholder={placeholder}
-        className={`w-full px-5 py-4 border rounded-xl text-navy placeholder-slate-300 focus:outline-none transition-all font-bold text-sm ${
-          disabled 
-            ? 'bg-slate-50 border-slate-100 text-slate-400 cursor-not-allowed' 
-            : 'bg-white border-slate-100 focus:ring-4 focus:ring-[#00B5AD]/5 focus:border-[#00B5AD]'
-        }`}
-      />
+    <div className="space-y-1.5 w-full group">
+      <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 tracking-widest transition-colors group-focus-within:text-primary">
+        {label}
+      </label>
+      <div className="relative">
+        {icon && (
+          <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-primary transition-colors">
+            {icon}
+          </div>
+        )}
+        <input 
+          type={type}
+          required
+          value={value}
+          disabled={disabled}
+          onChange={e => onChange(e.target.value)}
+          placeholder={placeholder}
+          className={`w-full ${icon ? 'pl-11' : 'px-5'} pr-5 py-3 border rounded-xl text-navy placeholder-slate-300 focus:outline-none transition-all font-bold text-sm ${
+            disabled 
+              ? 'bg-slate-50 border-slate-100 text-slate-400 cursor-not-allowed' 
+              : 'bg-slate-50/50 border-slate-100 focus:ring-4 focus:ring-primary/5 focus:border-primary focus:bg-white'
+          }`}
+        />
+      </div>
     </div>
   );
 }

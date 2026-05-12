@@ -7,6 +7,8 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
   const { user, profile, loading } = useAuth();
   const { slug, isSubdomain } = useTenant();
   const location = useLocation();
+  
+  console.log(`[ProtectedRoute] Auth State:`, { hasUser: !!user, hasProfile: !!profile, loading, path: location.pathname });
 
   if (loading) {
     return (
@@ -51,7 +53,8 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
   } else if (!loading && user) {
     // SECURITY: Se houver user mas não houver profile após carregar, a conta é inválida para o sistema
     console.warn('[ProtectedRoute] Usuário autenticado sem perfil. Redirecionando...');
-    return <Navigate to="/login" state={{ error: 'Perfil não encontrado.' }} replace />;
+    const fallbackPath = slug ? `/${slug}/login` : '/login';
+    return <Navigate to={fallbackPath} state={{ error: 'Perfil não encontrado ou conta desativada.' }} replace />;
   }
 
   return <>{children}</>;
