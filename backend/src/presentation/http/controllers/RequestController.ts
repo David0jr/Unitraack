@@ -75,7 +75,7 @@ export class RequestController {
       const useCase = new ListRequests(requestRepo);
       // Filtra apenas pendências do setor do líder
       const requests = await useCase.execute(profile.tenant_id, {
-        status: ['PENDING', 'APPROVED_LIDER'], // Pendências para o líder
+        status: ['PENDING'], // Pendências para o líder
         sector: profile.sector || undefined,
         sector_id: profile.sector_id || undefined
       });

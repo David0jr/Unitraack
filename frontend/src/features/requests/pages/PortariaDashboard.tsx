@@ -237,7 +237,7 @@ export default function PortariaDashboard() {
 
   const handleConfirmMovement = async () => {    
     if (!selecionadoId || selectedMaterials.length === 0) return;
-    if (!signature) {
+    if (activeTab === 'EXIT' && !signature) {
       alert('Por favor, insira suas iniciais como assinatura digital.');
       return;
     }
@@ -253,7 +253,7 @@ export default function PortariaDashboard() {
         body: JSON.stringify({
           materialIds: selectedMaterials,
           type: activeTab,
-          signature: signature.toUpperCase(),
+          signature: signature ? signature.toUpperCase() : undefined,
           photos: photos.length > 0 ? photos : undefined
         })
       });
@@ -696,7 +696,7 @@ export default function PortariaDashboard() {
                   <div className="p-6 md:p-10 bg-slate-50/50 border-t border-slate-100 flex flex-col md:flex-row gap-5">
                      <button 
                         onClick={handleConfirmMovement}
-                        disabled={processing || selectedMaterials.length === 0 || !signature || selectedReq.status === 'DISCREPANCY'}
+                        disabled={processing || selectedMaterials.length === 0 || (activeTab === 'EXIT' && !signature) || selectedReq.status === 'DISCREPANCY'}
                         className={`flex-[3] py-7 rounded-[2rem] font-black uppercase tracking-[0.2em] text-xs flex items-center justify-center gap-4 transition-all active:scale-[0.98] disabled:opacity-30 disabled:cursor-not-allowed shadow-2xl ${activeTab === 'ENTRY' ? 'bg-navy text-white shadow-navy/30 hover:bg-[#002880]' : 'bg-emerald-600 text-white shadow-emerald-500/20 hover:bg-emerald-700'}`}
                      >
                         {processing ? <Loader2 className="w-6 h-6 animate-spin" /> : (
