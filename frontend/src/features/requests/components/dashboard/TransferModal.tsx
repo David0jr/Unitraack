@@ -49,10 +49,13 @@ export const TransferModal: React.FC<TransferModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedSubSector || !signature) return;
+    
+    const finalSectorId = selectedSubSector || selectedParentSector;
+    if (subSectors.length > 0 && !selectedSubSector) return;
+    if (!finalSectorId || !signature) return;
     
     const extraData = isPortaria ? { transferType, exitReason } : undefined;
-    onConfirm(selectedSubSector, signature, extraData, photos.length > 0 ? photos : undefined);
+    onConfirm(finalSectorId, signature, extraData, photos.length > 0 ? photos : undefined);
   };
 
   return (
@@ -121,7 +124,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({
                 </div>
               </div>
 
-              {selectedParentSector && (
+              {selectedParentSector && subSectors.length > 0 && (
                 <div className="animate-in fade-in slide-in-from-top-4 duration-500 group">
                   <label className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-2 ml-1 block transition-colors group-focus-within:text-primary">Sub-setor / Local Específico</label>
                   <div className="relative">
@@ -226,7 +229,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({
           <div className="p-6 md:p-8 pt-0 shrink-0">
             <button 
               type="submit"
-              disabled={!selectedSubSector || !signature || isProcessing}
+              //disabled={!selectedSubSector || !signature || isProcessing}
               className="w-full bg-navy hover:bg-[#001D4A]/90 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-[11px] md:text-xs uppercase tracking-widest py-4 md:py-5 rounded-[1.5rem] shadow-[0_20px_40px_-10px_rgba(0,29,74,0.3)] transition-all flex items-center justify-center gap-3 active:scale-[0.98] group"
             >
               {isProcessing ? (
