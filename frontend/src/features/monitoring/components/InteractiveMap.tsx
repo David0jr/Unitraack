@@ -9,7 +9,8 @@ import {
   Package,
   Building,
   Eye,
-  XCircle
+  XCircle,
+  Loader2
 } from 'lucide-react';
 import { useDashboard } from '../../../contexts/DashboardContext';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -54,8 +55,22 @@ export default function InteractiveMap() {
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [mapDimensions, setMapDimensions] = useState({ width: 2000, height: 1200 });
+  const [isSaving, setIsSaving] = useState(false);
 
   const svgRef = useRef<SVGSVGElement>(null);
+  const addMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (addMenuRef.current && !addMenuRef.current.contains(event.target as Node)) {
+        setShowAddMenu(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   useEffect(() => {
     const positioned = sectors.filter((s: any) => s.layout_x !== null && s.layout_x !== 0);
@@ -153,6 +168,7 @@ export default function InteractiveMap() {
   };
 
   const saveChanges = async () => {
+    setIsSaving(true);
     try {
       await api.post('/gestor/map-layout', {
         layouts: localSectors.map(s => ({
@@ -168,6 +184,8 @@ export default function InteractiveMap() {
       refreshData();
     } catch (err: any) {
       alert(err.response?.data?.error || 'Erro ao salvar layout do mapa.');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -199,7 +217,7 @@ export default function InteractiveMap() {
         <div className="flex items-center gap-3">
           {isEditMode ? (
             <>
-              <div className="relative">
+              <div className="relative" ref={addMenuRef}>
                 <button 
                   onClick={() => setShowAddMenu(!showAddMenu)}
                   className="px-4 py-2 bg-navy text-white rounded-xl text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 hover:bg-navy/90 transition-all shrink-0"
@@ -279,9 +297,14 @@ export default function InteractiveMap() {
               </button>
               <button 
                 onClick={saveChanges}
-                className="px-4 py-2 bg-emerald-500 text-white rounded-xl text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 shadow-lg shadow-emerald-500/20 hover:scale-[1.05] transition-all"
+                disabled={isSaving}
+                className="px-4 py-2 bg-emerald-500 text-white rounded-xl text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 shadow-lg shadow-emerald-500/20 hover:scale-[1.05] transition-all disabled:opacity-50 disabled:pointer-events-none"
               >
-                <Save className="w-3.5 h-3.5" /> Salvar Layout
+                {isSaving ? (
+                  <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Salvando...</>
+                ) : (
+                  <><Save className="w-3.5 h-3.5" /> Salvar Layout</>
+                )}
               </button>
             </>
           ) : (
@@ -345,7 +368,7 @@ export default function InteractiveMap() {
             <g 
               key={sector.id}
               onMouseDown={() => handleMouseDown(sector.id)}
-              className={`transition-all ${isEditMode ? 'cursor-move opacity-80 hover:opacity-100' : ''}`}
+              className={`transition-all ${isEditMode ? 'cursor-move opacity-80 hover:opacity-100' : 'cursor-pointer'}`}
             >
               <rect 
                 x={sector.layout_x}
@@ -428,11 +451,13 @@ export default function InteractiveMap() {
                     cy={y}
                     r="6"
                     fill={color}
-                    className="cursor-pointer transition-all hover:r-8 animate-pulse"
+                    stroke="white"
+                    strokeWidth="1.5"
+                    className="cursor-pointer transition-all hover:r-8"
                     onMouseEnter={() => setHoveredMaterial(mat)}
                     onMouseLeave={() => setHoveredMaterial(null)}
                     onClick={() => setSelectedMaterial(mat)}
-                    style={{ filter: `drop-shadow(0 0 8px ${color}40)` }}
+                    style={{ filter: `drop-shadow(0 0 6px ${color}90)` }}
                   />
                 );
               })}
@@ -497,15 +522,23 @@ export default function InteractiveMap() {
       </div>
 
       {selectedMaterial && (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-navy/70 backdrop-blur-md animate-in fade-in duration-300">
-          <div className="bg-white w-full max-w-2xl rounded-[16px] overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.3)] animate-in zoom-in-95 duration-200 flex flex-col md:flex-row max-h-[85vh] border border-slate-200">
+        <div 
+          onClick={() => setSelectedMaterial(null)} 
+          className="fixed inset-0 z-[1300] flex items-center justify-center p-4 bg-navy/70 backdrop-blur-md animate-in fade-in duration-300 cursor-pointer"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()} 
+            className="bg-white w-full max-w-2xl rounded-[16px] overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.3)] animate-in zoom-in-95 duration-200 flex flex-col md:flex-row max-h-[85vh] border-0 cursor-default"
+          >
             <div className="md:w-[40%] relative bg-slate-900 flex-shrink-0 min-h-[220px]">
               {selectedMaterial.image_url || selectedMaterial.imageUrl ? (
-                <img 
-                  src={selectedMaterial.image_url || selectedMaterial.imageUrl} 
-                  alt={selectedMaterial.name} 
-                  className="w-full h-full object-cover" 
-                />
+                <div className="w-full h-full p-8 flex items-center justify-center bg-slate-900/50">
+                  <img 
+                    src={selectedMaterial.image_url || selectedMaterial.imageUrl} 
+                    alt={selectedMaterial.name} 
+                    className="w-full h-full object-contain drop-shadow-2xl" 
+                  />
+                </div>
               ) : (
                 <div className="w-full h-full flex flex-col items-center justify-center text-slate-700">
                   <Package className="w-8 h-8 opacity-10" />
@@ -514,18 +547,23 @@ export default function InteractiveMap() {
               )}
               <button 
                 onClick={() => selectedMaterial.request?.profile && setSelectedCompany(selectedMaterial.request.profile)}
-                className="absolute bottom-4 left-4 right-4 bg-white/10 hover:bg-white/20 backdrop-blur-md p-2 rounded-xl border border-white/10 flex items-center gap-2 transition-all group"
+                className="absolute bottom-4 left-4 right-4 bg-navy/90 hover:bg-navy backdrop-blur-md p-3 rounded-xl border border-white/10 flex items-center gap-3 transition-all group shadow-xl"
               >
-                 <div className="w-6 h-6 rounded-lg overflow-hidden flex-shrink-0 bg-navy">
+                 <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0 bg-white/10 border border-white/20 flex items-center justify-center">
                     {selectedMaterial.request?.profile?.logo_url ? (
-                      <img src={selectedMaterial.request.profile.logo_url} className="w-full h-full object-cover" />
+                      <img src={selectedMaterial.request.profile.logo_url} className="w-full h-full object-contain p-1" />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center text-[10px] text-white font-bold">
+                      <span className="text-[12px] text-white font-bold">
                         {selectedMaterial.request?.profile?.full_name ? selectedMaterial.request.profile.full_name[0] : '?'}
-                      </div>
+                      </span>
                     )}
                  </div>
-                 <span className="text-[8px] font-bold text-white uppercase truncate group-hover:text-primary transition-colors">Propriedade: {selectedMaterial.request?.profile?.full_name || '---'}</span>
+                 <div className="flex flex-col items-start overflow-hidden text-left">
+                   <span className="text-[7px] text-slate-400 font-bold uppercase tracking-widest leading-none mb-0.5">Empresa Responsável</span>
+                   <span className="text-[10px] font-bold text-white uppercase truncate w-full group-hover:text-primary transition-colors">
+                     {selectedMaterial.request?.profile?.full_name || 'Desconhecida'}
+                   </span>
+                 </div>
               </button>
             </div>
             <div className="md:w-[60%] flex flex-col overflow-hidden bg-white">
@@ -582,8 +620,14 @@ export default function InteractiveMap() {
       )}
 
       {selectedCompany && (
-        <div className="fixed inset-0 z-[1100] flex items-center justify-center p-4 bg-navy/70 backdrop-blur-md animate-in fade-in duration-300">
-          <div className="bg-white w-full max-w-md rounded-2xl overflow-hidden shadow-xl animate-in zoom-in-95 duration-200 border border-slate-200">
+        <div 
+          onClick={() => setSelectedCompany(null)} 
+          className="fixed inset-0 z-[1400] flex items-center justify-center p-4 bg-navy/70 backdrop-blur-md animate-in fade-in duration-300 cursor-pointer"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()} 
+            className="bg-white w-full max-w-md rounded-2xl overflow-hidden shadow-xl animate-in zoom-in-95 duration-200 border border-slate-200 cursor-default"
+          >
              <div className="p-8">
                 <div className="flex justify-between items-start mb-8">
                    <div 
@@ -631,8 +675,14 @@ export default function InteractiveMap() {
         const sectorMaterials = materials.filter(m => m.current_sector_id === selectedSectorId);
         
         return (
-          <div className="fixed inset-0 z-[1200] flex items-center justify-center p-4 bg-navy/70 backdrop-blur-md animate-in fade-in duration-300">
-            <div className="bg-white w-full max-w-4xl rounded-2xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 border border-slate-200 flex flex-col max-h-[90vh]">
+          <div 
+            onClick={() => setSelectedSectorId(null)} 
+            className="fixed inset-0 z-[1200] flex items-center justify-center p-4 bg-navy/70 backdrop-blur-md animate-in fade-in duration-300 cursor-pointer"
+          >
+            <div 
+              onClick={(e) => e.stopPropagation()} 
+              className="bg-white w-full max-w-4xl rounded-2xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 border border-slate-200 flex flex-col max-h-[90vh] cursor-default"
+            >
               <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 bg-navy text-white rounded-xl flex items-center justify-center">
@@ -683,7 +733,8 @@ export default function InteractiveMap() {
                       {sectorMaterials.map(mat => (
                         <div 
                           key={mat.id}
-                          className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex items-center gap-4 hover:border-primary/30 transition-all group"
+                          onClick={() => setSelectedMaterial(mat)}
+                          className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex items-center gap-4 hover:border-primary/30 transition-all group cursor-pointer"
                         >
                           <div 
                             className="w-12 h-12 rounded-lg flex items-center justify-center text-white font-bold text-lg flex-shrink-0 shadow-lg"
@@ -704,7 +755,8 @@ export default function InteractiveMap() {
                             </div>
                           </div>
                           <button 
-                            onClick={() => {
+                            onClick={(e) => {
+                              e.stopPropagation();
                               setSelectedMaterial(mat);
                             }}
                             className="p-2 bg-slate-50 text-slate-300 hover:text-primary hover:bg-primary/5 rounded-lg transition-all"

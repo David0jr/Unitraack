@@ -1,12 +1,12 @@
 import React from 'react';
-import { AlertOctagon, BarChart3, ShieldAlert, History } from 'lucide-react';
+import { AlertOctagon, BarChart3, History } from 'lucide-react';
 import { useDashboard } from '../../../../contexts/DashboardContext';
 
 export const DashboardStats: React.FC = () => {
   const { stats } = useDashboard();
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 md:gap-6 mb-8 md:mb-12">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mb-8 md:mb-12">
       <StatCard 
         label="Casos Pendentes" 
         value={stats.pending.toString()} 
@@ -19,12 +19,7 @@ export const DashboardStats: React.FC = () => {
         icon={<BarChart3 className="w-6 h-6" />}
         color="bg-blue-50 text-blue-600"
       />
-      <StatCard 
-        label="Sensores Offline" 
-        value="0" 
-        icon={<ShieldAlert className="w-6 h-6" />}
-        color="bg-slate-50 text-slate-400"
-      />
+
       <StatCard 
         label="Movimentações (Média)" 
         value={stats.completed.toString()} 

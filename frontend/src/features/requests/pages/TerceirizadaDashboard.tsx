@@ -13,7 +13,8 @@ import {
   Loader2,
   Trash2,
   Edit2,
-  XOctagon
+  XOctagon,
+  AlertTriangle
 } from 'lucide-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useTenant } from '../../../contexts/TenantContext';
@@ -61,7 +62,7 @@ export default function TerceirizadaDashboard() {
 
   const statusMap: any = {
     'PENDING': { label: 'Análise (Líder)', color: 'text-amber-600', bg: 'bg-amber-50', icon: Clock },
-    'APPROVED_LIDER': { label: 'Análise (Gestor)', color: 'text-blue-600', bg: 'bg-blue-50', icon: Clock },
+    'APPROVED_LIDER': { label: 'Autorizado', color: 'text-emerald-600', bg: 'bg-emerald-50', icon: CheckCircle2 },
     'REJECTED_LIDER': { label: 'Recusado (Líder)', color: 'text-red-600', bg: 'bg-red-50', icon: XCircle },
     'APPROVED_GESTOR': { label: 'Aprovado (Gestor)', color: 'text-emerald-600', bg: 'bg-emerald-50', icon: CheckCircle2 },
     'REJECTED_GESTOR': { label: 'Recusado (Gestor)', color: 'text-red-600', bg: 'bg-red-50', icon: XCircle },
@@ -75,7 +76,10 @@ export default function TerceirizadaDashboard() {
   const formatDateTime = (dateStr: string) => {
     if (!dateStr) return { date: 'N/A', time: 'N/A' };
     try {
-      const d = new Date(dateStr);
+      const safeDateStr = (!dateStr.includes('Z') && !dateStr.includes('+') && !dateStr.match(/-\d{2}:\d{2}$/)) 
+        ? `${dateStr}Z` 
+        : dateStr;
+      const d = new Date(safeDateStr);
       return {
         date: d.toLocaleDateString('pt-BR'),
         time: d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
@@ -220,13 +224,13 @@ export default function TerceirizadaDashboard() {
           />
           <StatCard 
             label="Em Análise" 
-            value={requests.filter(r => r.status === 'PENDING' || r.status === 'APPROVED_LIDER').length.toString()} 
+            value={requests.filter(r => r.status === 'PENDING').length.toString()} 
             icon={<Clock className="w-6 h-6" />}
             color="bg-amber-50 text-amber-600"
           />
           <StatCard 
             label="Aprovados" 
-            value={requests.filter(r => r.status === 'APPROVED' || r.status === 'APPROVED_GESTOR' || r.status === 'IN_PLANTA' || r.status === 'COMPLETED').length.toString()} 
+            value={requests.filter(r => r.status === 'APPROVED_LIDER' || r.status === 'APPROVED' || r.status === 'APPROVED_GESTOR' || r.status === 'IN_PLANTA' || r.status === 'COMPLETED').length.toString()} 
             icon={<CheckCircle2 className="w-6 h-6" />}
             color="bg-emerald-50 text-emerald-600"
           />
@@ -351,8 +355,8 @@ export default function TerceirizadaDashboard() {
 
       {/* Request Details Modal */}
       {selectedRequest && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-navy/70 backdrop-blur-md animate-in fade-in duration-300">
-          <div className="bg-white w-full max-w-2xl rounded-2xl overflow-hidden shadow-xl animate-in zoom-in-95 duration-200 border border-slate-200 flex flex-col max-h-[90vh]">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-navy/70 backdrop-blur-md animate-in fade-in duration-300" onClick={() => setSelectedRequest(null)}>
+          <div className="bg-white w-full max-w-2xl rounded-2xl overflow-hidden shadow-xl animate-in zoom-in-95 duration-200 border border-slate-200 flex flex-col max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
             <div className="p-8 border-b border-slate-50 flex justify-between items-center">
                <div>
                   <span className="text-[10px] font-bold text-primary uppercase tracking-widest">Protocolo #{selectedRequest.id.slice(0, 8)}</span>
@@ -370,6 +374,16 @@ export default function TerceirizadaDashboard() {
                   <DetailItem label="Setor" value={selectedRequest.sector} />
                   <DetailItem label="Data Agendada" value={`${formatDateTime(selectedRequest.entry_date).date} às ${formatDateTime(selectedRequest.entry_date).time}`} />
                </div>
+
+               {selectedRequest.rejection_reason && (
+                  <div className="mb-10 p-4 bg-rose-50 border border-rose-100 rounded-xl flex items-start gap-3">
+                     <AlertTriangle className="w-5 h-5 text-rose-500 shrink-0 mt-0.5" />
+                     <div>
+                        <p className="text-[10px] font-bold text-rose-500 uppercase tracking-widest mb-1">Motivo do Cancelamento / Recusa</p>
+                        <p className="text-sm font-medium text-rose-900">{selectedRequest.rejection_reason}</p>
+                     </div>
+                  </div>
+               )}
 
                <div className="space-y-4">
                   <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Materiais na Remessa ({selectedRequest.materials?.length || 0})</h4>
@@ -409,8 +423,8 @@ export default function TerceirizadaDashboard() {
 
       {/* Material Detail Modal (Same as Lider/Portaria) */}
       {selectedMaterial && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-navy/70 backdrop-blur-md animate-in fade-in duration-300">
-          <div className="bg-white w-full max-w-2xl rounded-[16px] overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.3)] animate-in zoom-in-95 duration-200 flex flex-col md:flex-row max-h-[85vh] border border-slate-200">
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-navy/70 backdrop-blur-md animate-in fade-in duration-300" onClick={() => setSelectedMaterial(null)}>
+          <div className="bg-white w-full max-w-2xl rounded-[16px] overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.3)] animate-in zoom-in-95 duration-200 flex flex-col md:flex-row max-h-[85vh]" onClick={(e) => e.stopPropagation()}>
             <div className="md:w-[40%] relative bg-slate-900 flex-shrink-0 min-h-[220px]">
               {selectedMaterial.image_url || selectedMaterial.imageUrl ? (
                 <img 

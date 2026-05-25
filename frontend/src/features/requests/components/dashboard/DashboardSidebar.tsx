@@ -6,6 +6,7 @@ import {
   MapPin, 
   Map as MapIcon, 
   BarChart3, 
+  PieChart,
   LogOut,
   ChevronDown,
   Building
@@ -106,6 +107,12 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
           onClick={() => setActiveSection('audit')}
           icon={<BarChart3 className="w-5 h-5" />}
           label="Auditoria & Rastro"
+        />
+        <NavButton 
+          active={activeSection === 'reports'} 
+          onClick={() => setActiveSection('reports')}
+          icon={<PieChart className="w-5 h-5" />}
+          label="Relatórios"
         />
       </nav>
 

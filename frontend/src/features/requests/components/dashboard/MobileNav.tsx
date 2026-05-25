@@ -42,7 +42,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({
               <div className={`p-2 rounded-xl transition-all ${
                 isActive ? 'bg-primary/10' : ''
               }`}>
-                {React.cloneElement(item.icon as React.ReactElement, { 
+                {React.cloneElement(item.icon as any, { 
                   size: 18,
                   strokeWidth: isActive ? 2.5 : 2
                 })}

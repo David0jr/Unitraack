@@ -8,13 +8,15 @@ import AuditSection from '../../requests/components/AuditSection';
 import MonitoringDashboard from '../components/MonitoringDashboard';
 import TeamManagement from '../../admin/components/TeamManagement';
 import InteractiveMap from '../components/InteractiveMap';
+import ThirdPartiesReport from '../components/ThirdPartiesReport';
 import { MobileNav } from '../../requests/components/dashboard/MobileNav';
 import { 
   LayoutDashboard, 
   Users, 
   MapPin, 
   Map as MapIcon, 
-  BarChart3 
+  BarChart3,
+  PieChart
 } from 'lucide-react';
 
 export default function GestorDashboard() {
@@ -37,6 +39,7 @@ export default function GestorDashboard() {
     { id: 'monitoring', label: 'Rastro', icon: <MapPin /> },
     { id: 'map', label: 'Mapa', icon: <MapIcon /> },
     { id: 'audit', label: 'Auditoria', icon: <BarChart3 /> },
+    { id: 'reports', label: 'Relatórios', icon: <PieChart /> },
   ];
 
   return (
@@ -94,6 +97,8 @@ export default function GestorDashboard() {
               selectedProfileId={selectedAuditProfileId}
               setSelectedProfileId={setSelectedAuditProfileId}
             />
+          ) : activeSection === 'reports' ? (
+            <ThirdPartiesReport />
           ) : (
             <div className="p-8 md:p-12 text-center bg-white rounded-2xl border border-slate-100">
               <p className="text-navy font-bold text-sm uppercase">Seção em Desenvolvimento</p>

@@ -11,7 +11,8 @@ export class MonitoringController {
       const profile = await userService.findProfileById(req.user.id);
       if (!profile || !profile.tenant_id) return ApiResponse.error(res, 'Tenant não identificado.', 403);
 
-      const data = await monitoringService.getOperationalData(profile.tenant_id as string);
+      const profileId = profile.role === 'TERCEIRIZADA' ? profile.id : undefined;
+      const data = await monitoringService.getOperationalData(profile.tenant_id as string, profileId);
       return ApiResponse.success(res, data);
     } catch (error: any) {
       return ApiResponse.error(res, error.message);

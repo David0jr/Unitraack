@@ -34,7 +34,7 @@ export function SectorManagement({ onSuccess, onError }: SectorManagementProps) 
     if (!newSectorName) return;
     setLoading(true);
     try {
-      await api.post('/gestor/sectors', { 
+      await api.post('/sectors', { 
         name: newSectorName,
         parent_id: null
       });
@@ -54,7 +54,7 @@ export function SectorManagement({ onSuccess, onError }: SectorManagementProps) 
     if (!inlineSectorName || !inlineSectorParentId) return;
     setLoading(true);
     try {
-      await api.post('/gestor/sectors', { 
+      await api.post('/sectors', { 
         name: inlineSectorName,
         parent_id: inlineSectorParentId
       });
@@ -73,7 +73,7 @@ export function SectorManagement({ onSuccess, onError }: SectorManagementProps) 
   const handleDeleteSector = async (id: string) => {
     if (!confirm('Tem certeza que deseja excluir este setor?')) return;
     try {
-      await api.delete(`/gestor/sectors/${id}`);
+      await api.delete(`/sectors/${id}`);
       refreshData();
       onSuccess('Setor removido.');
     } catch (err: any) {

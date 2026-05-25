@@ -72,8 +72,8 @@ export default function TeamManagement({ tenantId, usinaCnpj }: { tenantId: stri
           </div>
         )}
 
-        {activeTab === 'register' && <ManualRegisterForm usinaCnpj={usinaCnpj} onSuccess={handleSuccess} onError={handleError} />}
-        {activeTab === 'invite' && <InviteGenerator usinaCnpj={usinaCnpj} />}
+        {activeTab === 'register' && <ManualRegisterForm tenantId={tenantId} usinaCnpj={usinaCnpj} onSuccess={handleSuccess} onError={handleError} />}
+        {activeTab === 'invite' && <InviteGenerator tenantId={tenantId} usinaCnpj={usinaCnpj} />}
         {activeTab === 'list' && <MemberList tenantId={tenantId} />}
         {activeTab === 'sectors' && <SectorManagement onSuccess={handleSuccess} onError={handleError} />}
       </div>

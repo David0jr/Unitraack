@@ -14,7 +14,10 @@ import {
   Camera,
   Filter,
   ArrowRight,
-  History
+  History,
+  Eye,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { LiderSidebar } from '../components/dashboard/LiderSidebar';
 import { DashboardHeader } from '../components/dashboard/DashboardHeader';
@@ -30,20 +33,19 @@ import {
 interface Material {
   id: string;
   name: string;
-  brand: string;
-  model: string;
-  serial_number: string;
-  description: string;
+  brand?: string;
+  model?: string;
+  image_url?: string;
+  code?: string;
+  serial_number?: string;
+  description?: string;
   condition: string;
-  code: string;
-  image_url: string;
-  status: 'PENDING' | 'IN_PLANTA' | 'OUT_PLANTA' | 'MOVING';
-  request?: {
-    profile: {
-      full_name: string;
-      theme_color: string;
-    }
-  }
+  status: 'PENDING' | 'IN_PLANTA' | 'OUT_PLANTA' | 'MOVING' | 'WAITING_EXIT';
+  entry_at?: string;
+  exit_at?: string;
+  current_sector_id?: string;
+  pending_sector_id?: string;
+  request?: any;
 }
 
 interface Requisicao {
@@ -73,6 +75,7 @@ interface CompanyDetails {
 interface LiderInfo {
   full_name: string;
   sector: string;
+  sector_id?: string;
 }
 
 export default function LiderDashboard() {
@@ -183,6 +186,27 @@ export default function LiderDashboard() {
     }
   };
 
+  const handleMarkExit = async (signature: string) => {
+    if (selectedForTransfer.length === 0) return;
+    setIsProcessing(true);
+    try {
+      await api.post('/lider/marcar-saida', {
+        materialIds: selectedForTransfer,
+        signature
+      }, {
+        headers: { Authorization: `Bearer ${getAuthToken()}` }
+      });
+      
+      setIsTransferModalOpen(false);
+      setSelectedForTransfer([]);
+      loadData();
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Erro ao enviar para portaria.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const handleAcceptClick = (materialId: string, materialName: string) => {
     setItemToAccept({ id: materialId, name: materialName });
     setIsAcceptModalOpen(true);
@@ -210,11 +234,34 @@ export default function LiderDashboard() {
     }
   };
 
+  const handleRejectClick = async (materialId: string) => {
+    if (!window.confirm("Deseja realmente recusar esta transferência? O item voltará para o setor de origem.")) return;
+    
+    setIsProcessing(true);
+    try {
+      await api.post('/lider/recusar-transferencia', {
+        materialIds: [materialId]
+      }, {
+        headers: { Authorization: `Bearer ${getAuthToken()}` }
+      });
+      loadData();
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Erro ao recusar.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const filteredMaterials = sectorMaterials.filter(m => 
     m.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     m.code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     m.serial_number?.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const [movementPage, setMovementPage] = useState(1);
+  const MOVEMENTS_PER_PAGE = 10;
+  const currentMovements = movements.slice((movementPage - 1) * MOVEMENTS_PER_PAGE, movementPage * MOVEMENTS_PER_PAGE);
+  const totalMovementPages = Math.max(1, Math.ceil(movements.length / MOVEMENTS_PER_PAGE));
 
   const navItems = [
     { id: 'approvals', label: 'Aprovações', icon: <LayoutDashboard /> },
@@ -285,7 +332,7 @@ export default function LiderDashboard() {
           )}
 
           {activeSection === 'my-sector' && (
-            <div className="max-w-6xl mx-auto space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-12">
+            <div className="max-w-[1400px] mx-auto space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-12">
                <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
                   <div className="flex-1">
                     <h2 className="text-2xl md:text-3xl font-black text-navy uppercase tracking-tighter italic leading-none">
@@ -311,23 +358,25 @@ export default function LiderDashboard() {
                   </div>
 
                   {selectedForTransfer.length > 0 && (
-                    <div className="bg-navy p-2 rounded-3xl flex items-center gap-2 shadow-2xl shadow-navy/40 animate-in zoom-in slide-in-from-right-4 duration-300">
-                       <div className="px-4 py-2">
+                    <div className="bg-navy p-2 rounded-3xl flex items-center justify-between gap-2 shadow-2xl shadow-navy/40 animate-in zoom-in slide-in-from-right-4 duration-300 w-full md:w-auto mt-4 md:mt-0">
+                       <div className="px-3 md:px-4 py-2 flex-1 md:flex-none">
                           <p className="text-[8px] font-black text-white/40 uppercase tracking-widest leading-none mb-1">Selecionados</p>
                           <p className="text-lg font-black text-white leading-none">{selectedForTransfer.length}</p>
                        </div>
-                       <button 
-                         onClick={() => setIsTransferModalOpen(true)}
-                         className="bg-primary hover:bg-[#009e96] text-white px-6 py-3.5 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 flex items-center gap-2"
-                       >
-                         Transferir <ArrowRight size={14} />
-                       </button>
-                       <button 
-                         onClick={() => setSelectedForTransfer([])}
-                         className="p-3.5 text-white/60 hover:text-white transition-colors"
-                       >
-                         <X size={18} />
-                       </button>
+                       <div className="flex items-center gap-2 shrink-0">
+                         <button 
+                           onClick={() => setIsTransferModalOpen(true)}
+                           className="bg-primary hover:bg-[#009e96] text-white px-4 md:px-6 h-[44px] rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-2"
+                         >
+                           Transferir <ArrowRight size={14} />
+                         </button>
+                         <button 
+                           onClick={() => setSelectedForTransfer([])}
+                           className="h-[44px] w-[44px] flex items-center justify-center rounded-2xl text-white/60 hover:bg-white/10 hover:text-white transition-colors"
+                         >
+                           <X size={18} />
+                         </button>
+                       </div>
                     </div>
                   )}
                </div>
@@ -345,7 +394,9 @@ export default function LiderDashboard() {
                        isSelected={selectedForTransfer.includes(mat.id)}
                        onSelect={(id: string) => setSelectedForTransfer(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])}
                        onAccept={() => handleAcceptClick(mat.id, mat.name)}
+                       onReject={() => handleRejectClick(mat.id)}
                        onViewDetails={() => setSelectedMaterial(mat)}
+                       currentSectorId={liderInfo?.sector_id || profile?.sector_id}
                      />
                    ))}
                  </div>
@@ -354,7 +405,7 @@ export default function LiderDashboard() {
           )}
 
           {activeSection === 'movements' && (
-            <div className="max-w-6xl mx-auto space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-12">
+            <div className="max-w-[1400px] mx-auto space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-12">
                <div>
                   <h2 className="text-2xl md:text-3xl font-black text-navy uppercase tracking-tighter italic leading-none">
                     Histórico de <span className="text-primary not-italic">Movimentações</span>
@@ -368,82 +419,87 @@ export default function LiderDashboard() {
                      <table className="w-full text-left">
                        <thead className="bg-slate-50/50 border-b border-slate-100">
                          <tr>
-                           <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Data/Hora</th>
-                           <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Equipamento</th>
-                           <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Origem → Destino</th>
-                           <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Responsável</th>
-                           <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center">Evidência</th>
-                           <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center">Visto</th>
+                           <th className="px-4 py-4 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">Data/Hora</th>
+                           <th className="px-4 py-4 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">Equipamento</th>
+                           <th className="px-4 py-4 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">Origem → Destino</th>
+                           <th className="px-4 py-4 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">Responsável</th>
+                           <th className="px-4 py-4 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] text-center">Evidência</th>
+                           <th className="px-4 py-4 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] text-center">Visto</th>
                          </tr>
                        </thead>
-                       <tbody className="divide-y divide-slate-50">
-                         {movements.map((move, i) => (
-                           <tr key={i} className="hover:bg-slate-50/30 transition-colors">
-                             <td className="px-8 py-4">
-                                <p className="text-xs font-black text-navy uppercase">{new Date(move.moved_at).toLocaleDateString('pt-BR')}</p>
-                                <p className="text-[10px] text-slate-400 font-bold">{new Date(move.moved_at).toLocaleTimeString('pt-BR')}</p>
-                             </td>
-                             <td className="px-8 py-4">
-                                <div className="flex items-center gap-3">
-                                   <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center">
-                                      <Package className="w-4 h-4 text-slate-400" />
-                                   </div>
-                                   <div>
-                                      <p className="text-xs font-black text-navy uppercase">{move.material?.name}</p>
-                                      <p className="text-[9px] text-primary font-black uppercase tracking-widest">{move.material?.request?.profile?.full_name}</p>
-                                   </div>
-                                </div>
-                             </td>
-                             <td className="px-8 py-4">
-                                <div className="flex items-center gap-3">
-                                   <span className="text-[10px] font-black text-slate-500 uppercase bg-slate-100 px-2 py-1 rounded-md">{move.from_sector?.name || '---'}</span>
-                                   <Send className="w-3 h-3 text-slate-300" />
-                                   <span className="text-[10px] font-black text-primary uppercase bg-primary/10 px-2 py-1 rounded-md">{move.to_sector?.name || '---'}</span>
-                                </div>
-                             </td>
-                             <td className="px-8 py-4">
-                                <div className="flex items-center gap-2">
-                                   <div className="w-6 h-6 bg-navy text-white rounded-full flex items-center justify-center text-[9px] font-black">
-                                      {move.actor?.full_name?.[0]}
-                                   </div>
-                                   <span className="text-xs font-black text-navy uppercase">{move.actor?.full_name}</span>
-                                </div>
-                             </td>
-                             <td className="px-8 py-4">
-                                <div className="flex justify-center">
-                                   {move.photos && move.photos.length > 0 ? (
-                                     <button 
-                                       onClick={() => setSelectedPhotos(move.photos)}
-                                       className="p-2 bg-primary/10 text-primary rounded-lg hover:bg-primary hover:text-white transition-all flex items-center gap-2 group/photo"
-                                     >
-                                        <Camera className="w-4 h-4 group-hover/photo:scale-110 transition-transform" />
-                                        <span className="text-[9px] font-black uppercase">{move.photos.length}</span>
-                                     </button>
-                                   ) : (
-                                     <span className="text-[10px] text-slate-300 font-black uppercase italic">N/A</span>
-                                   )}
-                                </div>
-                             </td>
-                             <td className="px-8 py-4">
-                                <div className="flex justify-center">
-                                   <span className="bg-slate-100 text-navy text-[10px] font-black px-2 py-1 rounded border border-slate-200 min-w-[32px] text-center">
-                                      {move.signature?.startsWith('data:image/') ? (
-                                         <img src={move.signature} alt="Visto" className="h-6 object-contain" />
-                                      ) : (
-                                         move.signature || '--'
-                                      )}
-                                   </span>
-                                </div>
-                             </td>
-                           </tr>
-                         ))}
+                        <tbody className="divide-y divide-slate-50">
+                           {currentMovements.map((move, i) => (
+                             <tr key={i} className="hover:bg-slate-50/30 transition-colors">
+                              <td className="px-4 py-3">
+                                 <p className="text-[11px] font-black text-navy uppercase">{new Date(move.moved_at).toLocaleDateString('pt-BR')}</p>
+                                 <p className="text-[9px] text-slate-400 font-bold">{new Date(move.moved_at).toLocaleTimeString('pt-BR')}</p>
+                              </td>
+                              <td className="px-4 py-3">
+                                 <div className="flex items-center gap-2.5">
+                                    <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center shrink-0">
+                                       <Package className="w-4 h-4 text-slate-400" />
+                                    </div>
+                                    <div className="min-w-0">
+                                       <p className="text-[11px] font-black text-navy uppercase truncate">{move.material?.name}</p>
+                                       <p className="text-[9px] text-primary font-black uppercase tracking-widest truncate">{move.material?.request?.profile?.full_name}</p>
+                                    </div>
+                                 </div>
+                              </td>
+                              <td className="px-4 py-3">
+                                 <div className="flex items-center gap-2">
+                                    <span className="text-[9px] font-black text-slate-500 uppercase bg-slate-100 px-2 py-1 rounded-md max-w-[80px] truncate">{move.from_sector?.name || '---'}</span>
+                                    <Send className="w-3 h-3 text-slate-300 shrink-0" />
+                                    <span className="text-[9px] font-black text-primary uppercase bg-primary/10 px-2 py-1 rounded-md max-w-[80px] truncate">{move.to_sector?.name || '---'}</span>
+                                 </div>
+                              </td>
+                              <td className="px-4 py-3">
+                                 <div className="flex items-center gap-2">
+                                    <div className="w-6 h-6 bg-navy text-white rounded-full flex items-center justify-center text-[9px] font-black shrink-0">
+                                       {move.actor?.full_name?.[0]}
+                                    </div>
+                                    <div className="flex flex-col">
+                                       <span className="text-[11px] font-black text-navy uppercase truncate max-w-[120px]">{move.actor?.full_name}</span>
+                                       {move.actor?.registration_number && (
+                                         <span className="text-[9px] font-bold text-slate-400 mt-0.5">{move.actor.registration_number}</span>
+                                       )}
+                                    </div>
+                                 </div>
+                              </td>
+                              <td className="px-4 py-3">
+                                 <div className="flex justify-center">
+                                    {move.photos && move.photos.length > 0 ? (
+                                      <button 
+                                        onClick={() => setSelectedPhotos(move.photos)}
+                                        className="p-1.5 bg-primary/10 text-primary rounded-lg hover:bg-primary hover:text-white transition-all flex items-center gap-1.5 group/photo"
+                                      >
+                                         <Camera className="w-3.5 h-3.5 group-hover/photo:scale-110 transition-transform" />
+                                         <span className="text-[9px] font-black uppercase">{move.photos.length}</span>
+                                      </button>
+                                    ) : (
+                                      <span className="text-[9px] text-slate-300 font-black uppercase italic">N/A</span>
+                                    )}
+                                 </div>
+                              </td>
+                              <td className="px-4 py-3">
+                                 <div className="flex justify-center">
+                                    <span className="bg-slate-100 text-navy text-[9px] font-black px-2 py-1 rounded border border-slate-200 min-w-[32px] text-center max-w-[80px] truncate">
+                                       {move.signature?.startsWith('data:image/') ? (
+                                          <img src={move.signature} alt="Visto" className="h-5 object-contain" />
+                                       ) : (
+                                          move.signature || '--'
+                                       )}
+                                    </span>
+                                 </div>
+                              </td>
+                            </tr>
+                          ))}
                        </tbody>
                      </table>
                    </div>
 
                    {/* Mobile List */}
                    <div className="md:hidden divide-y divide-slate-50">
-                      {movements.map((move, i) => (
+                      {currentMovements.map((move, i) => (
                         <div key={i} className="p-6 space-y-4">
                            <div className="flex justify-between items-start">
                               <div className="flex-1 min-w-0">
@@ -466,10 +522,15 @@ export default function LiderDashboard() {
 
                            <div className="flex items-center justify-between pt-2">
                               <div className="flex items-center gap-2">
-                                 <div className="w-6 h-6 bg-navy text-white rounded-full flex items-center justify-center text-[8px] font-black uppercase shadow-sm">
+                                 <div className="w-6 h-6 bg-navy text-white rounded-full flex items-center justify-center text-[8px] font-black uppercase shadow-sm shrink-0">
                                     {move.actor?.full_name?.[0]}
                                  </div>
-                                 <span className="text-[10px] font-black text-navy uppercase truncate max-w-[100px]">{move.actor?.full_name}</span>
+                                 <div className="flex flex-col">
+                                    <span className="text-[10px] font-black text-navy uppercase truncate max-w-[100px]">{move.actor?.full_name}</span>
+                                    {move.actor?.registration_number && (
+                                      <span className="text-[8px] font-bold text-slate-400 mt-0.5">{move.actor.registration_number}</span>
+                                    )}
+                                 </div>
                               </div>
                               <div className="flex items-center gap-2">
                                  {move.photos && move.photos.length > 0 && (
@@ -493,6 +554,31 @@ export default function LiderDashboard() {
                         </div>
                       ))}
                    </div>
+
+                   {/* Paginação */}
+                   {totalMovementPages > 1 && (
+                     <div className="p-4 md:p-6 bg-slate-50/50 border-t border-slate-100 flex items-center justify-between">
+                        <button 
+                          onClick={() => setMovementPage(p => Math.max(1, p - 1))}
+                          disabled={movementPage === 1}
+                          className="w-10 h-10 bg-white border border-slate-200 rounded-xl flex items-center justify-center text-slate-400 hover:text-primary hover:border-primary/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                        >
+                          <ChevronLeft size={18} />
+                        </button>
+                        
+                        <p className="text-[10px] font-black text-navy uppercase tracking-widest">
+                          Página {movementPage} de {totalMovementPages}
+                        </p>
+                        
+                        <button 
+                          onClick={() => setMovementPage(p => Math.min(totalMovementPages, p + 1))}
+                          disabled={movementPage === totalMovementPages}
+                          className="w-10 h-10 bg-white border border-slate-200 rounded-xl flex items-center justify-center text-slate-400 hover:text-primary hover:border-primary/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                        >
+                          <ChevronRight size={18} />
+                        </button>
+                     </div>
+                   )}
                </div>
             </div>
           )}
@@ -505,6 +591,7 @@ export default function LiderDashboard() {
           materialIds={selectedForTransfer}
           onClose={() => setIsTransferModalOpen(false)}
           onConfirm={handleTransfer}
+          onMarkExit={handleMarkExit}
           isProcessing={isProcessing}
         />
       )}
@@ -521,8 +608,14 @@ export default function LiderDashboard() {
       {selectedCompany && <CompanyModal company={selectedCompany} onClose={() => setSelectedCompany(null)} />}
       {selectedMaterial && <MaterialModal material={selectedMaterial} onClose={() => setSelectedMaterial(null)} />}
       {selectedPhotos && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-8 bg-navy/95 backdrop-blur-md animate-in fade-in duration-300">
-           <div className="w-full max-w-6xl h-full flex flex-col">
+        <div 
+          onClick={() => setSelectedPhotos(null)} 
+          className="fixed inset-0 z-[200] flex items-center justify-center p-8 bg-navy/95 backdrop-blur-md animate-in fade-in duration-300 cursor-pointer"
+        >
+           <div 
+             onClick={(e) => e.stopPropagation()} 
+             className="w-full max-w-6xl h-full flex flex-col cursor-default"
+           >
               <div className="flex justify-between items-center mb-8">
                  <div className="flex items-center gap-4">
                     <div className="p-3 bg-primary rounded-2xl text-white">
@@ -599,7 +692,7 @@ function RequestCard({ req, onApprove, onReject, onSelectCompany, onSelectMateri
                     <span className="text-[9px] text-primary font-black uppercase tracking-widest whitespace-nowrap bg-primary/5 px-2 py-0.5 rounded-md">Terceirizada</span>
                     <span className="text-slate-200">•</span>
                     <span className="text-[9px] text-slate-400 font-bold uppercase whitespace-nowrap">
-                      {new Date(req.entry_date).toLocaleDateString('pt-BR')}
+                      {new Date(!req.entry_date.includes('Z') && !req.entry_date.includes('+') && !req.entry_date.match(/-\d{2}:\d{2}$/) ? `${req.entry_date}Z` : req.entry_date).toLocaleDateString('pt-BR')}
                     </span>
                  </div>
               </div>
@@ -613,7 +706,7 @@ function RequestCard({ req, onApprove, onReject, onSelectCompany, onSelectMateri
               <div className="bg-slate-50/50 p-4 rounded-2xl border border-slate-100/50 flex flex-col justify-center">
                  <p className="text-[8px] md:text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">Horário Previsto</p>
                  <p className="font-black text-navy text-xs md:text-sm uppercase tracking-tighter">
-                   {new Date(req.entry_date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                   {new Date(!req.entry_date.includes('Z') && !req.entry_date.includes('+') && !req.entry_date.match(/-\d{2}:\d{2}$/) ? `${req.entry_date}Z` : req.entry_date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                  </p>
               </div>
            </div>
@@ -661,8 +754,9 @@ function RequestCard({ req, onApprove, onReject, onSelectCompany, onSelectMateri
   );
 }
 
-function MaterialCard({ mat, isSelected, onSelect, onAccept, onViewDetails }: any) {
+function MaterialCard({ mat, isSelected, onSelect, onAccept, onReject, onViewDetails, currentSectorId }: any) {
   const isMoving = mat.status === 'MOVING';
+  const isIncoming = isMoving && mat.pending_sector_id === currentSectorId;
 
   return (
     <div className={`bg-white rounded-[2rem] p-5 border transition-all relative overflow-hidden group ${
@@ -684,7 +778,7 @@ function MaterialCard({ mat, isSelected, onSelect, onAccept, onViewDetails }: an
               mat.status === 'MOVING' ? 'bg-amber-50 text-amber-500 border-amber-100 animate-pulse' :
               'bg-slate-50 text-slate-400 border-slate-100'
             }`}>
-              {mat.status === 'MOVING' ? 'Em Trânsito' : 'Em Planta'}
+              {mat.status === 'MOVING' ? (isIncoming ? 'Chegando' : 'Saindo') : 'Em Planta'}
             </span>
           </div>
        </div>
@@ -702,28 +796,38 @@ function MaterialCard({ mat, isSelected, onSelect, onAccept, onViewDetails }: an
        </div>
 
        <div className="flex gap-2">
-          {isMoving ? (
-            <button 
-              onClick={onAccept}
-              className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white font-black text-[10px] uppercase tracking-widest py-3.5 rounded-xl shadow-lg shadow-emerald-500/20 transition-all active:scale-95 flex items-center justify-center gap-2"
-            >
-              <Check className="w-4 h-4" /> Aceitar Item
-            </button>
+          {isIncoming ? (
+            <>
+              <button 
+                onClick={onAccept}
+                className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white font-black text-[10px] uppercase tracking-widest py-3.5 rounded-xl shadow-lg shadow-emerald-500/20 transition-all active:scale-95 flex items-center justify-center gap-2"
+              >
+                <Check className="w-4 h-4" /> Aceitar
+              </button>
+              <button 
+                onClick={onReject}
+                className="flex-1 bg-white border border-rose-200 text-rose-500 hover:bg-rose-50 font-black text-[10px] uppercase tracking-widest py-3.5 rounded-xl transition-all active:scale-95 flex items-center justify-center gap-2"
+              >
+                <X className="w-4 h-4" /> Recusar
+              </button>
+            </>
           ) : (
             <>
               <button 
-                onClick={() => onSelect(mat.id)}
+                onClick={() => !isMoving && onSelect(mat.id)}
+                disabled={isMoving}
                 className={`flex-1 font-black text-[10px] uppercase tracking-widest py-3.5 rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm ${
+                  isMoving ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-transparent' :
                   isSelected ? 'bg-navy text-white shadow-navy/20' : 'bg-white border border-slate-200 text-slate-500 hover:bg-slate-50'
                 }`}
               >
-                {isSelected ? <><Check size={14} /> Selecionado</> : 'Selecionar'}
+                {isSelected ? <><Check size={14} /> Selecionado</> : (isMoving ? 'Em Trânsito' : 'Selecionar')}
               </button>
               <button 
                 onClick={onViewDetails}
                 className="w-12 h-12 bg-white border border-slate-200 text-slate-300 hover:text-primary hover:border-primary/40 rounded-xl flex items-center justify-center transition-all active:scale-95 group/info"
               >
-                <Plus size={18} className="group-hover/info:rotate-90 transition-transform" />
+                <Eye size={18} className="group-hover/info:scale-110 transition-transform" />
               </button>
             </>
           )}
@@ -753,8 +857,14 @@ function EmptyState({ icon, title, description }: any) {
 
 function CompanyModal({ company, onClose }: any) {
   return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-navy/70 backdrop-blur-md animate-in fade-in duration-300">
-      <div className="bg-white w-full max-w-md rounded-3xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+    <div 
+      onClick={onClose} 
+      className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-navy/70 backdrop-blur-md animate-in fade-in duration-300 cursor-pointer"
+    >
+      <div 
+        onClick={(e) => e.stopPropagation()} 
+        className="bg-white w-full max-w-md rounded-3xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 cursor-default"
+      >
          <div className="p-8">
             <div className="flex justify-between items-start mb-8">
                <div className="w-20 h-20 rounded-2xl flex items-center justify-center text-white font-bold text-3xl shadow-xl" style={{ backgroundColor: company.theme_color || '#0032A0' }}>
@@ -777,8 +887,14 @@ function CompanyModal({ company, onClose }: any) {
 
 function MaterialModal({ material, onClose }: any) {
   return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-navy/70 backdrop-blur-md animate-in fade-in duration-300">
-      <div className="bg-white w-full max-w-2xl rounded-3xl overflow-hidden shadow-2xl flex flex-col md:flex-row">
+    <div 
+      onClick={onClose} 
+      className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-navy/70 backdrop-blur-md animate-in fade-in duration-300 cursor-pointer"
+    >
+      <div 
+        onClick={(e) => e.stopPropagation()} 
+        className="bg-white w-full max-w-2xl rounded-3xl overflow-hidden shadow-2xl flex flex-col md:flex-row cursor-default"
+      >
          <div className="md:w-1/2 bg-slate-900 h-64 md:h-auto">
             {material.image_url ? <img src={material.image_url} className="w-full h-full object-cover" /> : <div className="h-full flex items-center justify-center opacity-10"><Package className="w-20 h-20 text-white" /></div>}
          </div>

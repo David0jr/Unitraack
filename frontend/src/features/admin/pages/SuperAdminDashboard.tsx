@@ -72,6 +72,8 @@ export default function SuperAdminDashboard() {
   const [selectedMonitoringTenant, setSelectedMonitoringTenant] = useState<string>('');
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 8;
 
   const fetchAuditLogs = async (tenantId: string) => {
     if (!tenantId) {
@@ -106,6 +108,7 @@ export default function SuperAdminDashboard() {
 
   useEffect(() => {
     if (activeTab === 'monitoring' && selectedMonitoringTenant) {
+      setCurrentPage(1);
       fetchAuditLogs(selectedMonitoringTenant);
     }
   }, [activeTab, selectedMonitoringTenant]);
@@ -478,7 +481,7 @@ export default function SuperAdminDashboard() {
                           </div>
                         </td>
                         <td className="px-8 py-7 text-right">
-                          <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-2 group-hover:translate-x-0">
+                          <div className="flex items-center justify-end gap-1 transition-all duration-300">
                             <ActionButton onClick={() => generateAndCopyNewLink(t.id)} icon={<Copy className="w-3.5 h-3.5" />} title="Gestor" color="text-slate-400 hover:text-navy hover:bg-slate-100" />
                             <ActionButton onClick={() => openEditModal(t)} icon={<Pencil className="w-3.5 h-3.5" />} title="Editar" color="text-slate-400 hover:text-primary hover:bg-primary/5" />
                             <ActionButton
@@ -569,7 +572,7 @@ export default function SuperAdminDashboard() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50">
-                      {Array.isArray(auditLogs) && auditLogs.map((log: any) => (
+                      {Array.isArray(auditLogs) && auditLogs.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((log: any) => (
                         <tr key={log.id} className="group hover:bg-slate-50/80 transition-all duration-300">
                           <td className="px-8 py-6">
                             <div className="flex flex-col">
@@ -604,6 +607,27 @@ export default function SuperAdminDashboard() {
                       ))}
                     </tbody>
                   </table>
+                  {Math.ceil(auditLogs.length / itemsPerPage) > 1 && (
+                    <div className="p-4 border-t border-slate-50 flex items-center justify-between bg-white rounded-b-2xl">
+                      <button 
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                        className="px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-navy hover:bg-slate-50 rounded-xl transition-all disabled:opacity-50 disabled:hover:bg-transparent"
+                      >
+                        Anterior
+                      </button>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                        Página {currentPage} de {Math.ceil(auditLogs.length / itemsPerPage)}
+                      </span>
+                      <button 
+                        onClick={() => setCurrentPage(p => Math.min(Math.ceil(auditLogs.length / itemsPerPage), p + 1))}
+                        disabled={currentPage === Math.ceil(auditLogs.length / itemsPerPage)}
+                        className="px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-navy hover:bg-slate-50 rounded-xl transition-all disabled:opacity-50 disabled:hover:bg-transparent"
+                      >
+                        Próxima
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -720,8 +744,19 @@ export default function SuperAdminDashboard() {
       </div>
 
       {isModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-6 bg-[#001D4A]/40 backdrop-blur-sm animate-in fade-in duration-500">
-          <div className="bg-white w-full max-w-xl rounded-2xl shadow-[0_30px_60px_-15px_rgba(0,0,0,0.2)] overflow-y-auto max-h-[90vh] border border-slate-100">
+        <div 
+          onClick={() => { 
+            setIsModalOpen(false); 
+            setEditingTenant(null); 
+            setFormData(initialFormData); 
+            setGeneratedInvite(null); 
+          }} 
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-6 bg-[#001D4A]/40 backdrop-blur-sm animate-in fade-in duration-500 cursor-pointer"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()} 
+            className="bg-white w-full max-w-xl rounded-2xl shadow-[0_30px_60px_-15px_rgba(0,0,0,0.2)] overflow-y-auto max-h-[90vh] border border-slate-100 cursor-default"
+          >
             <div className="p-10 space-y-8">
               {generatedInvite ? (
                 <div className="space-y-8 py-4 animate-in zoom-in-95 duration-300 text-center">

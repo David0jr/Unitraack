@@ -52,7 +52,10 @@ export default function NovaSolicitacao() {
 
   useEffect(() => {
     if (editMode && editRequest) {
-      setEntryDate(editRequest.entry_date.slice(0, 16)); // Format for datetime-local
+      const dateObj = new Date(editRequest.entry_date);
+      const tzOffset = dateObj.getTimezoneOffset() * 60000;
+      const localIso = new Date(dateObj.getTime() - tzOffset).toISOString().slice(0, 16);
+      setEntryDate(localIso);
       setSectorId(editRequest.sector_id);
       setSectorName(editRequest.sector);
       // Pre-populate materials

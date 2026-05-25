@@ -57,7 +57,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Define um timeout para a consulta ao Supabase
         const profileRequest = supabase
           .from('profiles')
-          .select('id, role, full_name, tenant_id, is_active')
+          .select('id, role, full_name, tenant_id, is_active, registration_number')
           .eq('id', userId)
           .maybeSingle();
 
@@ -90,7 +90,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           
           const { data: retryData, error: retryError } = await supabase
             .from('profiles')
-            .select('id, role, full_name, tenant_id, is_active')
+            .select('id, role, full_name, tenant_id, is_active, registration_number')
             .eq('id', userId)
             .maybeSingle();
             

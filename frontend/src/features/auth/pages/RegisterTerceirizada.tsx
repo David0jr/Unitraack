@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { ArrowRight, Loader2, CheckCircle2, ShieldAlert, Building2, UserCircle2, Phone, Mail, Lock, ShieldCheck } from 'lucide-react';
+import { ArrowRight, Loader2, CheckCircle2, ShieldAlert, Building2, UserCircle2, Phone, Mail, Lock, ShieldCheck, Eye, EyeOff } from 'lucide-react';
 import { maskCNPJ, maskPhone, validateEmail } from '../../../utils/masks';
 import { useTenant } from '../../../contexts/TenantContext';
 import ParticleBackground from '../components/ParticleBackground';
@@ -285,19 +285,32 @@ interface InputProps {
 }
 
 function InputGroup({ label, placeholder, type = "text", value, onChange, icon: Icon }: InputProps) {
+  const [showPassword, setShowPassword] = useState(false);
+  const isPassword = type === 'password';
+  const currentType = isPassword ? (showPassword ? 'text' : 'password') : type;
+
   return (
     <div className="space-y-1.5 group">
       <label className="text-[10px] uppercase tracking-widest font-bold text-slate-400 ml-1 transition-colors group-focus-within:text-primary">{label}</label>
       <div className="relative">
         <Icon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 group-focus-within:text-primary transition-all" />
         <input 
-          type={type}
+          type={currentType}
           required
           value={value}
           onChange={e => onChange(e.target.value)}
           placeholder={placeholder}
-          className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-navy font-bold placeholder-slate-300 focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all text-xs shadow-inner"
+          className={`w-full pl-11 py-3 bg-slate-50 border border-slate-100 rounded-xl text-navy font-bold placeholder-slate-300 focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all text-xs shadow-inner ${isPassword ? 'pr-11' : 'pr-4'}`}
         />
+        {isPassword && (
+          <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-primary focus:outline-none p-1 transition-colors"
+          >
+            {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+          </button>
+        )}
       </div>
     </div>
   );

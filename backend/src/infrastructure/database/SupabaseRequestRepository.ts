@@ -209,7 +209,7 @@ export class SupabaseRequestRepository implements IRequestRepository {
     }
   }
 
-  async updateMultipleMaterialsStatus(materialIds: string[], status: any, timestampField?: 'entry_at' | 'exit_at', movedBy?: string, tenantId?: string, fromSectorId?: string, toSectorId?: string, signature?: string, photos?: string[]): Promise<void> {
+  async updateMultipleMaterialsStatus(materialIds: string[], status: any, timestampField?: 'entry_at' | 'exit_at', movedBy?: string, tenantId?: string, fromSectorId?: string, toSectorId?: string, signature?: string, photos?: string[], pendingSectorId?: string | null, logMovement: boolean = true): Promise<void> {
     const updateData: any = { status };
     if (timestampField) {
       updateData[timestampField] = new Date().toISOString();
@@ -223,6 +223,9 @@ export class SupabaseRequestRepository implements IRequestRepository {
     if (toSectorId) {
         updateData.current_sector_id = toSectorId;
     }
+    if (pendingSectorId !== undefined) {
+        updateData.pending_sector_id = pendingSectorId;
+    }
 
     const { error } = await supabaseAdmin
       .from('materials')
@@ -231,7 +234,7 @@ export class SupabaseRequestRepository implements IRequestRepository {
 
     if (error) throw error;
 
-    if (movedBy) {
+    if (movedBy && logMovement) {
         const movements = materialIds.map(mId => ({
             material_id: mId,
             moved_by: movedBy,
@@ -247,9 +250,9 @@ export class SupabaseRequestRepository implements IRequestRepository {
     }
   }
 
-  async getAuditHistory(tenantId: string): Promise<any[]> {
+  async getAuditHistory(tenantId: string, sectorId?: string, actorId?: string): Promise<any[]> {
     console.log(`[SupabaseRequestRepository.getAuditHistory] Buscando logs para tenant: ${tenantId}`);
-    const { data, error } = await supabaseAdmin
+    let query = supabaseAdmin
       .from('material_movements')
       .select(`
         id,
@@ -262,12 +265,25 @@ export class SupabaseRequestRepository implements IRequestRepository {
             tenant_id
           )
         ),
-        actor:profiles(full_name),
+        actor:profiles(full_name, role, registration_number),
         from_sector:sectors!material_movements_from_sector_id_fkey(name),
         to_sector:sectors!material_movements_to_sector_id_fkey(name)
       `)
-      .eq('tenant_id', tenantId)
-      .order('moved_at', { ascending: false });
+      .eq('tenant_id', tenantId);
+
+    if (sectorId || actorId) {
+      const conditions = [];
+      if (sectorId) {
+        conditions.push(`from_sector_id.eq.${sectorId}`);
+        conditions.push(`to_sector_id.eq.${sectorId}`);
+      }
+      if (actorId) {
+        conditions.push(`moved_by.eq.${actorId}`);
+      }
+      query = query.or(conditions.join(','));
+    }
+
+    const { data, error } = await query.order('moved_at', { ascending: false });
 
     if (error) {
       console.error('[SupabaseRequestRepository.getAuditHistory] Erro:', error.message);
@@ -295,7 +311,7 @@ export class SupabaseRequestRepository implements IRequestRepository {
       .from('materials')
       .select('*, request:entry_requests!inner(*, profile:profiles!profile_id(*))')
       .eq('request.tenant_id', tenantId)
-      .eq('current_sector_id', sectorId);
+      .or(`current_sector_id.eq.${sectorId},pending_sector_id.eq.${sectorId}`);
 
     if (status) {
       query = query.eq('status', status);

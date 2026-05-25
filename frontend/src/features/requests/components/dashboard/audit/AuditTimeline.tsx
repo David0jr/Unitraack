@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { 
@@ -9,6 +9,7 @@ import {
   ShieldCheck, 
   MapPin,
   ChevronLeft,
+  ChevronRight,
   History,
   Search,
   XCircle,
@@ -72,6 +73,12 @@ export function AuditTimeline({ auditData, profileName, onBack }: AuditTimelineP
   const [filterType, setFilterType] = useState<'all' | 'active' | 'finished'>('all');
   const [dateFilter, setDateFilter] = useState('');
   const [searchText, setSearchText] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterType, dateFilter, searchText]);
 
   const exportToPDF = () => {
     const doc = new jsPDF();
@@ -79,34 +86,35 @@ export function AuditTimeline({ auditData, profileName, onBack }: AuditTimelineP
 
     // Header Industrial
     doc.setFillColor(0, 21, 64);
-    doc.rect(0, 0, 210, 50, 'F');
+    doc.rect(0, 0, 210, 45, 'F');
     
-    doc.setFontSize(22);
+    doc.setFontSize(20);
     doc.setTextColor(255, 255, 255); 
-    doc.text('Relatório de Auditoria e Rastreabilidade', 14, 25);
+    doc.text('Relatório de Auditoria e Rastreabilidade', 14, 20);
     
-    doc.setFontSize(9);
-    doc.setTextColor(255, 255, 255);
-    doc.text(`Empresa Parceira: ${profileName.toUpperCase()}`, 14, 35);
-    if (p?.cnpj) doc.text(`CNPJ: ${p.cnpj} | Rep: ${p.representative_name || 'N/A'}`, 14, 40);
-    doc.text(`Emitido em: ${new Date().toLocaleString()} | Protocolo Industrial UsinaLins v4.2`, 14, 45);
+    doc.setFontSize(10);
+    doc.text(`Empresa Parceira: ${profileName.toUpperCase()}`, 14, 28);
+    if (p?.cnpj) doc.text(`CNPJ: ${p.cnpj} | Representante: ${p.representative_name || 'N/A'}`, 14, 34);
+    doc.text(`Emitido em: ${new Date().toLocaleString()} | Protocolo Industrial UsinaLins v4.2`, 14, 40);
 
+    doc.setTextColor(15, 23, 42);
+    
     // Summary Table
     autoTable(doc, {
-      startY: 55,
+      startY: 50,
       head: [['Métrica de Auditoria', 'Valor']],
       body: [
         ['Total de Contratos/Entradas Analisados', auditData.length.toString()],
         ['Tempo Médio de Permanência (Visitas Finalizadas)', calculateAverageStay(auditData)],
-        ['Total de Ativos/Materiais Registrados', auditData.reduce((acc, curr) => acc + (curr.materials?.length || 0), 0).toString()],
+        ['Total de Ativos/Materiais Movimentados', auditData.reduce((acc, curr) => acc + (curr.materials?.length || 0), 0).toString()],
         ['Status do Parceiro', auditData.some(d => !d.exit_at) ? 'EM OPERAÇÃO NA PLANTA' : 'NENHUM ATIVO NA PLANTA'],
       ],
-      theme: 'striped',
+      theme: 'grid',
       headStyles: { fillColor: [0, 21, 64], fontSize: 10, fontStyle: 'bold' },
       styles: { fontSize: 9 }
     });
 
-    // Access History Table (More Detailed)
+    // Access History Table
     doc.setFontSize(14);
     doc.setTextColor(15, 23, 42);
     doc.text('Histórico de Acessos e Validações', 14, (doc as any).lastAutoTable.finalY + 15);
@@ -125,74 +133,86 @@ export function AuditTimeline({ auditData, profileName, onBack }: AuditTimelineP
         calculateDuration(entryTime, req.exit_at),
         req.gate_checked_by_profile?.full_name.split(' (')[0] || 'Portaria',
         req.approved_leader_profile?.full_name.split(' (')[0] || 'N/A',
-        req.approved_gestor_profile?.full_name.split(' (')[0] || 'N/A',
         req.signature || 'NÃO ASSINADO'
       ];
     });
 
     autoTable(doc, {
       startY: (doc as any).lastAutoTable.finalY + 20,
-      head: [['Check-in', 'Check-out', 'Permanência', 'Portaria', 'Líder', 'Gestor', 'Assinatura']],
+      head: [['Check-in', 'Check-out', 'Permanência', 'Portaria', 'Líder / Responsável', 'Assinatura']],
       body: entriesBody,
       theme: 'grid',
       headStyles: { fillColor: [0, 21, 64], fontSize: 8 },
-      styles: { fontSize: 7 }
+      styles: { fontSize: 8 }
     });
 
     // Detailed Equipment Tracker
     doc.setFontSize(14);
-    doc.text('Rastreabilidade de Ativos e Movimentações Internas', 14, (doc as any).lastAutoTable.finalY + 15);
+    doc.text('Movimentações Detalhadas por Equipamento', 14, (doc as any).lastAutoTable.finalY + 15);
 
-    const movementsBody: any[] = [];
+    let currentY = (doc as any).lastAutoTable.finalY + 20;
+
     filteredData.forEach(req => {
       (req.materials || []).forEach(mat => {
-        (mat.movements || []).forEach(move => {
-          const isInternalDest = move.to_sector?.name.toLowerCase() !== 'portaria' && move.to_sector?.name.toLowerCase() !== 'entrada';
-          let responsibleName = `${move.actor.full_name.split(' (')[0]} (${move.actor.role === 'LIDER_SETOR' ? 'Líder' : move.actor.role === 'GESTOR_UNIDADE' ? 'Gestor' : 'Agente'})`;
-          
-          if (isInternalDest) {
-            if (req.approved_leader_profile) {
-              responsibleName = `${req.approved_leader_profile.full_name.split(' (')[0]} (Líder)`;
-            } else {
-              // Fallback: Mostrar o responsável do setor de destino se não houver um perfil específico vinculado
-              responsibleName = `Líder ${move.to_sector?.name || 'Setor'}`;
-            }
-          }
+        const movements = mat.movements || [];
+        if (movements.length === 0) return; // Only show materials with movements
 
-          movementsBody.push([
-            `${mat.name} [SÉRIE: ${mat.serial_number || 'N/A'}]`,
-            `${mat.brand} ${mat.model}`,
-            move.from_sector?.name || 'Entrada',
-            move.to_sector?.name || 'Planta',
+        if (currentY > 250) {
+          doc.addPage();
+          currentY = 20;
+        }
+
+        // Sub-header for equipment
+        doc.setFillColor(240, 245, 250);
+        doc.rect(14, currentY, 182, 8, 'F');
+        doc.setFontSize(10);
+        doc.setTextColor(0, 21, 64);
+        doc.setFont('helvetica', 'bold');
+        doc.text(`Equipamento: ${mat.name} | Marca: ${mat.brand} | Série: ${mat.serial_number || 'N/A'}`, 16, currentY + 5.5);
+        doc.setFont('helvetica', 'normal');
+
+        const movementsBody = movements.map((move, idx) => {
+          let responsibleName = move.actor?.full_name ? move.actor.full_name.split(' (')[0] : 'N/A';
+          let role = move.actor?.role ? (move.actor.role === 'LIDER_SETOR' ? 'Líder' : move.actor.role === 'GESTOR_UNIDADE' ? 'Gestor' : 'Agente') : '';
+          
+          if (role) responsibleName += ` (${role})`;
+          
+          let fromName = move.from_sector?.name || 'Gate';
+          let toName = move.to_sector?.name || 'Gate';
+
+          return [
+            `#${idx + 1}`,
             new Date(move.moved_at).toLocaleString(),
+            fromName,
+            toName,
             responsibleName,
-            move.signature || 'NÃO ASSINADO'
-          ]);
+            move.signature || '-'
+          ];
         });
+
+        autoTable(doc, {
+          startY: currentY + 10,
+          head: [['Seq.', 'Data/Hora', 'Origem', 'Destino', 'Responsável pela Ação', 'Assinatura']],
+          body: movementsBody,
+          theme: 'striped',
+          headStyles: { fillColor: [248, 250, 252], textColor: [15, 23, 42], fontSize: 8 },
+          styles: { fontSize: 8 },
+          margin: { left: 14, right: 14 },
+          columnStyles: {
+            0: { cellWidth: 10 },
+            1: { cellWidth: 35 },
+            2: { cellWidth: 30 },
+            3: { cellWidth: 30 },
+            4: { cellWidth: 45 },
+            5: { cellWidth: 30 }
+          }
+        });
+
+        currentY = (doc as any).lastAutoTable.finalY + 10;
       });
     });
 
-    if (movementsBody.length > 0) {
-      autoTable(doc, {
-        startY: (doc as any).lastAutoTable.finalY + 20,
-        head: [['Equipamento [Nº Série]', 'Marca/Modelo', 'Origem', 'Destino', 'Data/Hora', 'Responsável', 'Assinatura']],
-        body: movementsBody,
-        theme: 'striped',
-        headStyles: { fillColor: [0, 21, 64], fontSize: 8 },
-        styles: { fontSize: 6 },
-        columnStyles: {
-          0: { cellWidth: 40 },
-          1: { cellWidth: 30 },
-          2: { cellWidth: 20 },
-          3: { cellWidth: 20 },
-          4: { cellWidth: 25 },
-          5: { cellWidth: 30 },
-          6: { cellWidth: 25 }
-        }
-      });
-    }
-
-    doc.save(`AUDITORIA_INDUSTRIAL_${profileName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
+    doc.save(`AUDITORIA_RASTREAMENTO_${profileName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
   };
 
   const filteredData = useMemo(() => {
@@ -217,6 +237,12 @@ export function AuditTimeline({ auditData, profileName, onBack }: AuditTimelineP
       return true;
     });
   }, [auditData, filterType, dateFilter, searchText]);
+
+  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+  const paginatedData = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredData.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredData, currentPage]);
 
   return (
     <div className="space-y-8 animate-in slide-in-from-right-8 duration-500">
@@ -359,11 +385,11 @@ export function AuditTimeline({ auditData, profileName, onBack }: AuditTimelineP
                <History className="w-12 h-12 text-slate-100 mx-auto mb-4" />
                <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">Nenhum registro encontrado para esta análise</p>
             </div>
-         ) : filteredData.map((request, idx) => (
+         ) : paginatedData.map((request, idx) => (
             <div key={request.id} className="relative group/card animate-in fade-in slide-in-from-left-4 duration-500" style={{ animationDelay: `${idx * 100}ms` }}>
                {/* Ponto da Timeline */}
                <div className="absolute -left-[3.25rem] top-0 w-10 h-10 rounded-xl bg-white border-2 border-slate-100 shadow-xl z-10 flex items-center justify-center font-bold text-xs text-navy group-hover/card:border-primary group-hover/card:scale-110 transition-all duration-300">
-                  {filteredData.length - idx}
+                  {filteredData.length - ((currentPage - 1) * itemsPerPage + idx)}
                </div>
 
                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden hover:shadow-xl hover:shadow-navy/5 transition-all duration-500">
@@ -452,7 +478,7 @@ export function AuditTimeline({ auditData, profileName, onBack }: AuditTimelineP
                                       </div>
                                    </div>
                                    <div className="text-right">
-                                      <p className="text-[8px] font-bold text-slate-300 uppercase tracking-widest mb-1.5">Total Hops</p>
+                                      <p className="text-[8px] font-bold text-slate-300 uppercase tracking-widest mb-1.5">Movimentações</p>
                                       <span className="text-sm font-bold text-navy">{(material.movements || []).length}</span>
                                    </div>
                                 </div>
@@ -536,6 +562,35 @@ export function AuditTimeline({ auditData, profileName, onBack }: AuditTimelineP
             </div>
          ))}
       </div>
+
+      {totalPages > 1 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between pt-2 mt-4 pl-0 sm:pl-12 gap-4">
+           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center sm:text-left">
+              Mostrando {((currentPage - 1) * itemsPerPage) + 1} a {Math.min(currentPage * itemsPerPage, filteredData.length)} de {filteredData.length} registros
+           </span>
+           <div className="flex items-center gap-3">
+              <button 
+                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                 disabled={currentPage === 1}
+                 className="flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 text-[10px] font-bold uppercase tracking-widest text-navy hover:bg-slate-50 hover:border-slate-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              >
+                 <ChevronLeft className="w-4 h-4" /> Anterior
+              </button>
+              <div className="px-4 py-2 bg-slate-50 rounded-xl border border-slate-100 hidden sm:block">
+                 <span className="text-[10px] font-bold text-navy uppercase tracking-widest">
+                    Página {currentPage} de {totalPages}
+                 </span>
+              </div>
+              <button 
+                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                 disabled={currentPage === totalPages}
+                 className="flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 text-[10px] font-bold uppercase tracking-widest text-navy hover:bg-slate-50 hover:border-slate-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              >
+                 Próxima <ChevronRight className="w-4 h-4" />
+              </button>
+           </div>
+        </div>
+      )}
     </div>
   );
 }

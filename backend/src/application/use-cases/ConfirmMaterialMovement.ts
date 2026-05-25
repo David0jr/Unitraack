@@ -64,27 +64,15 @@ export class ConfirmMaterialMovement {
 
       const targetRespId = await getSectorResponsible(targetName);
 
-      // Mov 1: Entrada na Portaria (Responsável é quem está na portaria: movedBy)
+      // Movimento único: Entrada externa direta para o Setor de Destino
+      // Atribuímos a operação a quem está na portaria (movedBy) e registramos a assinatura/fotos
       await this.requestRepository.updateMultipleMaterialsStatus(
           materialIds, 
           status, 
-          timestampField, 
-          movedBy, 
+          timestampField,
+          movedBy,
           request.tenant_id,
-          undefined,
-          portariaSectorId || undefined,
-          signature,
-          photos
-      );
-
-      // Mov 2: Encaminhamento para o Setor (Atribuímos ao Líder do Setor que aprovou a entrada)
-      await this.requestRepository.updateMultipleMaterialsStatus(
-          materialIds, 
-          status, 
-          undefined,
-          request.approved_leader_by || targetRespId, // Atribuímos ao responsável do setor de destino
-          request.tenant_id,
-          portariaSectorId || undefined,
+          undefined, // From external (---)
           targetSectorId || undefined,
           signature,
           photos

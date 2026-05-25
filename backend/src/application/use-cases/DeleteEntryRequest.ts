@@ -3,7 +3,7 @@ import { IRequestRepository } from '../../domain/repositories/IRequestRepository
 export class DeleteEntryRequest {
   constructor(private requestRepository: IRequestRepository) {}
 
-  async execute(requestId: string, userRole: string, tenantId: string): Promise<void> {
+  async execute(requestId: string, userRole: string, tenantId: string, profileId?: string): Promise<void> {
     const existing = await this.requestRepository.findById(requestId);
     if (!existing) throw new Error('Solicitação não encontrada.');
 
@@ -16,6 +16,10 @@ export class DeleteEntryRequest {
     // Validar isolamento de tenant para outros papéis
     if (existing.tenant_id !== tenantId) {
       throw new Error('Acesso negado: Esta requisição não pertence à sua unidade.');
+    }
+
+    if (userRole === 'TERCEIRIZADA' && existing.profile_id !== profileId) {
+      throw new Error('Acesso negado: Você não pode excluir uma requisição de outra empresa.');
     }
 
     // Apenas permite deletar se estiver cancelada ou recusada

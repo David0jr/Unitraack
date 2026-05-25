@@ -10,7 +10,10 @@ import {
   User as UserIcon,
   Mail,
   Building2,
-  LayoutGrid
+  LayoutGrid,
+  Hash,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { maskCNPJ, validateEmail } from '../../../utils/masks';
 import { useTenant } from '../../../contexts/TenantContext';
@@ -33,6 +36,7 @@ export default function RegisterInternal() {
     email: '',
     password: '',
     fullName: '',
+    registrationNumber: '',
     sector: '',
     sector_id: '',
     usinaCnpj: '',
@@ -214,6 +218,14 @@ export default function RegisterInternal() {
                   />
                   
                   <InputGroup 
+                    label="Número de Matrícula" 
+                    icon={<Hash className="w-4 h-4" />}
+                    value={formData.registrationNumber} 
+                    onChange={v => setFormData({...formData, registrationNumber: v})} 
+                    placeholder="Ex: 123456" 
+                  />
+                  
+                  <InputGroup 
                     label="E-mail Usina" 
                     icon={<Mail className="w-4 h-4" />}
                     type="email" 
@@ -293,6 +305,10 @@ function InputGroup({
   disabled?: boolean,
   icon?: React.ReactNode
 }) {
+  const [showPassword, setShowPassword] = useState(false);
+  const isPassword = type === 'password';
+  const currentType = isPassword ? (showPassword ? 'text' : 'password') : type;
+
   return (
     <div className="space-y-1.5 w-full group">
       <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 tracking-widest transition-colors group-focus-within:text-primary">
@@ -305,18 +321,27 @@ function InputGroup({
           </div>
         )}
         <input 
-          type={type}
+          type={currentType}
           required
           value={value}
           disabled={disabled}
           onChange={e => onChange(e.target.value)}
           placeholder={placeholder}
-          className={`w-full ${icon ? 'pl-11' : 'px-5'} pr-5 py-3 border rounded-xl text-navy placeholder-slate-300 focus:outline-none transition-all font-bold text-sm ${
+          className={`w-full ${icon ? 'pl-11' : 'px-5'} py-3 border rounded-xl text-navy placeholder-slate-300 focus:outline-none transition-all font-bold text-sm ${
             disabled 
               ? 'bg-slate-50 border-slate-100 text-slate-400 cursor-not-allowed' 
               : 'bg-slate-50/50 border-slate-100 focus:ring-4 focus:ring-primary/5 focus:border-primary focus:bg-white'
-          }`}
+          } ${isPassword ? 'pr-11' : 'pr-5'}`}
         />
+        {isPassword && !disabled && (
+          <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-primary focus:outline-none p-1 transition-colors"
+          >
+            {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+          </button>
+        )}
       </div>
     </div>
   );

@@ -22,11 +22,6 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({ section }) => 
       </div>
       
       <div className="flex items-center gap-2">
-        <div className="flex items-center gap-3 bg-slate-50 px-3 py-1.5 rounded-full border border-slate-100 h-8">
-          <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>
-          <span className="text-[8px] md:text-[10px] font-black text-navy uppercase tracking-widest whitespace-nowrap">Status: OK</span>
-        </div>
-        
         <button 
           onClick={signOut}
           className="flex items-center justify-center h-8 w-8 bg-rose-50 text-rose-500 rounded-full border border-rose-100 hover:bg-rose-500 hover:text-white transition-all shadow-sm group"

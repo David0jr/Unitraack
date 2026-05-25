@@ -11,7 +11,7 @@ export class MonitoringService {
    * Utilizado para alimentar o Dashboard do Gestor e o Mapa Interativo.
    * @param tenantId ID da unidade industrial
    */
-  async getOperationalData(tenantId: string) {
+  async getOperationalData(tenantId: string, profileId?: string) {
     console.log(`[MonitoringService] Iniciando busca consolidada para Tenant: ${tenantId}`);
     
     // 1. Buscar todos os setores e subsetores da unidade
@@ -37,13 +37,14 @@ export class MonitoringService {
         .from('materials')
         .select(`
           *,
-          request:entry_requests!request_id(
+          request:entry_requests!request_id!inner(
             id,
             profile:profiles!profile_id(full_name, role, theme_color, logo_url, cnpj, phone, representative_name),
             tenant_id,
             status
           )
-        `);
+        `)
+        .eq('entry_requests.tenant_id', tenantId);
 
       if (error) {
         console.warn('[MonitoringService] Falha na busca completa de materiais:', error.message);
@@ -81,9 +82,7 @@ export class MonitoringService {
 
     console.log(`[MonitoringService] Resumo: ${sectors.length} setores, ${materials.length} materiais pré-filtro.`);
 
-    return {
-      sectors,
-      materials: materials
+    const filteredMaterials = materials
         .filter(m => {
           // Normalizar request para o filtro
           const request = Array.isArray(m.request) ? m.request[0] : m.request;
@@ -95,13 +94,21 @@ export class MonitoringService {
           const matStatus = m.status || request?.status;
           
           const belongsToTenant = !mTenantId || mTenantId === tenantId;
-          return belongsToTenant && matStatus === 'IN_PLANTA';
+          const belongsToProfile = profileId ? request?.profile?.id === profileId : true;
+
+          return belongsToTenant && belongsToProfile && matStatus === 'IN_PLANTA';
         })
         .map(m => ({
           ...m,
           request: Array.isArray(m.request) ? m.request[0] : m.request
-        })),
-      movements
+        }));
+
+    const filteredMaterialIds = new Set(filteredMaterials.map(m => m.id));
+
+    return {
+      sectors,
+      materials: filteredMaterials,
+      movements: movements.filter(mov => profileId ? filteredMaterialIds.has(mov.material_id) : true)
     };
   }
 

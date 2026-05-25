@@ -9,7 +9,10 @@ import {
   CheckCircle2, 
   AlertCircle,
   ArrowRight,
-  Copy
+  Copy,
+  Hash,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { getSubdomain } from '../../../utils/subdomain';
 import ParticleBackground from '../components/ParticleBackground';
@@ -28,6 +31,7 @@ export default function RegisterGestor() {
 
   const [formData, setFormData] = useState({
     fullName: '',
+    registrationNumber: '',
     email: '',
     password: '',
     confirmPassword: ''
@@ -82,6 +86,7 @@ export default function RegisterGestor() {
         body: JSON.stringify({
           token,
           fullName: formData.fullName,
+          registrationNumber: formData.registrationNumber,
           email: formData.email,
           password: formData.password
         })
@@ -235,6 +240,14 @@ export default function RegisterGestor() {
                   onChange={(v: string) => setFormData({...formData, fullName: v})} 
                   placeholder="Seu nome profissional" 
                 />
+
+                <InputGroup 
+                  label="Número de Matrícula" 
+                  icon={<Hash className="w-4 h-4" />} 
+                  value={formData.registrationNumber} 
+                  onChange={(v: string) => setFormData({...formData, registrationNumber: v})} 
+                  placeholder="Sua matrícula corporativa" 
+                />
                 
                 <InputGroup 
                   label="E-mail de Vinculação" 
@@ -303,6 +316,10 @@ function InputGroup({
   onChange: (v: string) => void, 
   icon?: React.ReactNode 
 }) {
+  const [showPassword, setShowPassword] = useState(false);
+  const isPassword = type === 'password';
+  const currentType = isPassword ? (showPassword ? 'text' : 'password') : type;
+
   return (
     <div className="space-y-1.5 w-full group">
       <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 tracking-widest leading-none group-focus-within:text-primary transition-colors">
@@ -311,13 +328,22 @@ function InputGroup({
       <div className="relative">
         <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-primary transition-colors">{icon}</div>
         <input 
-          type={type}
+          type={currentType}
           required
           value={value}
           onChange={e => onChange(e.target.value)}
           placeholder={placeholder}
-          className="w-full pl-11 pr-5 py-3 bg-slate-50 border border-slate-100 rounded-xl text-navy placeholder-slate-300 focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all font-bold text-sm"
+          className={`w-full pl-11 py-3 bg-slate-50 border border-slate-100 rounded-xl text-navy placeholder-slate-300 focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all font-bold text-sm ${isPassword ? 'pr-11' : 'pr-5'}`}
         />
+        {isPassword && (
+          <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-primary focus:outline-none p-1 transition-colors"
+          >
+            {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+          </button>
+        )}
       </div>
     </div>
   );

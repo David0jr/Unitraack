@@ -1,54 +1,119 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { 
   Loader2, 
+  Hash,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { useDashboard } from '../../../../../contexts/DashboardContext';
 import { useAuth } from '../../../../../contexts/AuthContext';
 import { CustomSelect } from './TeamCommon';
 
 interface ManualRegisterFormProps {
+  tenantId: string;
   usinaCnpj: string;
   onSuccess: (msg: string) => void;
   onError: (msg: string) => void;
 }
 
-export function ManualRegisterForm({ usinaCnpj, onSuccess, onError }: ManualRegisterFormProps) {
+export function ManualRegisterForm({ tenantId, usinaCnpj, onSuccess, onError }: ManualRegisterFormProps) {
   const { sectors } = useDashboard();
   const { token } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [members, setMembers] = useState<any[]>([]);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
     password: '',
+    confirmPassword: '',
     fullName: '',
+    registrationNumber: '',
     role: 'LIDER_SETOR',
     sector: '',
     sector_id: ''
   });
 
-  const sectorOptions = sectors.filter((s: any) => !s.parent_id).map((parent: any) => ({
-    type: 'group',
-    label: parent.name,
-    items: sectors.filter((s: any) => s.parent_id === parent.id).map((sub: any) => ({
+  useEffect(() => {
+    const fetchMembers = async () => {
+      try {
+        const resp = await axios.get(`${import.meta.env.VITE_API_URL}/gestor/team`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (resp.data.success) {
+          setMembers(resp.data.data);
+        }
+      } catch (err) {
+        console.error('Erro ao buscar equipe', err);
+      }
+    };
+    fetchMembers();
+  }, [token]);
+
+  const occupiedSectorIds = members
+    .filter(m => m.role === 'LIDER_SETOR' && m.sector_id)
+    .map(m => m.sector_id);
+
+  const sectorOptions = sectors.filter((s: any) => !s.parent_id).map((parent: any) => {
+    const isParentOccupied = occupiedSectorIds.includes(parent.id);
+    const availableSubSectors = sectors.filter((s: any) => s.parent_id === parent.id && !occupiedSectorIds.includes(s.id));
+    
+    if (availableSubSectors.length === 0) {
+      if (isParentOccupied) return null;
+      return {
+        type: 'option',
+        value: parent.id,
+        label: parent.name
+      };
+    }
+
+    const items = [];
+    if (!isParentOccupied) {
+      items.push({ value: parent.id, label: `Geral - ${parent.name}` });
+    }
+    
+    items.push(...availableSubSectors.map((sub: any) => ({
       value: sub.id,
       label: sub.name
-    }))
-  }));
+    })));
+
+    if (items.length === 0) return null;
+
+    return {
+      type: 'group',
+      label: parent.name,
+      items
+    };
+  }).filter(Boolean);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (formData.role === 'LIDER_SETOR' && !formData.sector_id) {
+      onError('Por favor, selecione um setor para o Líder de Setor.');
+      return;
+    }
+
     setLoading(true);
+
+    if (formData.password !== formData.confirmPassword) {
+      onError('As senhas não coincidem!');
+      setLoading(false);
+      return;
+    }
 
     try {
       await axios.post(`${import.meta.env.VITE_API_URL}/auth/register`, { 
         ...formData, 
-        usinaCnpj 
+        usinaCnpj,
+        tenantId
       }, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
       onSuccess('Membro cadastrado com sucesso!');
-      setFormData({ email: '', password: '', fullName: '', role: 'LIDER_SETOR', sector: '', sector_id: '' });
+      setFormData({ email: '', password: '', confirmPassword: '', fullName: '', registrationNumber: '', role: 'LIDER_SETOR', sector: '', sector_id: '' });
     } catch (err: any) {
       onError(err.response?.data?.error || 'Erro no cadastro.');
     } finally {
@@ -75,6 +140,21 @@ export function ManualRegisterForm({ usinaCnpj, onSuccess, onError }: ManualRegi
           />
         </div>
         <div className="space-y-1.5 w-full">
+          <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 tracking-widest">Número de Matrícula</label>
+          <div className="relative">
+            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300">
+              <Hash className="w-4 h-4" />
+            </div>
+            <input 
+              required
+              value={formData.registrationNumber} 
+              onChange={e => setFormData({...formData, registrationNumber: e.target.value})} 
+              placeholder="Ex: 123456"
+              className="w-full pl-11 pr-5 py-3.5 bg-slate-50 border border-slate-100 rounded-xl text-navy placeholder:text-slate-300 focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all font-bold text-xs"
+            />
+          </div>
+        </div>
+        <div className="space-y-1.5 w-full">
           <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 tracking-widest">E-mail Usina</label>
           <input 
             type="email"
@@ -87,14 +167,43 @@ export function ManualRegisterForm({ usinaCnpj, onSuccess, onError }: ManualRegi
         </div>
         <div className="space-y-1.5 w-full">
           <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 tracking-widest">Senha Inicial</label>
-          <input 
-            type="password"
-            required
-            value={formData.password} 
-            onChange={e => setFormData({...formData, password: e.target.value})} 
-            placeholder="••••••••"
-            className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-xl text-navy placeholder:text-slate-300 focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all font-bold text-xs"
-          />
+          <div className="relative">
+            <input 
+              type={showPassword ? "text" : "password"}
+              required
+              value={formData.password} 
+              onChange={e => setFormData({...formData, password: e.target.value})} 
+              placeholder="••••••••"
+              className="w-full pl-5 pr-12 py-3.5 bg-slate-50 border border-slate-100 rounded-xl text-navy placeholder:text-slate-300 focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all font-bold text-xs"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-primary transition-colors"
+            >
+              {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
+          </div>
+        </div>
+        <div className="space-y-1.5 w-full">
+          <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 tracking-widest">Confirmar Senha</label>
+          <div className="relative">
+            <input 
+              type={showConfirmPassword ? "text" : "password"}
+              required
+              value={formData.confirmPassword} 
+              onChange={e => setFormData({...formData, confirmPassword: e.target.value})} 
+              placeholder="••••••••"
+              className="w-full pl-5 pr-12 py-3.5 bg-slate-50 border border-slate-100 rounded-xl text-navy placeholder:text-slate-300 focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all font-bold text-xs"
+            />
+            <button
+              type="button"
+              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-primary transition-colors"
+            >
+              {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
+          </div>
         </div>
         <div className="space-y-1.5">
           <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Função / Cargo</label>

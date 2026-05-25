@@ -44,7 +44,9 @@ export interface Profile {
   representative_name?: string | null;
   phone?: string | null;
   company_color?: string | null;
+  theme_color?: string | null;
   is_active: boolean;
+  registration_number?: string | null;
   created_at: string;
 }
 

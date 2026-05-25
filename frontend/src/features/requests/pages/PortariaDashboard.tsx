@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { getAuthToken } from '../../../utils/subdomain';
-import { Truck, Search, CheckCircle, Loader2, Package, Hash, Info, LogOut, Eye, AlertTriangle, X, Camera, ShieldAlert, ChevronRight, MapPin, ShieldCheck, ClipboardList, History, Users, Calendar, Clock } from 'lucide-react';
-import { SignaturePad } from '../../../components/SignaturePad';
+import { Truck, Search, CheckCircle, Loader2, Package, Hash, Info, LogOut, Eye, AlertTriangle, X, Camera, ShieldAlert, ChevronRight, MapPin, ShieldCheck, ClipboardList, History, Users, Calendar, Clock, XOctagon } from 'lucide-react';
 import { MobileNav } from '../components/dashboard/MobileNav';
+import Swal from 'sweetalert2';
 
 interface Material {
   id: string;
@@ -15,7 +15,7 @@ interface Material {
   condition: string;
   code?: string;
   image_url?: string;
-  status: 'PENDING' | 'IN_PLANTA' | 'OUT_PLANTA';
+  status: 'PENDING' | 'IN_PLANTA' | 'OUT_PLANTA' | 'MOVING' | 'WAITING_EXIT';
   photos?: string[];
 }
 
@@ -63,7 +63,7 @@ export default function PortariaDashboard() {
   const [selecionadoId, setSelecionadoId] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState<CompanyDetails | null>(null);
-  const [activeTab, setActiveTab] = useState<'ENTRY' | 'EXIT'>('ENTRY');
+  const [activeTab, setActiveTab] = useState<'ENTRY' | 'EXIT' | 'IN_PLANTA'>('ENTRY');
   const [selectedMaterials, setSelectedMaterials] = useState<string[]>([]);
   const [detailMaterial, setDetailMaterial] = useState<Material | null>(null);
   const [showDiscrepancyModal, setShowDiscrepancyModal] = useState(false);
@@ -86,7 +86,10 @@ export default function PortariaDashboard() {
   const formatDateTime = (dateStr: string) => {
     if (!dateStr) return { date: 'N/A', time: 'N/A' };
     try {
-      const d = new Date(dateStr);
+      const safeDateStr = (!dateStr.includes('Z') && !dateStr.includes('+') && !dateStr.match(/-\d{2}:\d{2}$/)) 
+        ? `${dateStr}Z` 
+        : dateStr;
+      const d = new Date(safeDateStr);
       return {
         date: d.toLocaleDateString('pt-BR'),
         time: d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
@@ -119,7 +122,6 @@ export default function PortariaDashboard() {
   const fetchRequisicoes = async () => {
     try {
       setLoading(true);
-      // Busca tanto aprovados quanto em planta
       const statusList = activeTab === 'ENTRY' 
         ? ['APPROVED_LIDER', 'APPROVED_GESTOR', 'APPROVED', 'DISCREPANCY'] 
         : ['IN_PLANTA'];
@@ -160,7 +162,7 @@ export default function PortariaDashboard() {
   useEffect(() => {
     if (selectedReq) {
       const initial = selectedReq.materials
-        .filter(m => (activeTab === 'ENTRY' ? m.status !== 'IN_PLANTA' : m.status === 'IN_PLANTA'))
+        .filter(m => (activeTab === 'ENTRY' ? m.status !== 'IN_PLANTA' : m.status === 'WAITING_EXIT'))
         .map(m => m.id);
       setSelectedMaterials(initial);
     }
@@ -193,7 +195,6 @@ export default function PortariaDashboard() {
     setPhotos(prev => prev.filter((_, i) => i !== index));
   };
 
-  // Real-time Camera Logic
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -237,8 +238,8 @@ export default function PortariaDashboard() {
 
   const handleConfirmMovement = async () => {    
     if (!selecionadoId || selectedMaterials.length === 0) return;
-    if (activeTab === 'EXIT' && !signature) {
-      alert('Por favor, insira suas iniciais como assinatura digital.');
+    if ((activeTab === 'EXIT' || activeTab === 'ENTRY') && !signature) {
+      alert('Por favor, insira o número de matrícula para confirmar a operação.');
       return;
     }
     
@@ -282,6 +283,56 @@ export default function PortariaDashboard() {
     }
   };
 
+  const handleCancelEntry = async () => {
+    if (!selecionadoId) return;
+
+    const { value: reason, isConfirmed } = await Swal.fire({
+      title: 'Cancelar Entrada?',
+      text: 'A terceirizada não compareceu na data/prazo agendado?',
+      input: 'text',
+      inputValue: 'Cancelado pela Portaria: Não compareceu na data/prazo estimado',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: 'Sim, Cancelar Entrada',
+      cancelButtonText: 'Voltar',
+      inputValidator: (value) => {
+        if (!value) {
+          return 'Você precisa informar o motivo!';
+        }
+      }
+    });
+
+    if (isConfirmed && reason) {
+      setProcessing(true);
+      try {
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/portaria/cancelar/${selecionadoId}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${getAuthToken()}`
+          },
+          body: JSON.stringify({ reason })
+        });
+
+        if (response.ok) {
+          setRequisicoes(prev => prev.filter(r => r.id !== selecionadoId));
+          setSelecionadoId(null);
+          setMobileSection('list');
+          Swal.fire('Cancelado!', 'A entrada foi cancelada com sucesso.', 'success');
+          fetchRequisicoes();
+        } else {
+          Swal.fire('Erro', 'Ocorreu um erro ao cancelar a entrada.', 'error');
+        }
+      } catch (err) {
+        Swal.fire('Erro', 'Não foi possível comunicar com o servidor.', 'error');
+      } finally {
+        setProcessing(false);
+      }
+    }
+  };
+
   const handleNotifyDiscrepancy = async () => {
     if (!selecionadoId || !discrepancyReason) return;
     
@@ -321,6 +372,12 @@ export default function PortariaDashboard() {
   };
 
   const filteredReqs = Array.isArray(requisicoes) ? requisicoes.filter(r => {
+    if (activeTab === 'EXIT' && !r.materials?.some((m: any) => m.status === 'WAITING_EXIT')) {
+      return false;
+    }
+    if (activeTab === 'IN_PLANTA' && !r.materials?.some((m: any) => m.status === 'IN_PLANTA')) {
+      return false;
+    }
     const search = (searchTerm || '').toLowerCase();
     const matchesName = (r.profile?.full_name || '').toLowerCase().includes(search);
     const matchesId = (r.id || '').toLowerCase().includes(search);
@@ -332,17 +389,28 @@ export default function PortariaDashboard() {
     return matchesName || matchesId || matchesMaterials;
   }) : [];
 
-  const portariaNavItems = [
-    { id: 'list', label: 'Fila', icon: <Truck /> },
-    { id: 'details', label: 'Operação', icon: <ClipboardList /> },
-    { id: 'history', label: 'Histórico', icon: <History /> },
-  ];
+  const InfoItem = ({ label, value, icon }: { label: string; value: string; icon: React.ReactNode }) => (
+    <div className="flex items-center gap-4">
+      <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center border border-slate-100">
+        {icon}
+      </div>
+      <div>
+        <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{label}</p>
+        <p className="text-xs font-black text-navy uppercase">{value}</p>
+      </div>
+    </div>
+  );
 
+  const DetailItem = ({ label, value }: { label: string; value: string }) => (
+    <div>
+       <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">{label}</p>
+       <p className="text-sm font-bold text-navy">{value}</p>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-[#F1F5F9] font-brand antialiased text-navy selection:bg-primary/10">
       
-      {/* Header Premium */}
       <nav className="h-20 bg-navy border-b border-white/5 px-4 md:px-8 flex items-center justify-between sticky top-0 z-[60] shadow-2xl shadow-navy/20">
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-4">
@@ -353,7 +421,6 @@ export default function PortariaDashboard() {
             />
             <div className="h-6 w-px bg-white/10 mx-2"></div>
             <div className="hidden md:block">
-              <span className="text-[10px] text-primary font-black uppercase tracking-[0.2em] leading-none block mb-0.5">Logística & Segurança</span>
               <h1 className="font-bold text-white text-xs uppercase tracking-tight">Controle de Portaria</h1>
             </div>
           </div>
@@ -371,11 +438,16 @@ export default function PortariaDashboard() {
           
           <div className="hidden sm:flex flex-col items-end border-l border-white/10 pl-8">
             <p className="text-[10px] font-black text-white uppercase tracking-tighter mb-0.5">{userProfile?.full_name || 'Agente de Portaria'}</p>
-            <div className="flex items-center gap-2">
-               <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>
-               <p className="text-[8px] text-emerald-500 font-black uppercase tracking-widest">Status Operacional</p>
-            </div>
           </div>
+
+          <button 
+            onClick={() => setMobileSection(mobileSection === 'history' ? 'list' : 'history')}
+            className={`hidden lg:flex items-center gap-2 px-4 py-2 rounded-xl transition-all font-black text-[10px] uppercase tracking-widest ${mobileSection === 'history' ? 'bg-primary text-white shadow-lg' : 'bg-white/5 text-white/70 hover:bg-white/10 hover:text-white'}`}
+            title="Histórico"
+          >
+            <History className="w-4 h-4" /> Histórico
+          </button>
+
           <button 
             onClick={signOut}
             className="p-3 bg-white/5 text-white/40 hover:text-rose-400 hover:bg-rose-400/10 rounded-xl transition-all group"
@@ -386,26 +458,30 @@ export default function PortariaDashboard() {
         </div>
       </nav>
 
-      <main className="max-w-[1600px] mx-auto p-4 md:p-10 pb-28 md:pb-10">
+      <main className="max-w-[1600px] mx-auto p-4 md:p-10 pb-36 lg:pb-10">
         
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           
-          {/* Left Column: Navigation & Search */}
           <div className={`lg:col-span-4 space-y-6 sticky top-28 ${mobileSection !== 'list' ? 'hidden lg:block' : ''}`}>
             
-            {/* Tab Switcher Industrial */}
             <div className="bg-white p-2 rounded-2xl border border-slate-200 shadow-sm flex gap-2">
                <button 
-                onClick={() => setActiveTab('ENTRY')}
+                onClick={() => { setActiveTab('ENTRY'); setMobileSection('list'); }}
                 className={`flex-1 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'ENTRY' ? 'bg-navy text-white shadow-xl shadow-navy/20' : 'text-slate-400 hover:bg-slate-50'}`}
                >
                   Entrada na Planta
                </button>
                <button 
-                onClick={() => setActiveTab('EXIT')}
+                onClick={() => { setActiveTab('EXIT'); setMobileSection('list'); }}
                 className={`flex-1 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'EXIT' ? 'bg-navy text-white shadow-xl shadow-navy/20' : 'text-slate-400 hover:bg-slate-50'}`}
                >
                   Saída da Planta
+               </button>
+               <button 
+                onClick={() => { setActiveTab('IN_PLANTA'); setMobileSection('list'); }}
+                className={`flex-1 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'IN_PLANTA' ? 'bg-navy text-white shadow-xl shadow-navy/20' : 'text-slate-400 hover:bg-slate-50'}`}
+               >
+                  Em Planta
                </button>
             </div>
 
@@ -423,9 +499,9 @@ export default function PortariaDashboard() {
             <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col min-h-[500px]">
                <div className="px-6 py-5 bg-slate-50/50 border-b border-slate-100 flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                     <div className={`w-2 h-2 rounded-full ${activeTab === 'ENTRY' ? 'bg-emerald-500' : 'bg-blue-500'}`}></div>
+                     <div className={`w-2 h-2 rounded-full ${activeTab === 'ENTRY' ? 'bg-emerald-500' : activeTab === 'EXIT' ? 'bg-rose-500' : 'bg-blue-500'}`}></div>
                      <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                       {activeTab === 'ENTRY' ? 'Fila de Triagem' : 'Veículos em Planta'}
+                       {activeTab === 'ENTRY' ? 'Fila de Triagem' : activeTab === 'EXIT' ? 'Veículos Aguardando Saída' : 'Veículos em Planta'}
                      </span>
                   </div>
                   <span className="text-[10px] font-black text-navy px-3 py-1 bg-white border border-slate-200 rounded-full">
@@ -486,12 +562,66 @@ export default function PortariaDashboard() {
             </div>
           </div>
 
-          {/* Right Column: Detailed View */}
           <div className={`lg:col-span-8 ${mobileSection !== 'details' ? 'hidden lg:block' : ''}`}>
-             {selectedReq ? (
+             {mobileSection === 'history' ? (
+                <div className="hidden lg:flex bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex-col h-full min-h-[700px]">
+                   <div className="p-10 border-b border-slate-100 flex justify-between items-end bg-slate-50">
+                      <div>
+                         <h2 className="text-4xl font-black text-navy uppercase tracking-tighter italic leading-none">
+                           Histórico de <span className="text-primary not-italic">Portaria</span>
+                         </h2>
+                         <p className="text-slate-400 font-bold uppercase text-[10px] tracking-[0.2em] mt-3">Registros recentes de entrada e saída.</p>
+                      </div>
+                      <div className="bg-white text-navy font-black text-[10px] uppercase tracking-widest px-4 py-2 rounded-xl border border-slate-200 shadow-sm">
+                         {auditHistory.length} Registros
+                      </div>
+                   </div>
+
+                   <div className="flex-1 overflow-y-auto p-10 bg-white space-y-4 custom-scrollbar">
+                      {auditHistory.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center h-full text-center py-20 border-2 border-dashed border-slate-100 rounded-3xl">
+                           <History className="w-16 h-16 text-slate-200 mb-4" />
+                           <p className="text-xs font-black text-slate-300 uppercase tracking-widest">Nenhum registro encontrado</p>
+                        </div>
+                      ) : auditHistory.map((audit, i) => (
+                        <div key={i} className="bg-slate-50 p-6 rounded-2xl border border-slate-100 shadow-sm flex justify-between items-center group hover:border-primary/20 transition-all">
+                            <div className="flex items-center gap-4">
+                               <div className="w-12 h-12 rounded-xl flex items-center justify-center text-white font-black text-lg shadow-md" style={{ backgroundColor: audit.material?.request?.profile?.theme_color || '#0032A0' }}>
+                                  {audit.material?.request?.profile?.logo_url ? (
+                                     <img src={audit.material?.request?.profile?.logo_url} className="w-full h-full object-cover rounded-xl" />
+                                  ) : audit.material?.request?.profile?.full_name?.[0]}
+                               </div>
+                               <div>
+                                  <p className="text-sm font-black text-navy uppercase leading-tight">{audit.material?.name}</p>
+                                  <p className="text-[10px] text-primary font-black uppercase tracking-widest mt-1">{audit.material?.request?.profile?.full_name}</p>
+                               </div>
+                            </div>
+                            
+                            <div className="flex items-center gap-8">
+                               <div className="flex items-center gap-3">
+                                  <span className="text-[10px] font-black text-slate-500 uppercase bg-white px-3 py-1.5 rounded-lg border border-slate-100 shadow-sm">{audit.from_sector?.name || '---'}</span>
+                                  <ChevronRight className="w-4 h-4 text-slate-300" />
+                                  <span className="text-[10px] font-black text-primary uppercase bg-primary/10 px-3 py-1.5 rounded-lg border border-primary/20">{audit.to_sector?.name || '---'}</span>
+                               </div>
+
+                               <div className="text-right border-l border-slate-200 pl-8">
+                                  <p className="text-xs font-black text-navy">{new Date(audit.moved_at).toLocaleDateString('pt-BR')}</p>
+                                  <p className="text-[10px] text-slate-400 font-bold mt-0.5">{new Date(audit.moved_at).toLocaleTimeString('pt-BR')}</p>
+                               </div>
+
+                               {audit.photos && audit.photos.length > 0 && (
+                                  <button onClick={() => setSelectedPhotos(audit.photos ?? null)} className="w-12 h-12 flex items-center justify-center bg-primary/10 text-primary rounded-xl hover:bg-primary/20 transition-all ml-2">
+                                     <Camera className="w-5 h-5" />
+                                  </button>
+                               )}
+                            </div>
+                        </div>
+                      ))}
+                   </div>
+                </div>
+             ) : selectedReq ? (
                <div className="bg-white rounded-3xl shadow-[0_20px_60px_-15px_rgba(0,50,160,0.06)] border border-slate-200 overflow-hidden animate-in fade-in slide-in-from-right-4 duration-500">
                   
-                  {/* Header do Cartão */}
                   <div className="p-6 md:p-10 border-b border-slate-100 flex flex-col md:flex-row justify-between items-start gap-8 relative">
                       <button 
                          onClick={() => setMobileSection('list')}
@@ -514,31 +644,8 @@ export default function PortariaDashboard() {
                            </div>
                         </div>
                         <div>
-                          <div className="flex items-center gap-3 mb-2">
-                             <span className={`text-[9px] font-black uppercase tracking-[0.2em] px-4 py-1.5 rounded-full ${activeTab === 'ENTRY' ? 'bg-emerald-500 text-white' : 'bg-navy text-white'}`}>
-                                {activeTab === 'ENTRY' ? 'Autorização de Entrada' : 'Controle de Saída'}
-                             </span>
-                          </div>
                           <h2 className="text-3xl font-black text-navy uppercase tracking-tighter leading-none mb-2">{selectedReq.profile.full_name}</h2>
-                          <div className="flex items-center gap-4">
-                             <div className="flex items-center gap-2">
-                                <div className="w-1.5 h-1.5 rounded-full bg-primary"></div>
-                                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Protocolo de {selectedReq.sector}</span>
-                             </div>
-                             <div className="w-1 h-1 bg-slate-200 rounded-full"></div>
-                             <span className="text-[10px] text-primary font-black uppercase tracking-widest">#{selectedReq.id.slice(0, 8)}</span>
-                          </div>
                         </div>
-                      </div>
-
-                      <div className="flex items-center gap-3">
-                         <div className="text-right hidden md:block">
-                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Status do Registro</p>
-                            <span className="text-xs font-black text-navy uppercase">Agendamento Válido</span>
-                         </div>
-                         <div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-500 shadow-sm">
-                            <ShieldCheck className="w-6 h-6" />
-                         </div>
                       </div>
                   </div>
 
@@ -554,7 +661,6 @@ export default function PortariaDashboard() {
                     </div>
                   )}
 
-                  {/* Info Grid */}
                   <div className="px-6 md:px-10 py-8 md:py-12 grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12">
                      <div className="space-y-8">
                         <div className="flex items-center gap-5 p-6 bg-[#F8FAFC] rounded-2xl border border-slate-100 group hover:border-primary/20 transition-all">
@@ -579,23 +685,29 @@ export default function PortariaDashboard() {
                      </div>
 
                      <div className="space-y-6">
-                        <div className="flex items-center justify-between">
-                           <p className="text-[10px] font-black text-navy uppercase tracking-widest">Itens para Conferência ({selectedMaterials.length}/{selectedReq.materials.length})</p>
-                           <button 
-                            onClick={() => {
-                              const allIds = selectedReq.materials.map(m => m.id);
-                              setSelectedMaterials(selectedMaterials.length === allIds.length ? [] : allIds);
-                            }}
-                            className="text-[9px] font-black text-primary uppercase tracking-widest hover:underline"
-                           >
-                              {selectedMaterials.length === selectedReq.materials.length ? 'Desmarcar Todos' : 'Marcar Todos'}
-                           </button>
-                        </div>
-                        
-                        <div className="space-y-3 max-h-[400px] overflow-y-auto pr-4 custom-scrollbar">
-                           {selectedReq.materials
-                             .filter(m => activeTab === 'ENTRY' ? m.status !== 'IN_PLANTA' : m.status === 'IN_PLANTA')
-                             .map(item => (
+                        {(() => {
+                           const visibleMaterials = selectedReq.materials.filter((m: any) => 
+                             activeTab === 'ENTRY' ? m.status !== 'IN_PLANTA' : 
+                             activeTab === 'EXIT' ? m.status === 'WAITING_EXIT' : 
+                             m.status === 'IN_PLANTA'
+                           );
+                           return (
+                             <>
+                               <div className="flex items-center justify-between">
+                                  <p className="text-[10px] font-black text-navy uppercase tracking-widest">Itens para Conferência ({selectedMaterials.length}/{visibleMaterials.length})</p>
+                                  <button 
+                                   onClick={() => {
+                                     const allIds = visibleMaterials.map((m: any) => m.id);
+                                     setSelectedMaterials(selectedMaterials.length === allIds.length ? [] : allIds);
+                                   }}
+                                   className="text-[9px] font-black text-primary uppercase tracking-widest hover:underline"
+                                  >
+                                     {selectedMaterials.length === visibleMaterials.length ? 'Desmarcar Todos' : 'Marcar Todos'}
+                                  </button>
+                               </div>
+                               
+                               <div className="space-y-3 max-h-[400px] overflow-y-auto pr-4 custom-scrollbar">
+                                  {visibleMaterials.map((item: any) => (
                               <button 
                                 key={item.id}
                                 onClick={() => handleToggleMaterial(item.id)}
@@ -627,7 +739,7 @@ export default function PortariaDashboard() {
                                       <button 
                                         onClick={(e) => {
                                           e.stopPropagation();
-                                          setSelectedPhotos(item.photos);
+                                          setSelectedPhotos(item.photos ?? null);
                                         }}
                                         className="p-1.5 bg-primary/10 text-primary rounded-lg hover:bg-primary hover:text-white transition-all flex items-center gap-1.5"
                                       >
@@ -635,23 +747,36 @@ export default function PortariaDashboard() {
                                          <span className="text-[8px] font-black uppercase">{item.photos.length}</span>
                                       </button>
                                     )}
+
+                                    <button
+                                       onClick={(e) => {
+                                         e.stopPropagation();
+                                         setDetailMaterial(item);
+                                       }}
+                                       className="p-1.5 bg-slate-50 text-slate-400 rounded-lg hover:bg-primary hover:text-white transition-all"
+                                       title="Visualizar Detalhes"
+                                    >
+                                       <Eye className="w-4 h-4" />
+                                    </button>
                                  </div>
                               </button>
-                           ))}
-                        </div>
+                                  ))}
+                               </div>
+                             </>
+                           );
+                        })()}
                      </div>
                   </div>
 
-                  {/* Actions Area */}
-                  {activeTab === 'EXIT' && (
+                                       {activeTab !== 'ENTRY' && (
                     <div className="px-6 md:px-10 pb-8">
                        <div className="bg-slate-50/50 rounded-3xl border border-dashed border-slate-200 p-6 md:p-8">
                           <div className="flex items-center justify-between mb-6">
                              <div className="flex items-center gap-3">
                                 <Camera className="w-5 h-5 text-primary" />
                                 <div>
-                                   <p className="text-[10px] font-black text-navy uppercase tracking-widest">Evidências de Saída</p>
-                                   <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Obrigatório 1+ fotos da carga</p>
+                                   <p className="text-[10px] font-black text-navy uppercase tracking-widest">Fotos da Operação</p>
+                                   <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Opcional para {activeTab === 'EXIT' ? 'saída' : 'registro'}</p>
                                 </div>
                              </div>
                              <div className="flex gap-2">
@@ -687,35 +812,66 @@ export default function PortariaDashboard() {
                     </div>
                   )}
 
-                  <SignaturePad 
-                     placeholder="Assinatura Digital"
-                     onSave={setSignature}
-                     onClear={() => setSignature('')}
-                  />
+                  {activeTab !== 'IN_PLANTA' && (
+                    <div className="px-6 md:px-10 pb-6">
+                      <div className="bg-slate-50/50 rounded-3xl border border-slate-200 p-6 md:p-8 space-y-4">
+                        <div className="flex items-center gap-3">
+                          <div className="p-3 bg-navy text-white rounded-xl shadow-lg shadow-navy/20">
+                            <Hash className="w-5 h-5 text-primary" />
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-black text-navy uppercase tracking-widest">Matrícula de Confirmação</p>
+                            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Digite seu número de matrícula para confirmar a operação</p>
+                          </div>
+                        </div>
+                        <input 
+                          type="text" 
+                          placeholder="DIGITE SUA MATRÍCULA..."
+                          value={signature}
+                          onChange={(e) => setSignature(e.target.value)}
+                          className="w-full px-5 py-4 bg-white border border-slate-200 rounded-xl text-navy placeholder:text-slate-300 focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all font-black text-sm tracking-widest uppercase"
+                        />
+                      </div>
+                    </div>
+                  )}
 
-                  <div className="p-6 md:p-10 bg-slate-50/50 border-t border-slate-100 flex flex-col md:flex-row gap-5">
-                     <button 
-                        onClick={handleConfirmMovement}
-                        disabled={processing || selectedMaterials.length === 0 || (activeTab === 'EXIT' && !signature) || selectedReq.status === 'DISCREPANCY'}
-                        className={`flex-[3] py-7 rounded-[2rem] font-black uppercase tracking-[0.2em] text-xs flex items-center justify-center gap-4 transition-all active:scale-[0.98] disabled:opacity-30 disabled:cursor-not-allowed shadow-2xl ${activeTab === 'ENTRY' ? 'bg-navy text-white shadow-navy/30 hover:bg-[#002880]' : 'bg-emerald-600 text-white shadow-emerald-500/20 hover:bg-emerald-700'}`}
-                     >
-                        {processing ? <Loader2 className="w-6 h-6 animate-spin" /> : (
-                          <>
-                             <CheckCircle className="w-6 h-6" />
-                             {activeTab === 'ENTRY' ? `Liberar Entrada (${selectedMaterials.length})` : `Confirmar Saída (${selectedMaterials.length})`}
-                          </>
-                        )}
-                     </button>
-                     
-                     <button 
-                        onClick={() => setShowDiscrepancyModal(true)}
-                        disabled={processing || selectedReq.status === 'DISCREPANCY'}
-                        className="flex-1 py-7 bg-white text-rose-500 border-2 border-rose-500/10 hover:bg-rose-50 disabled:opacity-30 rounded-[2rem] font-black uppercase tracking-[0.1em] text-[10px] flex items-center justify-center gap-3 transition-all active:scale-95 group"
-                     >
-                        <ShieldAlert className="w-5 h-5 group-hover:animate-bounce" />
-                        Divergência
-                     </button>
-                  </div>
+                  {activeTab !== 'IN_PLANTA' && (
+                    <div className="p-6 md:p-10 bg-slate-50/50 border-t border-slate-100 flex flex-col md:flex-row gap-5">
+                       <button 
+                          onClick={handleConfirmMovement}
+                          disabled={processing || selectedMaterials.length === 0 || !signature || selectedReq.status === 'DISCREPANCY'}
+                          className={`flex-[3] py-7 rounded-[2rem] font-black uppercase tracking-[0.2em] text-xs flex items-center justify-center gap-4 transition-all active:scale-[0.98] disabled:opacity-30 disabled:cursor-not-allowed shadow-2xl ${activeTab === 'ENTRY' ? 'bg-navy text-white shadow-navy/30 hover:bg-[#002880]' : 'bg-emerald-600 text-white shadow-emerald-500/20 hover:bg-emerald-700'}`}
+                       >
+                          {processing ? <Loader2 className="w-6 h-6 animate-spin" /> : (
+                            <>
+                               <CheckCircle className="w-6 h-6" />
+                               {activeTab === 'ENTRY' ? `Liberar Entrada (${selectedMaterials.length})` : `Confirmar Saída (${selectedMaterials.length})`}
+                            </>
+                          )}
+                       </button>
+                       
+                       <button 
+                          onClick={() => setShowDiscrepancyModal(true)}
+                          disabled={processing || selectedReq.status === 'DISCREPANCY'}
+                          className="flex-1 py-7 bg-white text-rose-500 border-2 border-rose-500/10 hover:bg-rose-50 disabled:opacity-30 rounded-[2rem] font-black uppercase tracking-[0.1em] text-[10px] flex items-center justify-center gap-3 transition-all active:scale-95 group"
+                       >
+                          <ShieldAlert className="w-5 h-5 group-hover:animate-bounce" />
+                          Divergência
+                       </button>
+                    </div>
+                  )}
+                  {activeTab === 'ENTRY' && (
+                     <div className="px-6 md:px-10 pb-10 flex">
+                        <button 
+                           onClick={handleCancelEntry}
+                           disabled={processing || selectedReq.status === 'DISCREPANCY'}
+                           className="flex-1 py-5 bg-white text-rose-500 border-2 border-rose-500 hover:bg-rose-50 disabled:opacity-30 rounded-[2rem] font-black uppercase tracking-[0.1em] text-xs flex items-center justify-center gap-3 transition-all active:scale-95"
+                        >
+                           <XOctagon className="w-5 h-5" />
+                           Não Compareceu / Cancelar Entrada
+                        </button>
+                     </div>
+                  )}
                </div>
              ) : (
                <div className="h-[700px] flex flex-col items-center justify-center p-20 bg-white rounded-[3rem] border-2 border-slate-100 border-dashed relative overflow-hidden">
@@ -726,7 +882,7 @@ export default function PortariaDashboard() {
                   </div>
                   <h3 className="text-navy font-black text-2xl uppercase tracking-tighter mb-3 relative">Central de Conferência</h3>
                   <p className="text-slate-400 font-bold uppercase text-[10px] tracking-[0.2em] max-w-sm text-center leading-relaxed relative">
-                    Selecione um veículo na fila lateral para iniciar o protocolo de {activeTab === 'ENTRY' ? 'entrada' : 'saída'}.
+                    Selecione um veículo na fila lateral para {activeTab === 'IN_PLANTA' ? 'visualizar a operação' : `iniciar o protocolo de ${activeTab === 'ENTRY' ? 'entrada' : 'saída'}`}.
                   </p>
                </div>
              )}
@@ -783,7 +939,7 @@ export default function PortariaDashboard() {
                            </div>
                            <div className="flex items-center gap-3">
                               {audit.photos && audit.photos.length > 0 && (
-                                <button onClick={() => setSelectedPhotos(audit.photos)} className="p-2.5 bg-primary/10 text-primary rounded-xl active:scale-90 transition-transform">
+                                <button onClick={() => setSelectedPhotos(audit.photos ?? null)} className="p-2.5 bg-primary/10 text-primary rounded-xl active:scale-90 transition-transform">
                                    <Camera className="w-4 h-4" />
                                 </button>
                               )}
@@ -800,8 +956,14 @@ export default function PortariaDashboard() {
 
       {/* Material Detail Modal */}
       {detailMaterial && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-navy/80 backdrop-blur-xl animate-in fade-in duration-300">
-           <div className="bg-white w-full max-w-4xl rounded-3xl overflow-hidden shadow-xl flex flex-col md:flex-row animate-in zoom-in-95 duration-200">
+        <div 
+          onClick={() => setDetailMaterial(null)}
+          className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-navy/80 backdrop-blur-xl animate-in fade-in duration-300 cursor-pointer"
+        >
+           <div 
+             onClick={(e) => e.stopPropagation()}
+             className="bg-white w-full max-w-4xl rounded-3xl overflow-hidden shadow-xl flex flex-col md:flex-row animate-in zoom-in-95 duration-200 cursor-default"
+           >
               <div className="md:w-1/2 bg-slate-50 relative min-h-[400px]">
                  {detailMaterial.image_url ? (
                    <img src={detailMaterial.image_url} alt={detailMaterial.name} className="w-full h-full object-cover" />
@@ -855,8 +1017,14 @@ export default function PortariaDashboard() {
 
       {/* Discrepancy Modal */}
       {showDiscrepancyModal && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-amber-900/40 backdrop-blur-md animate-in fade-in duration-300">
-           <div className="bg-white w-full max-w-lg rounded-2xl overflow-hidden shadow-xl animate-in zoom-in-95 duration-200 border-4 border-amber-500/20">
+        <div 
+          onClick={() => setShowDiscrepancyModal(false)}
+          className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-amber-900/40 backdrop-blur-md animate-in fade-in duration-300 cursor-pointer"
+        >
+           <div 
+             onClick={(e) => e.stopPropagation()}
+             className="bg-white w-full max-w-lg rounded-2xl overflow-hidden shadow-xl animate-in zoom-in-95 duration-200 border-4 border-amber-500/20 cursor-default"
+           >
               <div className="p-10">
                  <div className="flex items-center gap-4 mb-8">
                     <div className="p-4 bg-amber-500 rounded-xl">
@@ -900,8 +1068,14 @@ export default function PortariaDashboard() {
 
       {/* Company Detail Modal */}
       {selectedCompany && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-navy/70 backdrop-blur-md animate-in fade-in duration-300">
-          <div className="bg-white w-full max-w-2xl rounded-2xl overflow-hidden shadow-xl animate-in zoom-in-95 duration-200 border border-slate-200 flex flex-col md:flex-row max-h-[90vh]">
+        <div 
+          onClick={() => setSelectedCompany(null)}
+          className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-navy/70 backdrop-blur-md animate-in fade-in duration-300 cursor-pointer"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white w-full max-w-2xl rounded-2xl overflow-hidden shadow-xl animate-in zoom-in-95 duration-200 border border-slate-200 flex flex-col md:flex-row max-h-[90vh] cursor-default"
+          >
              {/* Left side: Company Info */}
              <div className="p-8 md:w-1/2 border-r border-slate-100 flex flex-col justify-between">
                 <div>
@@ -995,7 +1169,7 @@ export default function PortariaDashboard() {
                                <button 
                                  onClick={(e) => {
                                    e.stopPropagation();
-                                   setSelectedPhotos(item.photos);
+                                   setSelectedPhotos(item.photos ?? null);
                                  }}
                                  className="p-1.5 bg-primary/10 text-primary rounded-lg hover:bg-primary hover:text-white transition-all flex items-center gap-1.5"
                                >
@@ -1014,8 +1188,14 @@ export default function PortariaDashboard() {
 
       {/* Success/Error Modal */}
       {showSuccessModal && (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-navy/60 backdrop-blur-sm animate-in fade-in duration-300">
-           <div className="bg-white w-full max-sm rounded-[2rem] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 border border-slate-100">
+        <div 
+          onClick={() => setShowSuccessModal(false)}
+          className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-navy/60 backdrop-blur-sm animate-in fade-in duration-300 cursor-pointer"
+        >
+           <div 
+             onClick={(e) => e.stopPropagation()}
+             className="bg-white w-full max-sm rounded-[2rem] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 border border-slate-100 cursor-default"
+           >
               <div className="p-10 text-center">
                  <div className={`w-20 h-20 mx-auto rounded-3xl flex items-center justify-center mb-6 shadow-lg ${modalConfig.type === 'success' ? 'bg-emerald-500 shadow-emerald-500/20' : 'bg-rose-500 shadow-rose-500/20'}`}>
                     {modalConfig.type === 'success' ? (
@@ -1038,8 +1218,14 @@ export default function PortariaDashboard() {
          </div>
        )}
        {selectedPhotos && (
-         <div className="fixed inset-0 z-[200] flex items-center justify-center p-8 bg-navy/95 backdrop-blur-md animate-in fade-in duration-300">
-            <div className="w-full max-w-6xl h-full flex flex-col">
+          <div 
+            onClick={() => setSelectedPhotos(null)}
+            className="fixed inset-0 z-[200] flex items-center justify-center p-8 bg-navy/95 backdrop-blur-md animate-in fade-in duration-300 cursor-pointer"
+          >
+             <div 
+               onClick={(e) => e.stopPropagation()}
+               className="w-full max-w-6xl h-full flex flex-col cursor-default"
+             >
                <div className="flex justify-between items-center mb-8">
                   <div className="flex items-center gap-4">
                      <div className="p-3 bg-primary rounded-2xl text-white">
