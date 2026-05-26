@@ -31,6 +31,7 @@ export default function TerceirizadaDashboard() {
   const [profile, setProfile] = useState<any>(null);
   const [selectedRequest, setSelectedRequest] = useState<any>(null);
   const [selectedMaterial, setSelectedMaterial] = useState<any>(null);
+  const [activeTab, setActiveTab] = useState<'historico' | 'equipamentos'>('historico');
 
   useEffect(() => {
     fetchData();
@@ -239,11 +240,124 @@ export default function TerceirizadaDashboard() {
         {/* Requests Table/List */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
           <div className="p-6 border-b border-slate-50 flex items-center justify-between">
-            <h3 className="font-bold text-navy uppercase tracking-widest text-xs">Histórico Recente</h3>
-            <span className="bg-slate-50 text-slate-400 text-[10px] font-bold px-3 py-1 rounded-full uppercase">Últimas 30 dias</span>
+            <div className="flex items-center gap-2 bg-slate-50 p-1 rounded-xl">
+               <button 
+                  onClick={() => setActiveTab('historico')}
+                  className={`px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all ${
+                     activeTab === 'historico'
+                       ? 'bg-white text-navy shadow-sm' 
+                       : 'bg-transparent text-slate-400 hover:text-navy'
+                  }`}
+               >
+                  Histórico Recente
+               </button>
+               <button 
+                  onClick={() => setActiveTab('equipamentos')}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all ${
+                     activeTab === 'equipamentos'
+                       ? 'bg-white text-navy shadow-sm' 
+                       : 'bg-transparent text-slate-400 hover:text-navy'
+                  }`}
+               >
+                  <Package className="w-3.5 h-3.5" />
+                  Meus Equipamentos
+               </button>
+            </div>
+            {activeTab === 'historico' && (
+              <span className="bg-slate-50 text-slate-400 text-[10px] font-bold px-3 py-1 rounded-full uppercase hidden sm:block">Últimos 30 dias</span>
+            )}
           </div>
 
-          <div className="overflow-x-auto">
+          {activeTab === 'equipamentos' && (
+            <div className="p-6 bg-slate-50/50 animate-in fade-in slide-in-from-top-4 duration-300">
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                 {/* Dentro da Planta */}
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden flex flex-col">
+            <div className="p-4 border-b border-slate-50 bg-purple-50/50 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                 <div className="w-2 h-2 rounded-full bg-purple-500 animate-pulse"></div>
+                 <h3 className="font-bold text-navy uppercase tracking-widest text-[10px]">Dentro da Planta</h3>
+              </div>
+              <span className="bg-white text-purple-600 border border-purple-100 text-[10px] font-bold px-2 py-0.5 rounded-md shadow-sm">
+                {(() => {
+                   return requests.flatMap(r => r.materials || []).filter((m: any) => m.status === 'IN_PLANTA' || m.status === 'WAITING_EXIT').length;
+                })()}
+              </span>
+            </div>
+            <div className="p-4 flex-1 max-h-[260px] overflow-y-auto space-y-3">
+              {(() => {
+                 const inPlantaMaterials = requests
+                   .flatMap(r => (r.materials || []).map((m: any) => ({ ...m, reqId: r.id, driver: r.driver_name })))
+                   .filter(m => m.status === 'IN_PLANTA' || m.status === 'WAITING_EXIT');
+                 
+                 if (inPlantaMaterials.length === 0) {
+                   return <p className="text-xs text-slate-400 font-medium text-center py-4">Nenhum equipamento na planta.</p>;
+                 }
+                 return inPlantaMaterials.map((mat, i) => (
+                   <div key={i} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100 hover:border-purple-200 transition-colors">
+                      <div className="w-8 h-8 rounded-lg bg-white shadow-sm flex items-center justify-center shrink-0">
+                         <Package className="w-4 h-4 text-purple-500" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold text-navy truncate">{mat.name}</p>
+                        <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest truncate">SN: {mat.serial_number || 'N/A'}</p>
+                      </div>
+                      <div className="text-right shrink-0">
+                         <span className="text-[8px] font-bold text-slate-400 uppercase">Resp:</span>
+                         <p className="text-[9px] font-bold text-navy truncate max-w-[80px]">{mat.driver?.split(' ')[0]}</p>
+                      </div>
+                   </div>
+                 ));
+              })()}
+            </div>
+          </div>
+
+          {/* Já Deu Saída */}
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden flex flex-col">
+            <div className="p-4 border-b border-slate-50 bg-slate-50/80 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                 <div className="w-2 h-2 rounded-full bg-slate-300"></div>
+                 <h3 className="font-bold text-navy uppercase tracking-widest text-[10px]">Já Deu Saída (Finalizado)</h3>
+              </div>
+              <span className="bg-white text-slate-500 border border-slate-200 text-[10px] font-bold px-2 py-0.5 rounded-md shadow-sm">
+                {(() => {
+                   return requests.flatMap(r => r.materials || []).filter((m: any) => m.status === 'OUT_PLANTA').length;
+                })()}
+              </span>
+            </div>
+            <div className="p-4 flex-1 max-h-[260px] overflow-y-auto space-y-3">
+              {(() => {
+                 const completedMaterials = requests
+                   .flatMap(r => (r.materials || []).map((m: any) => ({ ...m, reqId: r.id, driver: r.driver_name })))
+                   .filter(m => m.status === 'OUT_PLANTA');
+                 
+                 if (completedMaterials.length === 0) {
+                   return <p className="text-xs text-slate-400 font-medium text-center py-4">Nenhum equipamento finalizado.</p>;
+                 }
+                 return completedMaterials.map((mat, i) => (
+                   <div key={i} className="flex items-center gap-3 p-3 bg-white rounded-xl border border-slate-100 opacity-70 hover:opacity-100 transition-opacity">
+                      <div className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center shrink-0">
+                         <Package className="w-4 h-4 text-slate-400" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold text-slate-600 truncate">{mat.name}</p>
+                        <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest truncate">SN: {mat.serial_number || 'N/A'}</p>
+                      </div>
+                      <div className="text-right shrink-0">
+                         <span className="text-[8px] font-bold text-slate-400 uppercase">Protocolo:</span>
+                         <p className="text-[9px] font-bold text-slate-500 truncate max-w-[80px]">#{mat.reqId?.slice(0, 8)}</p>
+                      </div>
+                   </div>
+                 ));
+              })()}
+            </div>
+          </div>
+               </div>
+            </div>
+          )}
+
+          {activeTab === 'historico' && (
+          <div className="overflow-x-auto animate-in fade-in slide-in-from-top-4 duration-300">
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-slate-50/50">
@@ -350,6 +464,7 @@ export default function TerceirizadaDashboard() {
               </tbody>
             </table>
           </div>
+          )}
         </div>
       </main>
 

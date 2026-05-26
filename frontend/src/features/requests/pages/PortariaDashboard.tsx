@@ -372,7 +372,7 @@ export default function PortariaDashboard() {
   };
 
   const filteredReqs = Array.isArray(requisicoes) ? requisicoes.filter(r => {
-    if (activeTab === 'EXIT' && !r.materials?.some((m: any) => m.status === 'WAITING_EXIT')) {
+    if (activeTab === 'EXIT' && !r.materials?.some((m: any) => m.status === 'WAITING_EXIT' || m.status === 'IN_PLANTA')) {
       return false;
     }
     if (activeTab === 'IN_PLANTA' && !r.materials?.some((m: any) => m.status === 'IN_PLANTA')) {
@@ -688,7 +688,7 @@ export default function PortariaDashboard() {
                         {(() => {
                            const visibleMaterials = selectedReq.materials.filter((m: any) => 
                              activeTab === 'ENTRY' ? m.status !== 'IN_PLANTA' : 
-                             activeTab === 'EXIT' ? m.status === 'WAITING_EXIT' : 
+                             activeTab === 'EXIT' ? (m.status === 'WAITING_EXIT' || m.status === 'IN_PLANTA') : 
                              m.status === 'IN_PLANTA'
                            );
                            return (

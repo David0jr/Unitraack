@@ -34,7 +34,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Usamos a chave de token do utilitário para consistência em toda a aplicação
   const tokenKey = getTokenKey();
 
-  const [token, setToken] = useState<string | null>(localStorage.getItem(tokenKey));
+  const [token, setToken] = useState<string | null>(sessionStorage.getItem(tokenKey));
   const [loading, setLoading] = useState(true);
   const fetchingProfile = React.useRef<Promise<any> | null>(null);
 
@@ -111,8 +111,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const performSignOut = async () => {
             await authService.signOut();
             const tokenKey = getTokenKey();
-            localStorage.removeItem(tokenKey);
-            localStorage.clear();
+            sessionStorage.removeItem(tokenKey);
+            sessionStorage.clear();
             setUser(null);
             setProfile(null);
           };
@@ -198,7 +198,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         if (session?.access_token && mounted) {
           setToken(session.access_token);
-          localStorage.setItem(tokenKey, session.access_token);
+          sessionStorage.setItem(tokenKey, session.access_token);
         }
       } catch (err: any) {
         console.error('Erro ao inicializar sessão:', err);
@@ -240,10 +240,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         if (session?.access_token) {
           setToken(session.access_token);
-          localStorage.setItem(tokenKey, session.access_token);
+          sessionStorage.setItem(tokenKey, session.access_token);
         } else if (event === 'SIGNED_OUT') {
           setToken(null);
-          localStorage.removeItem(tokenKey);
+          sessionStorage.removeItem(tokenKey);
         }
 
       } catch (err: any) {
@@ -282,8 +282,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       await authService.signOut();
       const tokenKey = getTokenKey();
-      localStorage.removeItem(tokenKey);
-      localStorage.clear(); // Limpeza total por segurança
+      sessionStorage.removeItem(tokenKey);
+      sessionStorage.clear(); // Limpeza total por segurança
       setUser(null);
       setProfile(null);
     } catch (err) {
