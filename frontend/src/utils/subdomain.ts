@@ -18,7 +18,7 @@ export const getSubdomain = (): string | null => {
   if (host !== 'localhost' && host !== '127.0.0.1') {
     if (host.includes('localhost')) {
       slug = parts.length > 1 ? parts[0] : null;
-    } else if (parts.length > 2) {
+    } else if (parts.length > 2 && !host.includes('vercel.app')) {
       const s = parts[0];
       if (s !== 'www' && s !== 'admin') {
         slug = s;
