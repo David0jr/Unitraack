@@ -137,12 +137,12 @@ export class RequestController {
   static async confirmMovement(req: AuthRequest, res: Response) {
     try {
       const id = req.params.id as string;
-      const { materialIds, type, signature, photos } = req.body; // type: 'ENTRY' | 'EXIT'
+      const { materialIds, type, signature, photos, observation } = req.body; // type: 'ENTRY' | 'EXIT'
       const profile = await userService.findProfileById(req.user.id);
       if (!profile || !profile.tenant_id) return ApiResponse.error(res, 'Tenant não identificado.', 403);
 
       const useCase = new ConfirmMaterialMovement(requestRepo);
-      await useCase.execute(id, materialIds, type, req.user.id, profile.tenant_id, signature, photos);
+      await useCase.execute(id, materialIds, type, req.user.id, profile.tenant_id, signature, photos, observation);
       return ApiResponse.success(res, { message: 'Movimentação confirmada com sucesso!' });
     } catch (error: any) {
       console.error("[RequestController.confirmMovement] Erro:", error);
@@ -262,12 +262,12 @@ export class RequestController {
 
   static async markMaterialForExit(req: AuthRequest, res: Response) {
     try {
-      const { materialIds, signature } = req.body;
+      const { materialIds, signature, photos, observation } = req.body;
       const profile = await userService.findProfileById(req.user.id);
       if (!profile || !profile.tenant_id) return ApiResponse.error(res, 'Perfil ou Unidade não identificada.', 403);
 
       const useCase = new MarkMaterialForExit(requestRepo);
-      await useCase.execute(materialIds, profile.tenant_id, profile.id, signature);
+      await useCase.execute(materialIds, profile.tenant_id, profile.id, signature, photos, observation);
       
       return ApiResponse.success(res, { message: 'Materiais enviados para a Portaria com sucesso!' });
     } catch (error: any) {
@@ -338,12 +338,12 @@ export class RequestController {
 
   static async transferMaterial(req: AuthRequest, res: Response) {
     try {
-      const { materialIds, toSectorId, signature } = req.body;
+      const { materialIds, toSectorId, signature, photos, observation } = req.body;
       const profile = await userService.findProfileById(req.user.id);
       if (!profile || !profile.tenant_id || !profile.sector_id) return ApiResponse.error(res, 'Perfil ou Setor não encontrado.', 403);
 
       const useCase = new TransferMaterial(requestRepo);
-      await useCase.execute(materialIds, profile.sector_id, toSectorId, req.user.id, profile.tenant_id, signature);
+      await useCase.execute(materialIds, profile.sector_id, toSectorId, req.user.id, profile.tenant_id, signature, photos, observation);
       
       return ApiResponse.success(res, { message: 'Transferência iniciada com sucesso!' });
     } catch (error: any) {

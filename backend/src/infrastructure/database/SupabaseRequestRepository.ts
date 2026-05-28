@@ -171,7 +171,7 @@ export class SupabaseRequestRepository implements IRequestRepository {
     if (error) throw error;
   }
 
-  async updateMaterialStatus(materialId: string, status: any, timestampField?: 'entry_at' | 'exit_at', movedBy?: string, tenantId?: string, fromSectorId?: string, toSectorId?: string, signature?: string, photos?: string[]): Promise<void> {
+  async updateMaterialStatus(materialId: string, status: any, timestampField?: 'entry_at' | 'exit_at', movedBy?: string, tenantId?: string, fromSectorId?: string, toSectorId?: string, signature?: string, photos?: string[], observation?: string): Promise<void> {
     const updateData: any = { status };
     if (timestampField) {
       updateData[timestampField] = new Date().toISOString();
@@ -185,31 +185,38 @@ export class SupabaseRequestRepository implements IRequestRepository {
     if (toSectorId) {
         updateData.current_sector_id = toSectorId;
     }
+    
+    // Nota: Por enquanto estamos salvando a string da foto (base64 ou url) diretamente.
+    // Futuramente, as fotos base64 devem ser armazenadas em um Bucket do Supabase (Storage) 
+    // e apenas a URL salva no banco.
+    let photoUrls: string[] | null = photos && photos.length > 0 ? photos : null;
 
-    const { error } = await supabaseAdmin
+    const { error: matError } = await supabaseAdmin
       .from('materials')
       .update(updateData)
       .eq('id', materialId);
+      
+    if (matError) throw matError;
 
-    if (error) throw error;
-
-    if (movedBy) {
-        // Log movement
-        const { error: moveError } = await supabaseAdmin.from('material_movements').insert({
-            material_id: materialId,
-            moved_by: movedBy,
-            moved_at: new Date().toISOString(),
-            tenant_id: tenantId,
-            from_sector_id: fromSectorId,
-            to_sector_id: toSectorId,
-            signature: signature || null,
-            photos: photos || null
-        });
+    // Se temos movedBy e tenantId, logamos na tabela material_movements
+    if (movedBy && tenantId) {
+      const movement = {
+        material_id: materialId,
+        tenant_id: tenantId,
+        from_sector_id: fromSectorId || null,
+        to_sector_id: toSectorId || null,
+        moved_by: movedBy,
+        status: status,
+        signature: signature || null,
+        photos: photoUrls || null,
+        observation: observation || null
+      };
+      const { error: moveError } = await supabaseAdmin.from('material_movements').insert(movement);
         if (moveError) console.error("[SupabaseRequestRepository.updateMaterialStatus] Erro ao logar movimento:", moveError.message);
     }
   }
 
-  async updateMultipleMaterialsStatus(materialIds: string[], status: any, timestampField?: 'entry_at' | 'exit_at', movedBy?: string, tenantId?: string, fromSectorId?: string, toSectorId?: string, signature?: string, photos?: string[], pendingSectorId?: string | null, logMovement: boolean = true): Promise<void> {
+  async updateMultipleMaterialsStatus(materialIds: string[], status: any, timestampField?: 'entry_at' | 'exit_at', movedBy?: string, tenantId?: string, fromSectorId?: string, toSectorId?: string, signature?: string, photos?: string[], pendingSectorId?: string | null, logMovement: boolean = true, observation?: string): Promise<void> {
     const updateData: any = { status };
     if (timestampField) {
       updateData[timestampField] = new Date().toISOString();
@@ -243,7 +250,8 @@ export class SupabaseRequestRepository implements IRequestRepository {
             from_sector_id: fromSectorId,
             to_sector_id: toSectorId,
             signature: signature || null,
-            photos: photos || null
+            photos: photos || null,
+            observation: observation || null
         }));
         const { error: moveError } = await supabaseAdmin.from('material_movements').insert(movements);
         if (moveError) console.error("[SupabaseRequestRepository.updateMultipleMaterialsStatus] Erro ao logar movimentos:", moveError.message);

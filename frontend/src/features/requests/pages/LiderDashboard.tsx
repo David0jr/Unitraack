@@ -186,13 +186,15 @@ export default function LiderDashboard() {
     }
   };
 
-  const handleMarkExit = async (signature: string) => {
+  const handleMarkExit = async (signature: string, extraData?: any, photos?: string[]) => {
     if (selectedForTransfer.length === 0) return;
     setIsProcessing(true);
     try {
       await api.post('/lider/marcar-saida', {
         materialIds: selectedForTransfer,
-        signature
+        signature,
+        photos,
+        ...extraData
       }, {
         headers: { Authorization: `Bearer ${getAuthToken()}` }
       });

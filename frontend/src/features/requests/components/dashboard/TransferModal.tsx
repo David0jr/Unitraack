@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
-import { X, Send, ShieldCheck, Loader2, ChevronDown, Package, ClipboardCheck, Info, Camera, Hash } from 'lucide-react';
+import { X, Send, ShieldCheck, Loader2, ChevronDown, Package, ClipboardCheck, Info, Camera, Hash, Upload } from 'lucide-react';
 import { useDashboard } from '../../../../contexts/DashboardContext';
+import { WebcamModal } from '../../../../components/WebcamModal';
 
 interface TransferModalProps {
   materialIds: string[];
   onClose: () => void;
   onConfirm: (toSectorId: string, signature: string, extraData?: any, photos?: string[]) => Promise<void>;
-  onMarkExit?: (signature: string) => Promise<void>;
+  onMarkExit?: (signature: string, extraData?: any, photos?: string[]) => Promise<void>;
   isProcessing: boolean;
 }
 
@@ -22,6 +23,8 @@ export const TransferModal: React.FC<TransferModalProps> = ({
   const [selectedSubSector, setSelectedSubSector] = useState('');
   const [signature, setSignature] = useState('');
   const [photos, setPhotos] = useState<string[]>([]);
+  const [observation, setObservation] = useState('');
+  const [isWebcamOpen, setIsWebcamOpen] = useState(false);
   
   // Novos campos para fluxo de Portaria
   const [transferType, setTransferType] = useState('TOTAL');
@@ -52,7 +55,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({
     e.preventDefault();
     if (!selectedSubSector || !signature) return;
     
-    const extraData = isPortaria ? { transferType, exitReason } : undefined;
+    const extraData = isPortaria ? { transferType, exitReason, observation } : { observation };
     onConfirm(selectedSubSector, signature, extraData, photos.length > 0 ? photos : undefined);
   };
 
@@ -155,11 +158,21 @@ export const TransferModal: React.FC<TransferModalProps> = ({
               <div className="space-y-4 pt-4 border-t border-slate-100">
                 <div className="flex items-center justify-between">
                   <label className="text-[10px] text-slate-400 font-bold uppercase tracking-widest block">Evidência Fotográfica</label>
-                  <label className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 text-primary rounded-xl hover:bg-primary hover:text-white transition-all cursor-pointer group">
-                    <Camera className="w-4 h-4" />
-                    <span className="text-[10px] font-black uppercase">Capturar</span>
-                    <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handleCapturePhoto} />
-                  </label>
+                  <div className="flex gap-2">
+                    <button 
+                      type="button"
+                      onClick={() => setIsWebcamOpen(true)}
+                      className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 text-primary rounded-xl hover:bg-primary hover:text-white transition-all cursor-pointer group"
+                    >
+                      <Camera className="w-4 h-4" />
+                      <span className="text-[10px] font-black uppercase hidden sm:inline">Câmera</span>
+                    </button>
+                    <label className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-200 hover:text-slate-800 transition-all cursor-pointer group">
+                      <Upload className="w-4 h-4" />
+                      <span className="text-[10px] font-black uppercase hidden sm:inline">Galeria</span>
+                      <input type="file" accept="image/*" className="hidden" onChange={handleCapturePhoto} />
+                    </label>
+                  </div>
                 </div>
 
                 {photos.length > 0 && (
@@ -178,6 +191,16 @@ export const TransferModal: React.FC<TransferModalProps> = ({
                     ))}
                   </div>
                 )}
+                
+                <div className="group">
+                  <label className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-2 ml-1 block transition-colors group-focus-within:text-primary">Observação da Evidência</label>
+                  <textarea 
+                    placeholder="Descreva o estado do equipamento..."
+                    value={observation}
+                    onChange={(e) => setObservation(e.target.value)}
+                    className="w-full bg-slate-50/50 border border-slate-100 rounded-2xl px-5 py-3.5 md:py-4 text-sm font-bold text-navy focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all outline-none shadow-sm min-h-[80px] custom-scrollbar"
+                  />
+                </div>
               </div>
 
               {/* Fluxo de Saída para Portaria */}
@@ -269,7 +292,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({
               {onMarkExit && (
                 <button 
                   type="button"
-                  onClick={() => onMarkExit(signature)}
+                  onClick={() => onMarkExit(signature, isPortaria ? { transferType, exitReason, observation } : { observation }, photos.length > 0 ? photos : undefined)}
                   disabled={!signature || isProcessing}
                   className="w-full bg-rose-50 hover:bg-rose-100 disabled:opacity-50 disabled:cursor-not-allowed text-rose-600 font-bold text-[11px] md:text-xs uppercase tracking-widest py-4 md:py-5 rounded-[1.5rem] border border-rose-200 transition-all flex items-center justify-center gap-3 active:scale-[0.98] group mt-2"
                 >
@@ -287,6 +310,16 @@ export const TransferModal: React.FC<TransferModalProps> = ({
           </div>
         </form>
       </div>
+      
+      {isWebcamOpen && (
+        <WebcamModal 
+          onClose={() => setIsWebcamOpen(false)}
+          onCapture={(imageSrc) => {
+            setPhotos(prev => [...prev, imageSrc]);
+            setIsWebcamOpen(false);
+          }}
+        />
+      )}
     </div>
   );
 };

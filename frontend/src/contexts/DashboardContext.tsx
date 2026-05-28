@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { dashboardService } from '../features/requests/api/dashboardService';
 import { useAuth } from './AuthContext';
+import { supabase } from '../lib/supabase';
 
 /**
  * Interface para os dados consolidados do Dashboard.
@@ -97,9 +98,27 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   useEffect(() => {
     fetchData();
-    // Refresh automático a cada 60 segundos (Opcional, dependendo da necessidade de Real-Time)
-    const interval = setInterval(fetchData, 60000);
-    return () => clearInterval(interval);
+    
+    // Conecta no Supabase Realtime para ouvir mudanças nas tabelas operacionais
+    const channel = supabase
+      .channel('gestor_dashboard_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'materials' }, () => {
+        console.log('[Realtime] materials changed, refreshing...');
+        fetchData();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'material_movements' }, () => {
+        console.log('[Realtime] material_movements changed, refreshing...');
+        fetchData();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'entry_requests' }, () => {
+        console.log('[Realtime] entry_requests changed, refreshing...');
+        fetchData();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [fetchData]);
 
   const approveRequest = async (requestId: string) => {

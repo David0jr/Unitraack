@@ -5,7 +5,7 @@ import { supabaseAdmin } from '../../config/supabase';
 export class ConfirmMaterialMovement {
   constructor(private requestRepository: IRequestRepository) {}
 
-  async execute(requestId: string, materialIds: string[], type: 'ENTRY' | 'EXIT', movedBy: string, tenantId: string, signature?: string, photos?: string[]): Promise<void> {
+  async execute(requestId: string, materialIds: string[], type: 'ENTRY' | 'EXIT', movedBy: string, tenantId: string, signature?: string, photos?: string[], observation?: string): Promise<void> {
     const request = await this.requestRepository.findById(requestId);
     
     if (!request) {
@@ -75,7 +75,10 @@ export class ConfirmMaterialMovement {
           undefined, // From external (---)
           targetSectorId || undefined,
           signature,
-          photos
+          photos,
+          undefined,
+          true,
+          observation
       );
     } else {
       // Saída: Setor Alvo -> Portaria
@@ -88,7 +91,10 @@ export class ConfirmMaterialMovement {
           request.sector_id || undefined,
           portariaSectorId || undefined,
           signature,
-          photos
+          photos,
+          undefined,
+          true,
+          observation
       );
     }
 

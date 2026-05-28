@@ -4,7 +4,7 @@ import { supabaseAdmin } from '../../config/supabase';
 export class MarkMaterialForExit {
   constructor(private requestRepository: IRequestRepository) {}
 
-  async execute(materialIds: string[], tenantId: string, profileId: string, signature?: string): Promise<void> {
+  async execute(materialIds: string[], tenantId: string, profileId: string, signature?: string, photos?: string[], observation?: string): Promise<void> {
     if (!materialIds || materialIds.length === 0) {
       throw new Error('Nenhum material selecionado para baixa.');
     }
@@ -38,7 +38,9 @@ export class MarkMaterialForExit {
         tenantId,
         material.current_sector_id || material.request.sector_id,
         portariaSectorId || undefined,
-        signature
+        signature,
+        photos,
+        observation
       );
     }
   }

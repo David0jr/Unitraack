@@ -4,6 +4,8 @@ import { getAuthToken } from '../../../utils/subdomain';
 import { Truck, Search, CheckCircle, Loader2, Package, Hash, Info, LogOut, Eye, AlertTriangle, X, Camera, ShieldAlert, ChevronRight, MapPin, ShieldCheck, ClipboardList, History, Users, Calendar, Clock, XOctagon } from 'lucide-react';
 import { MobileNav } from '../components/dashboard/MobileNav';
 import Swal from 'sweetalert2';
+import { supabase } from '../../../lib/supabase';
+import { WebcamModal } from '../../../components/WebcamModal';
 
 interface Material {
   id: string;
@@ -77,6 +79,7 @@ export default function PortariaDashboard() {
   const [photos, setPhotos] = useState<string[]>([]);
   const [selectedPhotos, setSelectedPhotos] = useState<string[] | null>(null);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [observation, setObservation] = useState('');
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -157,6 +160,24 @@ export default function PortariaDashboard() {
     setPhotos([]);
   }, [activeTab]);
 
+  useEffect(() => {
+    const channel = supabase
+      .channel('portaria_dashboard_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'entry_requests' }, () => {
+        console.log('[Realtime] entry_requests changed, refreshing portaria...');
+        fetchRequisicoes();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'material_movements' }, () => {
+        console.log('[Realtime] material_movements changed, refreshing portaria...');
+        fetchRequisicoes();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [activeTab]);
+
   const selectedReq = Array.isArray(requisicoes) ? requisicoes.find(r => r.id === selecionadoId) : null;
 
   useEffect(() => {
@@ -195,47 +216,6 @@ export default function PortariaDashboard() {
     setPhotos(prev => prev.filter((_, i) => i !== index));
   };
 
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-
-  useEffect(() => {
-    let stream: MediaStream | null = null;
-    if (isCameraOpen && videoRef.current) {
-      navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: 'environment' }, 
-        audio: false 
-      }).then(s => {
-        stream = s;
-        if (videoRef.current) videoRef.current.srcObject = s;
-      }).catch(err => {
-        console.error("Erro ao acessar câmera:", err);
-        alert("Não foi possível acessar a câmera. Verifique as permissões.");
-        setIsCameraOpen(false);
-      });
-    }
-    return () => {
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-      }
-    };
-  }, [isCameraOpen]);
-
-  const takePhoto = () => {
-    if (videoRef.current && canvasRef.current) {
-      const video = videoRef.current;
-      const canvas = canvasRef.current;
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-        setPhotos(prev => [...prev, dataUrl]);
-        setIsCameraOpen(false);
-      }
-    }
-  };
-
   const handleConfirmMovement = async () => {    
     if (!selecionadoId || selectedMaterials.length === 0) return;
     if ((activeTab === 'EXIT' || activeTab === 'ENTRY') && !signature) {
@@ -255,7 +235,8 @@ export default function PortariaDashboard() {
           materialIds: selectedMaterials,
           type: activeTab,
           signature: signature ? signature.toUpperCase() : undefined,
-          photos: photos.length > 0 ? photos : undefined
+          photos: photos.length > 0 ? photos : undefined,
+          observation: observation ? observation : undefined
         })
       });
 
@@ -264,6 +245,7 @@ export default function PortariaDashboard() {
         setSelecionadoId(null);
         setMobileSection('list');
         setPhotos([]);
+        setObservation('');
         setModalConfig({
           title: activeTab === 'ENTRY' ? 'Entrada Confirmada' : 'Saída Confirmada',
           message: `O protocolo de ${activeTab === 'ENTRY' ? 'entrada' : 'saída'} foi processado com sucesso e registrado no histórico.`,
@@ -372,7 +354,7 @@ export default function PortariaDashboard() {
   };
 
   const filteredReqs = Array.isArray(requisicoes) ? requisicoes.filter(r => {
-    if (activeTab === 'EXIT' && !r.materials?.some((m: any) => m.status === 'WAITING_EXIT' || m.status === 'IN_PLANTA')) {
+    if (activeTab === 'EXIT' && !r.materials?.some((m: any) => m.status === 'WAITING_EXIT')) {
       return false;
     }
     if (activeTab === 'IN_PLANTA' && !r.materials?.some((m: any) => m.status === 'IN_PLANTA')) {
@@ -688,7 +670,7 @@ export default function PortariaDashboard() {
                         {(() => {
                            const visibleMaterials = selectedReq.materials.filter((m: any) => 
                              activeTab === 'ENTRY' ? m.status !== 'IN_PLANTA' : 
-                             activeTab === 'EXIT' ? (m.status === 'WAITING_EXIT' || m.status === 'IN_PLANTA') : 
+                             activeTab === 'EXIT' ? m.status === 'WAITING_EXIT' : 
                              m.status === 'IN_PLANTA'
                            );
                            return (
@@ -808,6 +790,16 @@ export default function PortariaDashboard() {
                                 ))}
                              </div>
                           )}
+
+                          <div className="group mt-4">
+                             <label className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-2 ml-1 block transition-colors group-focus-within:text-primary">Observação da Evidência</label>
+                             <textarea 
+                               placeholder="Descreva o estado do equipamento (ex: veículo avariado, sem estepe)..."
+                               value={observation}
+                               onChange={(e) => setObservation(e.target.value)}
+                               className="w-full bg-white border border-slate-200 rounded-2xl px-5 py-3.5 text-sm font-bold text-navy focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all outline-none shadow-sm min-h-[80px] custom-scrollbar"
+                             />
+                          </div>
                        </div>
                     </div>
                   )}
@@ -1258,49 +1250,16 @@ export default function PortariaDashboard() {
             </div>
          </div>
        )}
-       {isCameraOpen && (
-         <div className="fixed inset-0 z-[300] bg-black flex flex-col items-center justify-center animate-in fade-in duration-300">
-            <div className="relative w-full h-full flex flex-col">
-               {/* Viewfinder */}
-               <video 
-                 ref={videoRef} 
-                 autoPlay 
-                 playsInline 
-                 className="flex-1 w-full h-full object-cover"
-               />
-               
-               {/* Overlay Controls */}
-               <div className="absolute inset-0 flex flex-col justify-between p-8 pointer-events-none">
-                  <div className="flex justify-end pointer-events-auto">
-                     <button 
-                       onClick={() => setIsCameraOpen(false)}
-                       className="p-4 bg-white/10 backdrop-blur-md text-white rounded-full hover:bg-white/20 transition-all"
-                     >
-                        <X className="w-8 h-8" />
-                     </button>
-                  </div>
-                  
-                  <div className="flex justify-center items-center gap-12 pointer-events-auto pb-8">
-                     <div className="w-16 h-16 rounded-full border-2 border-white/20 flex items-center justify-center">
-                        {/* Empty spacer for alignment */}
-                     </div>
-                     
-                     <button 
-                       onClick={takePhoto}
-                       className="w-24 h-24 bg-white rounded-full shadow-2xl flex items-center justify-center active:scale-90 transition-transform"
-                     >
-                        <div className="w-20 h-20 rounded-full border-4 border-navy/10"></div>
-                     </button>
-                     
-                     <div className="w-16 h-16 rounded-full border-2 border-white/20 flex items-center justify-center">
-                        {/* Future: camera switch button could go here */}
-                     </div>
-                  </div>
-               </div>
-            </div>
-            <canvas ref={canvasRef} className="hidden" />
-         </div>
-       )}
+        
+        {isCameraOpen && (
+          <WebcamModal 
+            onClose={() => setIsCameraOpen(false)}
+            onCapture={(imageSrc) => {
+              setPhotos(prev => [...prev, imageSrc]);
+              setIsCameraOpen(false);
+            }}
+          />
+        )}
 
         <MobileNav 
           activeSection={mobileSection} 
