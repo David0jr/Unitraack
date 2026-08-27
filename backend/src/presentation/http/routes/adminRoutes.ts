@@ -12,6 +12,7 @@ router.use(requireSuperAdmin);
 router.get('/tenants', SuperAdminController.listTenants);
 router.post('/tenants', SuperAdminController.createTenantAndGenerateInvite);
 router.post('/tenants/invite', SuperAdminController.generateInvite);
+router.post('/extract-branding', SuperAdminController.extractBranding);
 router.put('/tenants/:id', SuperAdminController.updateTenant);
 router.delete('/tenants/:id', SuperAdminController.deleteTenant);
 router.get('/users', SuperAdminController.listAllUsers);

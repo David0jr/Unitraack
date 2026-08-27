@@ -10,6 +10,7 @@ router.get('/meu-setor', requireAuth, RequestController.listSectorMaterials);
 router.post('/transferir', requireAuth, RequestController.transferMaterial);
 router.post('/aceitar-transferencia', requireAuth, RequestController.acceptTransfer);
 router.post('/recusar-transferencia', requireAuth, RequestController.rejectTransfer);
+router.post('/cancelar-transferencia', requireAuth, RequestController.cancelTransfer);
 router.post('/marcar-saida', requireAuth, RequestController.markMaterialForExit);
 
 export default router;

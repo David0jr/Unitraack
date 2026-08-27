@@ -2,10 +2,10 @@
 
 @theme {
   --color-primary: var(--primary-color, #00B5AD);
-  --color-secondary: #1996DC;
-  --color-navy: #001D4A;
+  --color-secondary: var(--secondary-color, #1996DC);
+  --color-navy: var(--navy-color, #001D4A);
+  --color-tertiary: var(--tertiary-color, #001D4A);
   --color-brand: var(--primary-color, #00B5AD);
-
   
   --font-brand: "Noto Sans", sans-serif;
 }

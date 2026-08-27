@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { getAuthToken } from '../../../utils/subdomain';
 import { api } from '../../../lib/axios';
+import Swal from 'sweetalert2';
 import { 
   Check, 
   X, 
@@ -237,7 +238,23 @@ export default function LiderDashboard() {
   };
 
   const handleRejectClick = async (materialId: string) => {
-    if (!window.confirm("Deseja realmente recusar esta transferência? O item voltará para o setor de origem.")) return;
+    const result = await Swal.fire({
+      title: 'Recusar Transferência?',
+      text: 'O material será devolvido para o setor de origem.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#e11d48',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: 'Sim, Recusar',
+      cancelButtonText: 'Voltar',
+      customClass: {
+        popup: 'rounded-[2rem] font-brand',
+        confirmButton: 'rounded-xl font-bold uppercase text-xs px-6 py-3',
+        cancelButton: 'rounded-xl font-bold uppercase text-xs px-6 py-3'
+      }
+    });
+
+    if (!result.isConfirmed) return;
     
     setIsProcessing(true);
     try {
@@ -246,9 +263,81 @@ export default function LiderDashboard() {
       }, {
         headers: { Authorization: `Bearer ${getAuthToken()}` }
       });
+      Swal.fire({
+        title: 'Transferência Recusada!',
+        text: 'O item foi devolvido ao setor de origem.',
+        icon: 'success',
+        confirmButtonColor: '#0052cc',
+        customClass: {
+          popup: 'rounded-[2rem] font-brand',
+          confirmButton: 'rounded-xl font-bold uppercase text-xs px-6 py-3'
+        }
+      });
       loadData();
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Erro ao recusar.');
+      Swal.fire({
+        title: 'Erro',
+        text: err.response?.data?.error || 'Erro ao recusar.',
+        icon: 'error',
+        confirmButtonColor: '#0052cc',
+        customClass: {
+          popup: 'rounded-[2rem] font-brand',
+          confirmButton: 'rounded-xl font-bold uppercase text-xs px-6 py-3'
+        }
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleCancelTransferClick = async (materialId: string) => {
+    const result = await Swal.fire({
+      title: 'Cancelar Envio?',
+      text: 'O equipamento deixará de estar em trânsito e voltará a ficar disponível no seu setor.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#e11d48',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: 'Sim, Cancelar Envio',
+      cancelButtonText: 'Voltar',
+      customClass: {
+        popup: 'rounded-[2rem] font-brand',
+        confirmButton: 'rounded-xl font-bold uppercase text-xs px-6 py-3',
+        cancelButton: 'rounded-xl font-bold uppercase text-xs px-6 py-3'
+      }
+    });
+
+    if (!result.isConfirmed) return;
+
+    setIsProcessing(true);
+    try {
+      await api.post('/lider/cancelar-transferencia', {
+        materialIds: [materialId]
+      }, {
+        headers: { Authorization: `Bearer ${getAuthToken()}` }
+      });
+      Swal.fire({
+        title: 'Envio Cancelado!',
+        text: 'O equipamento voltou para o seu setor.',
+        icon: 'success',
+        confirmButtonColor: '#0052cc',
+        customClass: {
+          popup: 'rounded-[2rem] font-brand',
+          confirmButton: 'rounded-xl font-bold uppercase text-xs px-6 py-3'
+        }
+      });
+      loadData();
+    } catch (err: any) {
+      Swal.fire({
+        title: 'Erro',
+        text: err.response?.data?.error || 'Erro ao cancelar envio.',
+        icon: 'error',
+        confirmButtonColor: '#0052cc',
+        customClass: {
+          popup: 'rounded-[2rem] font-brand',
+          confirmButton: 'rounded-xl font-bold uppercase text-xs px-6 py-3'
+        }
+      });
     } finally {
       setIsProcessing(false);
     }
@@ -397,6 +486,7 @@ export default function LiderDashboard() {
                        onSelect={(id: string) => setSelectedForTransfer(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])}
                        onAccept={() => handleAcceptClick(mat.id, mat.name)}
                        onReject={() => handleRejectClick(mat.id)}
+                       onCancelTransfer={() => handleCancelTransferClick(mat.id)}
                        onViewDetails={() => setSelectedMaterial(mat)}
                        currentSectorId={liderInfo?.sector_id || profile?.sector_id}
                      />
@@ -756,9 +846,10 @@ function RequestCard({ req, onApprove, onReject, onSelectCompany, onSelectMateri
   );
 }
 
-function MaterialCard({ mat, isSelected, onSelect, onAccept, onReject, onViewDetails, currentSectorId }: any) {
+function MaterialCard({ mat, isSelected, onSelect, onAccept, onReject, onCancelTransfer, onViewDetails, currentSectorId }: any) {
   const isMoving = mat.status === 'MOVING';
   const isIncoming = isMoving && mat.pending_sector_id === currentSectorId;
+  const isOutgoing = isMoving && !isIncoming;
 
   return (
     <div className={`bg-white rounded-[2rem] p-5 border transition-all relative overflow-hidden group ${
@@ -802,32 +893,45 @@ function MaterialCard({ mat, isSelected, onSelect, onAccept, onReject, onViewDet
             <>
               <button 
                 onClick={onAccept}
-                className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white font-black text-[10px] uppercase tracking-widest py-3.5 rounded-xl shadow-lg shadow-emerald-500/20 transition-all active:scale-95 flex items-center justify-center gap-2"
+                className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white font-black text-[10px] uppercase tracking-widest py-3.5 rounded-xl shadow-lg shadow-emerald-500/20 transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
               >
                 <Check className="w-4 h-4" /> Aceitar
               </button>
               <button 
                 onClick={onReject}
-                className="flex-1 bg-white border border-rose-200 text-rose-500 hover:bg-rose-50 font-black text-[10px] uppercase tracking-widest py-3.5 rounded-xl transition-all active:scale-95 flex items-center justify-center gap-2"
+                className="flex-1 bg-white border border-rose-200 text-rose-500 hover:bg-rose-50 font-black text-[10px] uppercase tracking-widest py-3.5 rounded-xl transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
               >
                 <X className="w-4 h-4" /> Recusar
+              </button>
+            </>
+          ) : isOutgoing ? (
+            <>
+              <button 
+                onClick={onCancelTransfer}
+                className="flex-1 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-600 font-black text-[10px] uppercase tracking-widest py-3.5 rounded-xl transition-all active:scale-95 flex items-center justify-center gap-2 shadow-sm cursor-pointer group/cancel"
+              >
+                <X className="w-4 h-4 group-hover/cancel:scale-110 transition-transform" /> Cancelar Envio
+              </button>
+              <button 
+                onClick={onViewDetails}
+                className="w-12 h-12 bg-white border border-slate-200 text-slate-300 hover:text-primary hover:border-primary/40 rounded-xl flex items-center justify-center transition-all active:scale-95 group/info cursor-pointer"
+              >
+                <Eye size={18} className="group-hover/info:scale-110 transition-transform" />
               </button>
             </>
           ) : (
             <>
               <button 
-                onClick={() => !isMoving && onSelect(mat.id)}
-                disabled={isMoving}
-                className={`flex-1 font-black text-[10px] uppercase tracking-widest py-3.5 rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm ${
-                  isMoving ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-transparent' :
+                onClick={() => onSelect(mat.id)}
+                className={`flex-1 font-black text-[10px] uppercase tracking-widest py-3.5 rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm cursor-pointer ${
                   isSelected ? 'bg-navy text-white shadow-navy/20' : 'bg-white border border-slate-200 text-slate-500 hover:bg-slate-50'
                 }`}
               >
-                {isSelected ? <><Check size={14} /> Selecionado</> : (isMoving ? 'Em Trânsito' : 'Selecionar')}
+                {isSelected ? <><Check size={14} /> Selecionado</> : 'Selecionar'}
               </button>
               <button 
                 onClick={onViewDetails}
-                className="w-12 h-12 bg-white border border-slate-200 text-slate-300 hover:text-primary hover:border-primary/40 rounded-xl flex items-center justify-center transition-all active:scale-95 group/info"
+                className="w-12 h-12 bg-white border border-slate-200 text-slate-300 hover:text-primary hover:border-primary/40 rounded-xl flex items-center justify-center transition-all active:scale-95 group/info cursor-pointer"
               >
                 <Eye size={18} className="group-hover/info:scale-110 transition-transform" />
               </button>

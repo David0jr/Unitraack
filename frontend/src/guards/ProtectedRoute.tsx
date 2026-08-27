@@ -28,7 +28,7 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
     // Se a URL for /lins/terceirizada/painel, o slug é 'lins'
     const currentSlug = slug || profile?.tenant?.subdomain;
 
-    const loginPath = isSubdomain ? '/login' : (currentSlug ? `/${currentSlug}/login` : '/login');
+    const loginPath = isSubdomain ? '/login' : (currentSlug ? `/${currentSlug}/login` : '/admin/login');
     
     // Evita loop se já estiver no login
     if (location.pathname === loginPath || location.pathname === '/login' || location.pathname === '/admin/login') {
@@ -53,7 +53,7 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
   } else if (!loading && user) {
     // SECURITY: Se houver user mas não houver profile após carregar, a conta é inválida para o sistema
     console.warn('[ProtectedRoute] Usuário autenticado sem perfil. Redirecionando...');
-    const fallbackPath = slug ? `/${slug}/login` : '/login';
+    const fallbackPath = slug ? `/${slug}/login` : '/admin/login';
     return <Navigate to={fallbackPath} state={{ error: 'Perfil não encontrado ou conta desativada.' }} replace />;
   }
 

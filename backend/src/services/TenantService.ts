@@ -38,7 +38,7 @@ export class TenantService {
     return tenant as Tenant;
   }
 
-  async create(name: string, cnpj: string): Promise<Tenant> {
+  async create(name: string, cnpj: string, logo_url?: string, company_color?: string, secondary_color?: string, tertiary_color?: string): Promise<Tenant> {
     // Gera um slug automático a partir do nome
     const slug = name
       .toLowerCase()
@@ -48,9 +48,15 @@ export class TenantService {
       .replace(/-+/g, '-') // Remove hífens duplicados
       .replace(/^-|-$/g, ''); // Remove hífens no início/fim
 
+    const insertData: any = { name, cnpj, subdomain: slug };
+    if (logo_url) insertData.logo_url = logo_url;
+    if (company_color) insertData.company_color = company_color;
+    if (secondary_color) insertData.secondary_color = secondary_color;
+    if (tertiary_color) insertData.tertiary_color = tertiary_color;
+
     const { data: tenant, error } = await supabaseAdmin
       .from('tenants')
-      .insert({ name, cnpj, subdomain: slug })
+      .insert(insertData)
       .select()
       .single();
 

@@ -42,6 +42,7 @@ const MainRoutes = () => {
       {/* Tenant Routes */}
       <Route path="/:tenantSlug/login" element={<Login />} />
       
+      <Route path="/register-gestor" element={<RegisterGestor />} />
       <Route path="/:tenantSlug/cadastro" element={<RegisterTerceirizada />} />
       <Route
         path="/:tenantSlug/registro-interno"

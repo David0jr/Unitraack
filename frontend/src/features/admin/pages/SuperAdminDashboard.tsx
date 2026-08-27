@@ -22,7 +22,10 @@ import {
   ChevronDown,
   ChevronRight,
   Activity,
-  User
+  User,
+  Sparkles,
+  Palette,
+  Check
 } from 'lucide-react';
 import { MobileNav } from '../../requests/components/dashboard/MobileNav';
 
@@ -33,6 +36,8 @@ interface Tenant {
   cnpj: string;
   logo_url?: string;
   company_color?: string;
+  secondary_color?: string;
+  tertiary_color?: string;
   created_at: string;
   gestores?: { count: number }[];
 }
@@ -68,6 +73,7 @@ export default function SuperAdminDashboard() {
   const [editingTenant, setEditingTenant] = useState<Tenant | null>(null);
   const [generatedInvite, setGeneratedInvite] = useState<string | null>(null);
   const [copySuccess, setCopySuccess] = useState(false);
+  const [copyPortalSuccess, setCopyPortalSuccess] = useState(false);
   const [expandedTenants, setExpandedTenants] = useState<string[]>([]);
   const [selectedMonitoringTenant, setSelectedMonitoringTenant] = useState<string>('');
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
@@ -128,10 +134,74 @@ export default function SuperAdminDashboard() {
     gestorPassword: '',
     gestorFullName: '',
     logoUrl: '',
-    companyColor: '#001D4A'
+    companyColor: '#00B5AD',
+    secondaryColor: '#1996DC',
+    tertiaryColor: '#001D4A'
   };
 
   const [formData, setFormData] = useState(initialFormData);
+  const [websiteInput, setWebsiteInput] = useState('');
+  const [isExtractingBranding, setIsExtractingBranding] = useState(false);
+  const [detectedPalette, setDetectedPalette] = useState<string[]>([]);
+  const [activeColorSlot, setActiveColorSlot] = useState<'primary' | 'secondary' | 'tertiary'>('primary');
+  const [extractionFeedback, setExtractionFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  const handleAutoDetectBranding = async (urlToScan?: string) => {
+    const url = (urlToScan || websiteInput || formData.logoUrl).trim();
+    if (!url) {
+      alert('Por favor, digite ou cole o link do site da usina (ex: https://cafealcool.com.br).');
+      return;
+    }
+
+    setIsExtractingBranding(true);
+    setExtractionFeedback(null);
+
+    try {
+      const resp = await fetch(`${import.meta.env.VITE_API_URL}/admin/extract-branding`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${getAuthToken()}`
+        },
+        body: JSON.stringify({ url })
+      });
+
+      const res = await resp.json();
+      if (resp.ok && res.success && res.data) {
+        const { suggestedName, logoUrl, primaryColor, secondaryColor, tertiaryColor, palette } = res.data;
+
+        setFormData(prev => ({
+          ...prev,
+          tenantName: prev.tenantName ? prev.tenantName : (suggestedName || prev.tenantName),
+          logoUrl: logoUrl || prev.logoUrl,
+          companyColor: primaryColor || prev.companyColor || '#00B5AD',
+          secondaryColor: secondaryColor || prev.secondaryColor || '#1996DC',
+          tertiaryColor: tertiaryColor || prev.tertiaryColor || '#001D4A'
+        }));
+
+        if (palette && palette.length > 0) {
+          setDetectedPalette(palette);
+        }
+
+        setExtractionFeedback({
+          type: 'success',
+          message: `Identidade detectada com sucesso! 3 cores da paleta aplicadas.`
+        });
+      } else {
+        setExtractionFeedback({
+          type: 'error',
+          message: res.error || 'Não foi possível extrair a identidade do site informado.'
+        });
+      }
+    } catch (e: any) {
+      setExtractionFeedback({
+        type: 'error',
+        message: 'Falha de conexão ao tentar escanear o site.'
+      });
+    } finally {
+      setIsExtractingBranding(false);
+    }
+  };
 
 
   const fetchData = async () => {
@@ -181,13 +251,17 @@ export default function SuperAdminDashboard() {
           name: formData.tenantName,
           cnpj: formData.tenantCnpj,
           logo_url: formData.logoUrl,
-          company_color: formData.companyColor
+          company_color: formData.companyColor,
+          secondary_color: formData.secondaryColor,
+          tertiary_color: formData.tertiaryColor
         }
         : {
           tenantName: formData.tenantName,
           tenantCnpj: formData.tenantCnpj,
           logo_url: formData.logoUrl,
-          company_color: formData.companyColor
+          company_color: formData.companyColor,
+          secondary_color: formData.secondaryColor,
+          tertiary_color: formData.tertiaryColor
         };
 
       const resp = await fetch(url, {
@@ -274,10 +348,14 @@ export default function SuperAdminDashboard() {
       gestorPassword: '',
       gestorFullName: '',
       logoUrl: t.logo_url || '',
-      companyColor: t.company_color || '#001D4A'
+      companyColor: t.company_color || '#00B5AD',
+      secondaryColor: t.secondary_color || '#1996DC',
+      tertiaryColor: t.tertiary_color || '#001D4A'
     });
+    setWebsiteInput('');
+    setDetectedPalette([]);
+    setExtractionFeedback(null);
     setIsModalOpen(true);
-
   };
 
   const filteredTenants = tenants.filter(t =>
@@ -409,8 +487,15 @@ export default function SuperAdminDashboard() {
                     <p className="text-slate-400 font-medium ml-4 uppercase text-[10px] tracking-widest">Central de Controle de Unidades Federadas</p>
                   </div>
                   <button
-                    onClick={() => setIsModalOpen(true)}
-                    className="flex items-center gap-3 bg-navy hover:bg-[#002880] text-white px-8 py-5 rounded-xl font-bold text-xs uppercase tracking-widest shadow-xl shadow-navy/20 transition-all hover:-translate-y-1 active:scale-95 group"
+                    onClick={() => {
+                      setEditingTenant(null);
+                      setFormData(initialFormData);
+                      setWebsiteInput('');
+                      setDetectedPalette([]);
+                      setExtractionFeedback(null);
+                      setIsModalOpen(true);
+                    }}
+                    className="flex items-center gap-3 bg-navy hover:bg-[#002880] text-white px-8 py-5 rounded-xl font-bold text-xs uppercase tracking-widest shadow-xl shadow-navy/20 transition-all hover:-translate-y-1 active:scale-95 group cursor-pointer"
                   >
                     <PlusCircle className="w-5 h-5 group-hover:rotate-90 transition-transform" />
                     Cadastrar Unidade
@@ -450,8 +535,15 @@ export default function SuperAdminDashboard() {
                       <tr key={t.id} className="group hover:bg-slate-50/80 transition-all duration-300">
                         <td className="px-8 py-7">
                           <div className="flex items-center gap-5">
-                            <div className="w-12 h-12 bg-navy rounded-xl flex items-center justify-center font-bold text-white text-lg shadow-xl shadow-navy/10 transform transition-transform group-hover:rotate-6">
-                              {t.name[0]}
+                            <div 
+                              className="w-12 h-12 rounded-xl flex items-center justify-center font-bold text-white text-lg shadow-xl shadow-navy/10 transform transition-transform group-hover:rotate-6 overflow-hidden border border-white/20 shrink-0"
+                              style={{ backgroundColor: t.tertiary_color || t.company_color || '#001D4A' }}
+                            >
+                              {t.logo_url ? (
+                                <img src={t.logo_url} alt={t.name} className="w-full h-full object-contain p-1.5" onError={(e: any) => e.target.style.display = 'none'} />
+                              ) : (
+                                t.name[0]
+                              )}
                             </div>
                             <div className="flex flex-col">
                               <span className="font-bold text-navy text-sm uppercase tracking-tighter leading-tight group-hover:text-primary transition-colors">{t.name}</span>
@@ -459,6 +551,11 @@ export default function SuperAdminDashboard() {
                                 <span className="text-[10px] text-primary/70 font-bold lowercase tracking-widest">{t.subdomain}.localhost</span>
                                 <div className="w-1 h-1 bg-slate-200 rounded-full"></div>
                                 <span className="text-[10px] text-slate-300 font-bold tracking-widest">{t.cnpj}</span>
+                              </div>
+                              <div className="flex items-center gap-1.5 mt-1.5">
+                                <span className="w-2.5 h-2.5 rounded-full shadow-sm border border-white/50" style={{ backgroundColor: t.company_color || '#00B5AD' }} title="Cor Primária" />
+                                <span className="w-2.5 h-2.5 rounded-full shadow-sm border border-white/50" style={{ backgroundColor: t.secondary_color || '#1996DC' }} title="Cor Secundária" />
+                                <span className="w-2.5 h-2.5 rounded-full shadow-sm border border-white/50" style={{ backgroundColor: t.tertiary_color || '#001D4A' }} title="Cor Terciária / Base" />
                               </div>
                             </div>
                           </div>
@@ -771,38 +868,49 @@ export default function SuperAdminDashboard() {
                   </div>
 
                   <div className="bg-slate-50 border border-slate-100 p-6 rounded-2xl space-y-4">
-                    <div className="flex items-center justify-between gap-4 p-4 bg-white border border-slate-200 rounded-xl overflow-hidden">
-                      <div className="flex flex-col text-left">
+                    <div className="flex items-center justify-between gap-3 p-4 bg-white border border-slate-200 rounded-xl">
+                      <div className="flex flex-col text-left min-w-0 flex-1">
                         <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Convite do Gestor</span>
-                        <span className="text-[10px] font-bold text-navy truncate">{generatedInvite}</span>
+                        <span className="text-[10px] font-bold text-navy truncate block" title={generatedInvite || ''}>
+                          {generatedInvite}
+                        </span>
                       </div>
                       <button
+                        type="button"
                         onClick={() => handleCopyLink()}
-                        className={`px-4 py-2 rounded-xl font-bold text-[10px] uppercase transition-all ${copySuccess ? 'bg-green-500 text-white' : 'bg-navy text-white hover:bg-navy/80'}`}
+                        className={`shrink-0 px-4 py-2.5 rounded-xl font-bold text-[10px] uppercase transition-all flex items-center gap-1.5 shadow-sm ${
+                          copySuccess ? 'bg-emerald-500 text-white' : 'bg-navy text-white hover:bg-navy/80 active:scale-95'
+                        }`}
                       >
+                        {copySuccess ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
                         {copySuccess ? 'Copiado!' : 'Copiar'}
                       </button>
                     </div>
 
-                    <div className="flex items-center justify-between gap-4 p-4 bg-white border border-slate-200 rounded-xl overflow-hidden">
-                      <div className="flex flex-col text-left">
+                    <div className="flex items-center justify-between gap-3 p-4 bg-white border border-slate-200 rounded-xl">
+                      <div className="flex flex-col text-left min-w-0 flex-1">
                         <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Portal da Usina (Terceirizadas)</span>
-                        <span className="text-[10px] font-bold text-primary truncate">
+                        <span className="text-[10px] font-bold text-primary truncate block">
                           {window.location.origin}/{tenants.find(t => t.id === editingTenant?.id || t.name === formData.tenantName)?.subdomain || 'unidade'}/login
                         </span>
                       </div>
 
                       <button
+                        type="button"
                         onClick={() => {
                           const target = tenants.find(t => t.id === editingTenant?.id || t.name === formData.tenantName);
                           const sub = target?.subdomain || 'unidade';
-                          navigator.clipboard.writeText(`${window.location.origin}/${sub}/login`);
-                          alert('Link do Portal copiado!');
+                          const portalUrl = `${window.location.origin}/${sub}/login`;
+                          navigator.clipboard.writeText(portalUrl);
+                          setCopyPortalSuccess(true);
+                          setTimeout(() => setCopyPortalSuccess(false), 2000);
                         }}
-
-                        className="px-4 py-2 bg-primary text-white rounded-xl font-bold text-[10px] uppercase hover:bg-primary/80 transition-all"
+                        className={`shrink-0 px-4 py-2.5 rounded-xl font-bold text-[10px] uppercase transition-all flex items-center gap-1.5 shadow-sm ${
+                          copyPortalSuccess ? 'bg-emerald-500 text-white' : 'bg-primary text-white hover:bg-primary/80 active:scale-95'
+                        }`}
                       >
-                        Copiar
+                        {copyPortalSuccess ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                        {copyPortalSuccess ? 'Copiado!' : 'Copiar'}
                       </button>
                     </div>
                   </div>
@@ -832,23 +940,297 @@ export default function SuperAdminDashboard() {
                         setIsModalOpen(false);
                         setEditingTenant(null);
                         setFormData(initialFormData);
+                        setWebsiteInput('');
+                        setDetectedPalette([]);
+                        setExtractionFeedback(null);
                       }}
-                      className="p-3 bg-slate-50 text-slate-400 hover:text-navy hover:bg-slate-100 rounded-xl transition-all active:scale-95"
+                      className="p-3 bg-slate-50 text-slate-400 hover:text-navy hover:bg-slate-100 rounded-xl transition-all active:scale-95 cursor-pointer"
                     >
                       <X className="w-5 h-5" />
                     </button>
                   </div>
+
+                  {/* Bloco de Auto-Detecção / Scraping */}
+                  <div className="bg-gradient-to-r from-primary/10 via-blue-50/50 to-emerald-50/30 p-4 rounded-2xl border border-primary/20 space-y-3 shadow-inner">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-primary font-bold text-[11px] uppercase tracking-wider">
+                        <Sparkles className="w-4 h-4 text-primary animate-pulse" />
+                        Auto-Detectar Marca & Cores
+                      </div>
+                      {extractionFeedback && (
+                        <span className={`text-[9px] font-bold px-2.5 py-0.5 rounded-full ${
+                          extractionFeedback.type === 'success' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
+                        }`}>
+                          {extractionFeedback.message}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex gap-2">
+                      <div className="relative flex-1 group">
+                        <Globe className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-primary transition-colors" />
+                        <input
+                          type="text"
+                          placeholder="Cole a URL do site (ex: https://cafealcool.com.br)"
+                          value={websiteInput}
+                          onChange={e => setWebsiteInput(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleAutoDetectBranding();
+                            }
+                          }}
+                          className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-xs font-bold text-navy placeholder:text-slate-300 focus:outline-none focus:border-primary transition-all shadow-sm"
+                        />
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleAutoDetectBranding()}
+                        disabled={isExtractingBranding || !websiteInput.trim()}
+                        className="px-5 py-3 bg-primary hover:bg-[#009e96] disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-[10px] uppercase tracking-wider rounded-xl transition-all flex items-center gap-2 shrink-0 shadow-md shadow-primary/20 active:scale-95 cursor-pointer"
+                      >
+                        {isExtractingBranding ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Lendo Site...
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="w-4 h-4" />
+                            Escanear
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
                   <form onSubmit={handleCreateTenant} className="space-y-6">
                     <InputGroup label="Identificação da Usina" icon={<Building2 />} value={formData.tenantName} onChange={(v: any) => setFormData({ ...formData, tenantName: v })} placeholder="Ex: Lins Agro Unidade 02" />
                     <InputGroup label="CNPJ" icon={<ShieldCheck />} value={formData.tenantCnpj} onChange={(v: any) => setFormData({ ...formData, tenantCnpj: v })} placeholder="00.000.000/0000-00" />
 
-                    <div className="grid grid-cols-2 gap-4">
-                      <InputGroup label="URL do Logo" icon={<Globe />} value={formData.logoUrl} onChange={(v: any) => setFormData({ ...formData, logoUrl: v })} placeholder="https://..." />
-                      <InputGroup label="Cor da Marca" icon={<div className="w-4 h-4 rounded-full border border-slate-200" style={{ backgroundColor: formData.companyColor }} />} value={formData.companyColor} onChange={(v: any) => setFormData({ ...formData, companyColor: v })} placeholder="#001D4A" />
+                    {/* URL do Logo */}
+                    <div className="space-y-2 w-full group">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase ml-2 tracking-widest leading-none">URL do Logo</label>
+                      <div className="relative">
+                        <Globe className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-primary transition-colors w-4 h-4" />
+                        <input
+                          type="text"
+                          value={formData.logoUrl}
+                          onChange={e => setFormData({ ...formData, logoUrl: e.target.value })}
+                          placeholder="https://exemplo.com/logo.png"
+                          className="w-full pl-12 pr-6 py-4 bg-slate-50/50 border border-slate-100 rounded-xl text-navy placeholder-slate-300 focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all font-bold text-sm shadow-inner"
+                        />
+                      </div>
                     </div>
 
-                    <div className="bg-blue-50/50 p-6 rounded-2xl border border-blue-100/50 mt-4">
+                    {/* Bloco de Tríade de Cores */}
+                    <div className="space-y-3 p-4 bg-slate-50/60 rounded-2xl border border-slate-100">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[11px] font-bold text-navy uppercase tracking-wider flex items-center gap-2">
+                          <Palette className="w-4 h-4 text-primary" />
+                          Tríade de Cores da Usina (Identidade Visual)
+                        </label>
+                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">3 Cores Oficiais</span>
+                      </div>
 
+                      {/* 3 Color Pickers */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        {/* Cor Primária */}
+                        <div 
+                          onClick={() => setActiveColorSlot('primary')}
+                          className={`p-3 rounded-xl border transition-all cursor-pointer ${
+                            activeColorSlot === 'primary' ? 'bg-white border-primary shadow-md ring-2 ring-primary/20' : 'bg-white/60 border-slate-200 hover:border-slate-300'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-[9px] font-black uppercase tracking-wider text-slate-500">1. Primária</span>
+                            {activeColorSlot === 'primary' && <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <label className="relative cursor-pointer shrink-0">
+                              <input 
+                                type="color" 
+                                value={formData.companyColor || '#00B5AD'} 
+                                onChange={e => setFormData({ ...formData, companyColor: e.target.value })} 
+                                className="sr-only" 
+                              />
+                              <div 
+                                className="w-9 h-9 rounded-lg border border-white/60 shadow-sm flex items-center justify-center transition-transform hover:scale-105"
+                                style={{ backgroundColor: formData.companyColor || '#00B5AD' }}
+                              />
+                            </label>
+                            <input
+                              type="text"
+                              value={formData.companyColor}
+                              onChange={e => setFormData({ ...formData, companyColor: e.target.value })}
+                              placeholder="#00B5AD"
+                              className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-navy font-mono font-bold text-xs focus:outline-none focus:border-primary uppercase"
+                            />
+                          </div>
+                          <p className="text-[8px] text-slate-400 font-medium mt-1">Botões de ação e destaques</p>
+                        </div>
+
+                        {/* Cor Secundária */}
+                        <div 
+                          onClick={() => setActiveColorSlot('secondary')}
+                          className={`p-3 rounded-xl border transition-all cursor-pointer ${
+                            activeColorSlot === 'secondary' ? 'bg-white border-primary shadow-md ring-2 ring-primary/20' : 'bg-white/60 border-slate-200 hover:border-slate-300'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-[9px] font-black uppercase tracking-wider text-slate-500">2. Secundária</span>
+                            {activeColorSlot === 'secondary' && <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <label className="relative cursor-pointer shrink-0">
+                              <input 
+                                type="color" 
+                                value={formData.secondaryColor || '#1996DC'} 
+                                onChange={e => setFormData({ ...formData, secondaryColor: e.target.value })} 
+                                className="sr-only" 
+                              />
+                              <div 
+                                className="w-9 h-9 rounded-lg border border-white/60 shadow-sm flex items-center justify-center transition-transform hover:scale-105"
+                                style={{ backgroundColor: formData.secondaryColor || '#1996DC' }}
+                              />
+                            </label>
+                            <input
+                              type="text"
+                              value={formData.secondaryColor}
+                              onChange={e => setFormData({ ...formData, secondaryColor: e.target.value })}
+                              placeholder="#1996DC"
+                              className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-navy font-mono font-bold text-xs focus:outline-none focus:border-primary uppercase"
+                            />
+                          </div>
+                          <p className="text-[8px] text-slate-400 font-medium mt-1">Gradientes, badges e acentos</p>
+                        </div>
+
+                        {/* Cor Terciária / Base */}
+                        <div 
+                          onClick={() => setActiveColorSlot('tertiary')}
+                          className={`p-3 rounded-xl border transition-all cursor-pointer ${
+                            activeColorSlot === 'tertiary' ? 'bg-white border-primary shadow-md ring-2 ring-primary/20' : 'bg-white/60 border-slate-200 hover:border-slate-300'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-[9px] font-black uppercase tracking-wider text-slate-500">3. Base / Escura</span>
+                            {activeColorSlot === 'tertiary' && <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <label className="relative cursor-pointer shrink-0">
+                              <input 
+                                type="color" 
+                                value={formData.tertiaryColor || '#001D4A'} 
+                                onChange={e => setFormData({ ...formData, tertiaryColor: e.target.value })} 
+                                className="sr-only" 
+                              />
+                              <div 
+                                className="w-9 h-9 rounded-lg border border-white/60 shadow-sm flex items-center justify-center transition-transform hover:scale-105"
+                                style={{ backgroundColor: formData.tertiaryColor || '#001D4A' }}
+                              />
+                            </label>
+                            <input
+                              type="text"
+                              value={formData.tertiaryColor}
+                              onChange={e => setFormData({ ...formData, tertiaryColor: e.target.value })}
+                              placeholder="#001D4A"
+                              className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-navy font-mono font-bold text-xs focus:outline-none focus:border-primary uppercase"
+                            />
+                          </div>
+                          <p className="text-[8px] text-slate-400 font-medium mt-1">Hero do login, topbar e contraste</p>
+                        </div>
+                      </div>
+
+                      {/* Paleta Completa Extraída */}
+                      {detectedPalette.length > 0 && (
+                        <div className="pt-2 border-t border-slate-200/60 flex items-center gap-2 flex-wrap">
+                          <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mr-1">
+                            Paleta Detectada (clique para aplicar em {activeColorSlot === 'primary' ? '1. Primária' : activeColorSlot === 'secondary' ? '2. Secundária' : '3. Base'}):
+                          </span>
+                          {detectedPalette.map(c => (
+                            <button
+                              key={c}
+                              type="button"
+                              onClick={() => {
+                                if (activeColorSlot === 'primary') setFormData({ ...formData, companyColor: c });
+                                else if (activeColorSlot === 'secondary') setFormData({ ...formData, secondaryColor: c });
+                                else setFormData({ ...formData, tertiaryColor: c });
+                              }}
+                              className="w-7 h-7 rounded-lg transition-transform hover:scale-110 shadow-sm border border-slate-300 relative group cursor-pointer"
+                              style={{ backgroundColor: c }}
+                              title={`Aplicar ${c} ao slot ativo`}
+                            >
+                              <span className="opacity-0 group-hover:opacity-100 absolute -top-6 left-1/2 -translate-x-1/2 px-1.5 py-0.5 bg-navy text-white text-[8px] font-mono rounded pointer-events-none shadow-sm">
+                                {c}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Preview da Identidade Visual com as 3 Cores */}
+                    {(formData.logoUrl || formData.companyColor) && (
+                      <div 
+                        className="p-5 rounded-2xl border border-white/20 shadow-lg text-white relative overflow-hidden transition-all duration-500"
+                        style={{ backgroundColor: formData.tertiaryColor || '#001D4A' }}
+                      >
+                        {/* Gradiente decorativo combinando as 3 cores */}
+                        <div 
+                          className="absolute -right-10 -top-10 w-48 h-48 rounded-full blur-2xl opacity-40 pointer-events-none"
+                          style={{ backgroundColor: formData.companyColor || '#00B5AD' }}
+                        />
+                        <div 
+                          className="absolute right-20 -bottom-10 w-40 h-40 rounded-full blur-2xl opacity-30 pointer-events-none"
+                          style={{ backgroundColor: formData.secondaryColor || '#1996DC' }}
+                        />
+
+                        <div className="relative z-10 space-y-4">
+                          <div className="flex items-center justify-between">
+                            <p className="text-[9px] font-black uppercase tracking-widest text-white/70">Prévia da Identidade Visual (3 Cores)</p>
+                            <span 
+                              className="px-2.5 py-0.5 rounded-full text-[9px] font-bold text-white shadow-sm"
+                              style={{ backgroundColor: formData.secondaryColor || '#1996DC' }}
+                            >
+                              Portal da Usina
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-4">
+                            <div className="w-14 h-14 rounded-xl bg-white/10 backdrop-blur-md p-2 flex items-center justify-center shadow-inner border border-white/20 shrink-0">
+                              {formData.logoUrl ? (
+                                <img src={formData.logoUrl} alt="Logo" className="w-full h-full object-contain" onError={(e: any) => e.target.style.display = 'none'} />
+                              ) : (
+                                <span className="text-xl font-black text-white">{formData.tenantName?.[0] || 'U'}</span>
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <h4 className="text-sm font-bold text-white uppercase tracking-tight truncate">{formData.tenantName || 'Nome da Usina'}</h4>
+                              <p className="text-[10px] text-white/60 font-medium">Visual exibido na tela de login, painéis e portaria</p>
+                            </div>
+                          </div>
+
+                          {/* Chips das 3 cores */}
+                          <div className="pt-3 border-t border-white/10 flex items-center gap-4 flex-wrap">
+                            <div className="flex items-center gap-1.5">
+                              <span className="w-3 h-3 rounded-full border border-white/40 shadow-sm" style={{ backgroundColor: formData.companyColor || '#00B5AD' }} />
+                              <span className="text-[9px] font-mono font-bold text-white/90">Primária: {formData.companyColor || '#00B5AD'}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="w-3 h-3 rounded-full border border-white/40 shadow-sm" style={{ backgroundColor: formData.secondaryColor || '#1996DC' }} />
+                              <span className="text-[9px] font-mono font-bold text-white/90">Secundária: {formData.secondaryColor || '#1996DC'}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="w-3 h-3 rounded-full border border-white/40 shadow-sm" style={{ backgroundColor: formData.tertiaryColor || '#001D4A' }} />
+                              <span className="text-[9px] font-mono font-bold text-white/90">Base: {formData.tertiaryColor || '#001D4A'}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="bg-blue-50/50 p-6 rounded-2xl border border-blue-100/50 mt-4">
                       <p className="text-[11px] font-bold text-blue-600 uppercase tracking-widest flex items-center gap-2">
                         <Globe className="w-4 h-4" /> Fluxo de Convite Ativado
                       </p>
@@ -860,7 +1242,7 @@ export default function SuperAdminDashboard() {
                     <button
                       type="submit"
                       disabled={creating}
-                      className="w-full py-5 bg-navy text-white font-bold uppercase text-xs tracking-widest rounded-xl shadow-xl shadow-navy/20 hover:bg-[#002880] hover:-translate-y-1 transition-all flex items-center justify-center gap-3 active:translate-y-0 active:scale-95"
+                      className="w-full py-5 bg-navy text-white font-bold uppercase text-xs tracking-widest rounded-xl shadow-xl shadow-navy/20 hover:bg-[#002880] hover:-translate-y-1 transition-all flex items-center justify-center gap-3 active:translate-y-0 active:scale-95 cursor-pointer"
                     >
                       {creating ? <Loader2 className="animate-spin" /> : (editingTenant ? 'Salvar Configurações' : 'Confirmar & Gerar Acesso')}
                     </button>

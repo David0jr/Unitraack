@@ -17,6 +17,7 @@ import { ListSectorMaterials } from '../../../application/use-cases/ListSectorMa
 import { TransferMaterial } from '../../../application/use-cases/TransferMaterial';
 import { AcceptMaterialTransfer } from '../../../application/use-cases/AcceptMaterialTransfer';
 import { RejectMaterialTransfer } from '../../../application/use-cases/RejectMaterialTransfer';
+import { CancelMaterialTransfer } from '../../../application/use-cases/CancelMaterialTransfer';
 import { MarkCheckout } from '../../../application/use-cases/MarkCheckout';
 import { CancelByGatekeeper } from '../../../application/use-cases/CancelByGatekeeper';
 import { MarkMaterialForExit } from '../../../application/use-cases/MarkMaterialForExit';
@@ -380,6 +381,22 @@ export class RequestController {
       return ApiResponse.success(res, { message: 'Transferência recusada. Materiais devolvidos ao setor de origem.' });
     } catch (error: any) {
       console.error("[RequestController.rejectTransfer] Erro:", error);
+      return ApiResponse.error(res, error.message);
+    }
+  }
+
+  static async cancelTransfer(req: AuthRequest, res: Response) {
+    try {
+      const { materialIds } = req.body;
+      const profile = await userService.findProfileById(req.user.id);
+      if (!profile || !profile.tenant_id || !profile.sector_id) return ApiResponse.error(res, 'Perfil ou Setor não encontrado.', 403);
+
+      const useCase = new CancelMaterialTransfer(requestRepo);
+      await useCase.execute(materialIds, req.user.id, profile.tenant_id);
+      
+      return ApiResponse.success(res, { message: 'Envio cancelado com sucesso. Material retornado ao setor.' });
+    } catch (error: any) {
+      console.error("[RequestController.cancelTransfer] Erro:", error);
       return ApiResponse.error(res, error.message);
     }
   }

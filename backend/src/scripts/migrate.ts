@@ -44,7 +44,10 @@ async function migrate() {
     'create_invitations.sql',
     'super_admin_setup.sql',
     'update_v13_material_status.sql',
-    'audit_audit_tracking.sql'
+    'audit_audit_tracking.sql',
+    'update_v15_tenant_branding.sql',
+    'update_v16_registration_number.sql',
+    'update_v17_tenant_triad_colors.sql'
   ];
 
   console.log('\n🚀 Iniciando Automação de Banco de Dados...');

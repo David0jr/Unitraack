@@ -2,10 +2,27 @@ import { Response } from 'express';
 import { AuthRequest } from '../../../middlewares/authMiddleware';
 import { tenantService } from '../../../services/TenantService';
 import { userService } from '../../../services/UserService';
+import { BrandExtractionService } from '../../../services/BrandExtractionService';
 import { v4 as uuidv4 } from 'uuid';
 import { supabaseAdmin } from '../../../config/supabase';
 
 export class SuperAdminController {
+
+  static async extractBranding(req: AuthRequest, res: Response): Promise<any> {
+    try {
+      const { url } = req.body;
+      if (!url) {
+        res.status(400).json({ error: 'URL é obrigatória.' });
+        return;
+      }
+
+      const data = await BrandExtractionService.extract(url);
+      res.json({ success: true, data });
+    } catch (error: any) {
+      console.error('[SuperAdminController.extractBranding] Erro:', error);
+      res.status(500).json({ error: error.message || 'Erro ao extrair identidade da marca.' });
+    }
+  }
 
   static async listTenants(req: AuthRequest, res: Response): Promise<any> {
     try {
@@ -19,14 +36,14 @@ export class SuperAdminController {
 
   static async createTenantAndGenerateInvite(req: AuthRequest, res: Response): Promise<any> {
     try {
-      const { tenantName, tenantCnpj } = req.body;
+      const { tenantName, tenantCnpj, logo_url, company_color, secondary_color, tertiary_color } = req.body;
 
       if (!tenantName || !tenantCnpj) {
         res.status(400).json({ error: 'Nome e CNPJ são obrigatórios.' });
         return;
       }
 
-      const tenant = await tenantService.create(tenantName, tenantCnpj);
+      const tenant = await tenantService.create(tenantName, tenantCnpj, logo_url, company_color, secondary_color, tertiary_color);
       const token = uuidv4();
       const { error: iError } = await supabaseAdmin
         .from('invitations')
@@ -49,8 +66,8 @@ export class SuperAdminController {
       });
 
     } catch (error: any) {
-      console.error(error);
-      res.status(500).json({ error: 'Erro interno ao criar Usina.' });
+      console.error('[SuperAdminController.createTenantAndGenerateInvite] Erro:', error);
+      res.status(500).json({ error: error.message || 'Erro interno ao criar Usina.' });
     }
   }
 
@@ -82,14 +99,14 @@ export class SuperAdminController {
   static async updateTenant(req: AuthRequest, res: Response): Promise<any> {
     try {
       const { id } = req.params;
-      const { name, cnpj, logo_url, company_color } = req.body;
+      const { name, cnpj, logo_url, company_color, secondary_color, tertiary_color } = req.body;
 
       if (!name || !cnpj) {
         res.status(400).json({ error: 'Nome e CNPJ são obrigatórios.' });
         return;
       }
 
-      const data = await tenantService.update(id as string, { name, cnpj, logo_url, company_color });
+      const data = await tenantService.update(id as string, { name, cnpj, logo_url, company_color, secondary_color, tertiary_color });
       res.json({ message: 'Usina atualizada com sucesso!', tenant: data });
 
     } catch (error: any) {

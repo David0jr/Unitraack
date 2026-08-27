@@ -12,7 +12,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const { login, signOut, user, profile, loading: authLoading } = useAuth();
-  const { tenant } = useTenant();
+  const { tenant, loading: tenantLoading, slug } = useTenant();
   const navigate = useNavigate();
   const location = useLocation();
   const isLoggingIn = useRef(false);
@@ -34,6 +34,42 @@ export default function Login() {
       window.history.replaceState({}, document.title);
     }
   }, [location.state]);
+
+  if (slug && tenantLoading && !tenant) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
+        <div className="flex flex-col items-center gap-4 animate-in fade-in duration-300">
+          <Loader2 className="w-10 h-10 text-primary animate-spin" />
+          <p className="text-white font-bold text-xs uppercase tracking-widest">Carregando portal da usina...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Se a rota possui um slug mas a usina não existe ou foi excluída
+  if (slug && !tenantLoading && !tenant) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 font-brand selection:bg-rose-500 selection:text-white">
+        <div className="bg-white p-10 lg:p-12 rounded-3xl shadow-xl max-w-md w-full text-center border border-slate-100 animate-in zoom-in-95 duration-300">
+          <div className="w-20 h-20 bg-rose-50 text-rose-500 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-inner">
+            <ShieldAlert className="w-10 h-10" />
+          </div>
+          <h2 className="text-2xl font-bold text-navy mb-2 tracking-tight">Usina Não Encontrada</h2>
+          <p className="text-slate-500 text-sm leading-relaxed mb-8">
+            O portal <strong className="text-navy font-semibold">"{slug}"</strong> foi desativado, excluído ou não existe no sistema.
+          </p>
+          <div className="space-y-3">
+            <button
+              onClick={() => navigate('/')}
+              className="w-full py-4 bg-navy text-white font-bold text-xs uppercase tracking-widest rounded-xl flex items-center justify-center gap-2 hover:bg-navy/90 shadow-lg shadow-navy/10 transition-all active:scale-95"
+            >
+              Ir para o Início <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -115,63 +151,77 @@ export default function Login() {
   return (
     <div className="min-h-screen relative flex items-center justify-center p-4 overflow-hidden font-brand selection:bg-primary selection:text-white bg-slate-50">
       
-      {/* Background Shapes (Inspirado no Admin, mas com cores da Lins) */}
-      <div className="absolute inset-0 z-0 overflow-hidden">
-        <div className="absolute top-0 right-0 w-1/2 h-full bg-primary/10 md:bg-primary transform skew-x-[-20deg] translate-x-1/4"></div>
-        <div className="absolute bottom-0 left-0 w-full h-1/2 bg-navy/5 md:bg-navy transform skew-y-[-10deg] translate-y-1/4"></div>
+      {/* Background Shapes (Idêntico ao Cadastro de Empresas) */}
+      <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-0 right-0 w-1/2 h-full bg-primary/10 md:bg-primary transform skew-x-[-20deg] translate-x-1/4 transition-colors duration-500"></div>
+        <div className="absolute bottom-0 left-0 w-full h-1/2 bg-navy/5 md:bg-navy transform skew-y-[-10deg] translate-y-1/4 transition-colors duration-500"></div>
       </div>
 
       <div className="w-full max-w-5xl z-10">
         
         {/* Logo Section (Mobile Only) */}
         <div className="flex flex-col items-center mb-8 lg:hidden">
-           <img 
-              src={tenant?.logo_url || "https://linsagro.com.br/wp-content/uploads/2022/07/cropped-Lins_Logo_Horizontal_RGB_Preferencial_20250512_Keenwork_AF.png"} 
-              alt={tenant?.name || "Lins"} 
-              className="h-8 object-contain mb-2" 
-            />
-            <span className="text-[10px] font-bold uppercase tracking-widest text-navy/60">Portal de Acesso</span>
+           {tenant?.logo_url ? (
+             <img 
+               src={tenant.logo_url} 
+               alt={tenant?.name || "Usina"} 
+               className="h-8 object-contain mb-2" 
+             />
+           ) : (
+             <span className="text-lg font-black uppercase text-navy tracking-tight mb-1">{tenant?.name || 'Portal'}</span>
+           )}
         </div>
 
         {/* Main Card */}
         <div className="bg-white rounded-2xl shadow-xl overflow-hidden flex flex-col md:flex-row min-h-[500px] border border-white/20 backdrop-blur-sm">
           
-          {/* Left Side - Identity / Particle Background (Inspirado no Admin) */}
-          <div className="w-full md:w-1/2 bg-navy p-8 lg:p-12 flex flex-col justify-between relative overflow-hidden hidden md:flex">
+          {/* Left Side - Identity / Particle Background (Tríade da Usina) */}
+          <div 
+            className="w-full md:w-1/2 bg-navy p-8 lg:p-12 flex flex-col justify-between relative overflow-hidden hidden md:flex transition-colors duration-500"
+            style={{ backgroundColor: tenant?.tertiary_color || undefined }}
+          >
             
             {/* Particle Canvas */}
             <div className="absolute inset-0 opacity-40 mix-blend-screen">
               <ParticleBackground />
             </div>
 
-            {/* Decorative Gradient Overlay */}
-            <div className="absolute inset-0 bg-gradient-to-br from-primary/30 via-transparent to-black/40 pointer-events-none"></div>
+            {/* Decorative Gradient Overlay combinando as 3 cores */}
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/30 via-secondary/20 to-black/40 pointer-events-none"></div>
 
             <div className="relative z-10 flex flex-col h-full">
-              {/* Logo Section - Much larger as requested */}
+              {/* Logo Section */}
               <div className="mb-auto">
-                <img 
-                  src={tenant?.logo_url || "https://linsagro.com.br/wp-content/uploads/2022/07/cropped-Lins_Logo_Horizontal_RGB_Preferencial_20250512_Keenwork_AF.png"} 
-                  alt={tenant?.name || "Lins"} 
-                  className="h-20 lg:h-32 object-contain brightness-0 invert mb-6 transition-all" 
-                />
-                <div className="inline-flex items-center gap-3 px-4 py-2 bg-white/10 backdrop-blur-md rounded-full border border-white/10">
-                  <span className="text-[10px] text-white/70 font-bold uppercase tracking-widest">Portal Oficial de Segurança</span>
+                <div className="h-20 lg:h-28 flex items-center mb-6">
+                  {tenant?.logo_url ? (
+                    <img 
+                      src={tenant.logo_url} 
+                      alt={tenant?.name || "Logo"} 
+                      className="max-h-full max-w-[240px] object-contain drop-shadow-md transition-all" 
+                    />
+                  ) : (
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center text-white font-black text-2xl shadow-lg">
+                        {tenant?.name?.[0] || 'U'}
+                      </div>
+                      <span className="text-white font-black text-2xl tracking-tight uppercase">{tenant?.name || 'Usina'}</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
-              {/* Description - Moved to the bottom near the credits */}
+              {/* Description */}
               <div className="mt-auto">
-                <p className="text-slate-400 text-sm max-w-xs leading-relaxed font-medium mb-6">
-                  Acesse o sistema da <strong className="text-white/90">{tenant?.name || 'Usina Lins'}</strong> para gerenciar suas entregas e operações diárias.
+                <p className="text-slate-300 text-sm max-w-xs leading-relaxed font-medium mb-6">
+                  Acesse o sistema da <strong className="text-white font-bold">{tenant?.name || 'sua Usina'}</strong> para gerenciar suas entregas e operações diárias.
                 </p>
                 
                 <div className="pt-6 border-t border-white/10 flex items-center justify-between">
-                  <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Lins Agroindustrial &copy; 2026</p>
+                  <p className="text-[10px] text-white/70 uppercase tracking-widest font-bold">{tenant?.name || 'Portal'} &copy; 2026</p>
                   <div className="flex gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></div>
-                    <div className="w-1.5 h-1.5 rounded-full bg-primary/40"></div>
-                    <div className="w-1.5 h-1.5 rounded-full bg-primary/20"></div>
+                    <div className="w-2 h-2 rounded-full bg-primary shadow-sm" title="Cor Primária" />
+                    <div className="w-2 h-2 rounded-full bg-secondary shadow-sm" title="Cor Secundária" />
+                    <div className="w-2 h-2 rounded-full border border-white/40 shadow-sm" style={{ backgroundColor: tenant?.tertiary_color || '#001D4A' }} title="Cor Base" />
                   </div>
                 </div>
               </div>

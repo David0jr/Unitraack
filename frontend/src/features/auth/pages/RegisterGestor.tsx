@@ -53,8 +53,8 @@ export default function RegisterGestor() {
         });
         const data = await resp.json();
         
-        if (resp.ok) {
-          setInvitation(data);
+        if (resp.ok && (data.success !== false)) {
+          setInvitation(data.data || data);
         } else {
           setError(data.error || 'Convite inválido ou expirado.');
         }
@@ -92,11 +92,11 @@ export default function RegisterGestor() {
         })
       });
 
-      if (resp.ok) {
+      const d = await resp.json();
+      if (resp.ok && (d.success !== false)) {
         setSuccess(true);
       } else {
-        const d = await resp.json();
-        alert(d.error);
+        alert(d.error || 'Erro ao realizar cadastro.');
       }
     } catch (err) {
       alert('Erro ao realizar cadastro.');
@@ -200,24 +200,31 @@ export default function RegisterGestor() {
 
             <div className="relative z-10 flex flex-col h-full">
               <div className="mb-auto">
-                <img 
-                  src={invitation?.tenant?.logo_url || "https://linsagro.com.br/wp-content/uploads/2022/07/cropped-Lins_Logo_Horizontal_RGB_Preferencial_20250512_Keenwork_AF.png"} 
-                  alt={invitation?.tenant?.name || "Lins"} 
-                  className="h-16 lg:h-20 object-contain brightness-0 invert mb-6" 
-                />
-                <div className="inline-flex items-center gap-3 px-4 py-2 bg-white/10 backdrop-blur-md rounded-full border border-white/10">
-                  <ShieldCheck className="w-4 h-4 text-primary" />
-                  <span className="text-[10px] text-white/70 font-bold uppercase tracking-widest">Acesso Gestor</span>
+                <div className="h-16 lg:h-20 flex items-center mb-6">
+                  {invitation?.tenant?.logo_url ? (
+                    <img 
+                      src={invitation.tenant.logo_url} 
+                      alt={invitation?.tenant?.name || "Logo"} 
+                      className="max-h-full max-w-[200px] object-contain drop-shadow-md" 
+                    />
+                  ) : (
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-white font-black text-xl shadow-lg">
+                        {invitation?.tenant?.name?.[0] || 'U'}
+                      </div>
+                      <span className="text-white font-black text-xl tracking-tight uppercase">{invitation?.tenant?.name || 'Usina'}</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
               <div className="mt-auto">
                 <p className="text-slate-400 text-sm max-w-xs leading-relaxed font-medium mb-8">
-                  Provisionamento de acesso administrativo para a gestão de segurança e operações.
+                  Provisionamento de acesso administrativo para a gestão de segurança e operações da <strong className="text-white">{invitation?.tenant?.name || 'Usina'}</strong>.
                 </p>
                 
                 <div className="pt-6 border-t border-white/10 flex items-center justify-between">
-                  <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Protocolo Seguro &copy; 2026</p>
+                  <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">{invitation?.tenant?.name || 'Unitraack Control'} &copy; 2026</p>
                 </div>
               </div>
             </div>
