@@ -10,7 +10,10 @@ import {
   User as UserIcon,
   Mail,
   Building2,
-  LayoutGrid
+  LayoutGrid,
+  Hash,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { maskCNPJ, validateEmail } from '../../../utils/masks';
 import { useTenant } from '../../../contexts/TenantContext';
@@ -33,6 +36,7 @@ export default function RegisterInternal() {
     email: '',
     password: '',
     fullName: '',
+    registrationNumber: '',
     sector: '',
     sector_id: '',
     usinaCnpj: '',
@@ -153,14 +157,21 @@ export default function RegisterInternal() {
 
             <div className="relative z-10 flex flex-col h-full">
               <div className="mb-auto">
-                <img 
-                  src={tenant?.logo_url || "https://linsagro.com.br/wp-content/uploads/2022/07/cropped-Lins_Logo_Horizontal_RGB_Preferencial_20250512_Keenwork_AF.png"} 
-                  alt={tenant?.name || "Lins"} 
-                  className="h-16 lg:h-20 object-contain brightness-0 invert mb-6" 
-                />
-                <div className="inline-flex items-center gap-3 px-4 py-2 bg-white/10 backdrop-blur-md rounded-full border border-white/10">
-                  <ShieldCheck className="w-4 h-4 text-primary" />
-                  <span className="text-[10px] text-white/70 font-bold uppercase tracking-widest">Portal do Colaborador</span>
+                <div className="h-16 lg:h-20 flex items-center mb-6">
+                  {tenant?.logo_url ? (
+                    <img 
+                      src={tenant.logo_url} 
+                      alt={tenant?.name || "Logo"} 
+                      className="max-h-full max-w-[200px] object-contain drop-shadow-md" 
+                    />
+                  ) : (
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-white font-black text-xl shadow-lg">
+                        {tenant?.name?.[0] || 'U'}
+                      </div>
+                      <span className="text-white font-black text-xl tracking-tight uppercase">{tenant?.name || 'Usina'}</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -211,6 +222,14 @@ export default function RegisterInternal() {
                     value={formData.fullName} 
                     onChange={v => setFormData({...formData, fullName: v})} 
                     placeholder="Ex: Lucas Ferreira" 
+                  />
+                  
+                  <InputGroup 
+                    label="Número de Matrícula" 
+                    icon={<Hash className="w-4 h-4" />}
+                    value={formData.registrationNumber} 
+                    onChange={v => setFormData({...formData, registrationNumber: v})} 
+                    placeholder="Ex: 123456" 
                   />
                   
                   <InputGroup 
@@ -293,6 +312,10 @@ function InputGroup({
   disabled?: boolean,
   icon?: React.ReactNode
 }) {
+  const [showPassword, setShowPassword] = useState(false);
+  const isPassword = type === 'password';
+  const currentType = isPassword ? (showPassword ? 'text' : 'password') : type;
+
   return (
     <div className="space-y-1.5 w-full group">
       <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 tracking-widest transition-colors group-focus-within:text-primary">
@@ -305,18 +328,27 @@ function InputGroup({
           </div>
         )}
         <input 
-          type={type}
+          type={currentType}
           required
           value={value}
           disabled={disabled}
           onChange={e => onChange(e.target.value)}
           placeholder={placeholder}
-          className={`w-full ${icon ? 'pl-11' : 'px-5'} pr-5 py-3 border rounded-xl text-navy placeholder-slate-300 focus:outline-none transition-all font-bold text-sm ${
+          className={`w-full ${icon ? 'pl-11' : 'px-5'} py-3 border rounded-xl text-navy placeholder-slate-300 focus:outline-none transition-all font-bold text-sm ${
             disabled 
               ? 'bg-slate-50 border-slate-100 text-slate-400 cursor-not-allowed' 
               : 'bg-slate-50/50 border-slate-100 focus:ring-4 focus:ring-primary/5 focus:border-primary focus:bg-white'
-          }`}
+          } ${isPassword ? 'pr-11' : 'pr-5'}`}
         />
+        {isPassword && !disabled && (
+          <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-primary focus:outline-none p-1 transition-colors"
+          >
+            {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+          </button>
+        )}
       </div>
     </div>
   );

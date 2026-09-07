@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
-import { X, Send, ShieldCheck, Loader2, ChevronDown, Package, ClipboardCheck, Info, Camera } from 'lucide-react';
+import { X, Send, ShieldCheck, Loader2, ChevronDown, Package, ClipboardCheck, Info, Camera, Hash, Upload } from 'lucide-react';
 import { useDashboard } from '../../../../contexts/DashboardContext';
-import { SignaturePad } from '../../../../components/SignaturePad';
+import { WebcamModal } from '../../../../components/WebcamModal';
 
 interface TransferModalProps {
   materialIds: string[];
   onClose: () => void;
   onConfirm: (toSectorId: string, signature: string, extraData?: any, photos?: string[]) => Promise<void>;
+  onMarkExit?: (signature: string, extraData?: any, photos?: string[]) => Promise<void>;
   isProcessing: boolean;
 }
 
@@ -14,6 +15,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({
   materialIds, 
   onClose, 
   onConfirm,
+  onMarkExit,
   isProcessing
 }) => {
   const { sectors } = useDashboard();
@@ -21,6 +23,8 @@ export const TransferModal: React.FC<TransferModalProps> = ({
   const [selectedSubSector, setSelectedSubSector] = useState('');
   const [signature, setSignature] = useState('');
   const [photos, setPhotos] = useState<string[]>([]);
+  const [observation, setObservation] = useState('');
+  const [isWebcamOpen, setIsWebcamOpen] = useState(false);
   
   // Novos campos para fluxo de Portaria
   const [transferType, setTransferType] = useState('TOTAL');
@@ -51,13 +55,22 @@ export const TransferModal: React.FC<TransferModalProps> = ({
     e.preventDefault();
     if (!selectedSubSector || !signature) return;
     
-    const extraData = isPortaria ? { transferType, exitReason } : undefined;
+    const extraData = isPortaria ? { transferType, exitReason, observation } : { observation };
     onConfirm(selectedSubSector, signature, extraData, photos.length > 0 ? photos : undefined);
   };
 
+  const getMissingMessage = () => {
+    if (!selectedParentSector) return "Selecione a área de destino geral";
+    if (!selectedSubSector) return "Selecione o local específico";
+    if (!signature) return "Digite a matrícula do responsável";
+    return null;
+  };
+
+  const missingMessage = getMissingMessage();
+
   return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center p-2 md:p-4 bg-navy/80 backdrop-blur-md animate-in fade-in duration-300">
-      <div className="bg-white w-full max-w-md max-h-[95vh] flex flex-col rounded-[2.5rem] overflow-hidden shadow-[0_50px_100px_-20px_rgba(0,0,0,0.3)] animate-in zoom-in-95 duration-300 border border-white/20">
+    <div className="fixed inset-0 z-[120] flex items-center justify-center p-2 md:p-4 bg-navy/80 backdrop-blur-md animate-in fade-in duration-300" onClick={onClose}>
+      <div className="bg-white w-full max-w-md max-h-[95vh] flex flex-col rounded-[2.5rem] overflow-hidden shadow-[0_50px_100px_-20px_rgba(0,0,0,0.3)] animate-in zoom-in-95 duration-300" onClick={(e) => e.stopPropagation()}>
         
         {/* Header - Premium Style (Fixed) */}
         <div className="bg-navy p-6 md:p-8 relative overflow-hidden shrink-0">
@@ -145,11 +158,21 @@ export const TransferModal: React.FC<TransferModalProps> = ({
               <div className="space-y-4 pt-4 border-t border-slate-100">
                 <div className="flex items-center justify-between">
                   <label className="text-[10px] text-slate-400 font-bold uppercase tracking-widest block">Evidência Fotográfica</label>
-                  <label className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 text-primary rounded-xl hover:bg-primary hover:text-white transition-all cursor-pointer group">
-                    <Camera className="w-4 h-4" />
-                    <span className="text-[10px] font-black uppercase">Capturar</span>
-                    <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handleCapturePhoto} />
-                  </label>
+                  <div className="flex gap-2">
+                    <button 
+                      type="button"
+                      onClick={() => setIsWebcamOpen(true)}
+                      className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 text-primary rounded-xl hover:bg-primary hover:text-white transition-all cursor-pointer group"
+                    >
+                      <Camera className="w-4 h-4" />
+                      <span className="text-[10px] font-black uppercase hidden sm:inline">Câmera</span>
+                    </button>
+                    <label className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-200 hover:text-slate-800 transition-all cursor-pointer group">
+                      <Upload className="w-4 h-4" />
+                      <span className="text-[10px] font-black uppercase hidden sm:inline">Galeria</span>
+                      <input type="file" accept="image/*" className="hidden" onChange={handleCapturePhoto} />
+                    </label>
+                  </div>
                 </div>
 
                 {photos.length > 0 && (
@@ -168,6 +191,16 @@ export const TransferModal: React.FC<TransferModalProps> = ({
                     ))}
                   </div>
                 )}
+                
+                <div className="group">
+                  <label className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-2 ml-1 block transition-colors group-focus-within:text-primary">Observação da Evidência</label>
+                  <textarea 
+                    placeholder="Descreva o estado do equipamento..."
+                    value={observation}
+                    onChange={(e) => setObservation(e.target.value)}
+                    className="w-full bg-slate-50/50 border border-slate-100 rounded-2xl px-5 py-3.5 md:py-4 text-sm font-bold text-navy focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all outline-none shadow-sm min-h-[80px] custom-scrollbar"
+                  />
+                </div>
               </div>
 
               {/* Fluxo de Saída para Portaria */}
@@ -215,32 +248,78 @@ export const TransferModal: React.FC<TransferModalProps> = ({
               )}
             </div>
 
-            <SignaturePad 
-              placeholder="Assinatura Digital do Responsável"
-              onSave={setSignature}
-              onClear={() => setSignature('')}
-            />
+            <div className="space-y-3 pt-4 border-t border-slate-100 group">
+              <div className="flex items-center gap-2">
+                <Hash className="w-4 h-4 text-primary" />
+                <label className="text-[10px] text-slate-400 font-bold uppercase tracking-widest block transition-colors group-focus-within:text-primary">Matrícula do Responsável</label>
+              </div>
+              <input 
+                type="text" 
+                placeholder="DIGITE SUA MATRÍCULA PARA CONFIRMAR..."
+                value={signature}
+                onChange={(e) => setSignature(e.target.value)}
+                className="w-full px-5 py-4 bg-slate-50/50 border border-slate-100 rounded-2xl text-navy placeholder:text-slate-300 focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all font-black text-sm tracking-widest uppercase"
+                required
+              />
+            </div>
           </div>
 
           {/* Footer - Fixed Button */}
-          <div className="p-6 md:p-8 pt-0 shrink-0">
-            <button 
-              type="submit"
-              disabled={!selectedSubSector || !signature || isProcessing}
-              className="w-full bg-navy hover:bg-[#001D4A]/90 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-[11px] md:text-xs uppercase tracking-widest py-4 md:py-5 rounded-[1.5rem] shadow-[0_20px_40px_-10px_rgba(0,29,74,0.3)] transition-all flex items-center justify-center gap-3 active:scale-[0.98] group"
-            >
-              {isProcessing ? (
-                <Loader2 className="w-5 h-5 animate-spin opacity-40" />
-              ) : (
-                <>
-                  <ShieldCheck className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                  Confirmar Transferência
-                </>
+          <div className="p-6 md:p-8 pt-0 shrink-0 flex flex-col gap-3">
+            {missingMessage && !onMarkExit && (
+               <div className="bg-amber-50/50 border border-amber-100 p-3 rounded-2xl flex items-center justify-center gap-2 animate-in fade-in zoom-in duration-300">
+                 <Info className="w-4 h-4 text-amber-500" />
+                 <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest">{missingMessage}</p>
+               </div>
+            )}
+            
+            <div className="flex flex-col gap-2">
+              <button 
+                type="submit"
+                disabled={!selectedSubSector || !signature || isProcessing}
+                className="w-full bg-navy hover:bg-[#001D4A]/90 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-[11px] md:text-xs uppercase tracking-widest py-4 md:py-5 rounded-[1.5rem] shadow-[0_20px_40px_-10px_rgba(0,29,74,0.3)] transition-all flex items-center justify-center gap-3 active:scale-[0.98] group"
+              >
+                {isProcessing ? (
+                  <Loader2 className="w-5 h-5 animate-spin opacity-40" />
+                ) : (
+                  <>
+                    <ShieldCheck className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                    Confirmar Transferência
+                  </>
+                )}
+              </button>
+
+              {onMarkExit && (
+                <button 
+                  type="button"
+                  onClick={() => onMarkExit(signature, isPortaria ? { transferType, exitReason, observation } : { observation }, photos.length > 0 ? photos : undefined)}
+                  disabled={!signature || isProcessing}
+                  className="w-full bg-rose-50 hover:bg-rose-100 disabled:opacity-50 disabled:cursor-not-allowed text-rose-600 font-bold text-[11px] md:text-xs uppercase tracking-widest py-4 md:py-5 rounded-[1.5rem] border border-rose-200 transition-all flex items-center justify-center gap-3 active:scale-[0.98] group mt-2"
+                >
+                  {isProcessing ? (
+                    <Loader2 className="w-5 h-5 animate-spin opacity-40 text-rose-600" />
+                  ) : (
+                    <>
+                      <Package className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                      Dar Baixa / Enviar para Portaria
+                    </>
+                  )}
+                </button>
               )}
-            </button>
+            </div>
           </div>
         </form>
       </div>
+      
+      {isWebcamOpen && (
+        <WebcamModal 
+          onClose={() => setIsWebcamOpen(false)}
+          onCapture={(imageSrc) => {
+            setPhotos(prev => [...prev, imageSrc]);
+            setIsWebcamOpen(false);
+          }}
+        />
+      )}
     </div>
   );
 };

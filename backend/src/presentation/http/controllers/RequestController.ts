@@ -16,6 +16,11 @@ import { GetAuditHistory } from '../../../application/use-cases/GetAuditHistory'
 import { ListSectorMaterials } from '../../../application/use-cases/ListSectorMaterials';
 import { TransferMaterial } from '../../../application/use-cases/TransferMaterial';
 import { AcceptMaterialTransfer } from '../../../application/use-cases/AcceptMaterialTransfer';
+import { RejectMaterialTransfer } from '../../../application/use-cases/RejectMaterialTransfer';
+import { CancelMaterialTransfer } from '../../../application/use-cases/CancelMaterialTransfer';
+import { MarkCheckout } from '../../../application/use-cases/MarkCheckout';
+import { CancelByGatekeeper } from '../../../application/use-cases/CancelByGatekeeper';
+import { MarkMaterialForExit } from '../../../application/use-cases/MarkMaterialForExit';
 import { userService } from '../../../services/UserService';
 
 const requestRepo = new SupabaseRequestRepository();
@@ -58,8 +63,13 @@ export class RequestController {
       const profile = await userService.findProfileById(req.user.id);
       if (!profile || !profile.tenant_id) return ApiResponse.error(res, 'Tenant não identificado.', 403);
 
+      const queryFilters = { ...(req.query as any) };
+      if (profile.role === 'TERCEIRIZADA') {
+        queryFilters.profile_id = profile.id;
+      }
+
       const useCase = new ListRequests(requestRepo);
-      const requests = await useCase.execute(profile.tenant_id, req.query as any);
+      const requests = await useCase.execute(profile.tenant_id, queryFilters);
       return ApiResponse.success(res, requests);
     } catch (error: any) {
       console.error("[RequestController.listByTenant] Erro:", error);
@@ -75,7 +85,7 @@ export class RequestController {
       const useCase = new ListRequests(requestRepo);
       // Filtra apenas pendências do setor do líder
       const requests = await useCase.execute(profile.tenant_id, {
-        status: ['PENDING', 'APPROVED_LIDER'], // Pendências para o líder
+        status: ['PENDING'], // Pendências para o líder
         sector: profile.sector || undefined,
         sector_id: profile.sector_id || undefined
       });
@@ -84,7 +94,8 @@ export class RequestController {
         requests,
         lider: {
           full_name: profile.full_name,
-          sector: profile.sector || 'Geral'
+          sector: profile.sector || 'Geral',
+          sector_id: profile.sector_id || undefined
         }
       });
     } catch (error: any) {
@@ -127,12 +138,12 @@ export class RequestController {
   static async confirmMovement(req: AuthRequest, res: Response) {
     try {
       const id = req.params.id as string;
-      const { materialIds, type, signature, photos } = req.body; // type: 'ENTRY' | 'EXIT'
+      const { materialIds, type, signature, photos, observation } = req.body; // type: 'ENTRY' | 'EXIT'
       const profile = await userService.findProfileById(req.user.id);
       if (!profile || !profile.tenant_id) return ApiResponse.error(res, 'Tenant não identificado.', 403);
 
       const useCase = new ConfirmMaterialMovement(requestRepo);
-      await useCase.execute(id, materialIds, type, req.user.id, profile.tenant_id, signature, photos);
+      await useCase.execute(id, materialIds, type, req.user.id, profile.tenant_id, signature, photos, observation);
       return ApiResponse.success(res, { message: 'Movimentação confirmada com sucesso!' });
     } catch (error: any) {
       console.error("[RequestController.confirmMovement] Erro:", error);
@@ -147,7 +158,7 @@ export class RequestController {
       if (!profile || !profile.tenant_id) return ApiResponse.error(res, 'Tenant não identificado.', 403);
 
       const useCase = new GetRequestDetails(requestRepo);
-      const data = await useCase.execute(id, profile.tenant_id);
+      const data = await useCase.execute(id, profile.tenant_id, profile.role, profile.id);
       return ApiResponse.success(res, data);
     } catch (error: any) {
       return ApiResponse.error(res, error.message);
@@ -162,8 +173,7 @@ export class RequestController {
       if (!profile || !profile.tenant_id) return ApiResponse.error(res, 'Tenant não identificado.', 403);
 
       const useCase = new UpdateEntryRequest(requestRepo);
-      // UpdateEntryRequest agora valida o tenant internamente
-      await useCase.execute(id, { sector, sector_id, entry_date, driver_name, plate }, materials, profile.tenant_id);
+      await useCase.execute(id, { sector, sector_id, entry_date, driver_name, plate }, materials, profile.tenant_id, profile.role, profile.id);
       return ApiResponse.success(res, { message: 'Solicitação atualizada com sucesso!' });
     } catch (error: any) {
       console.error("[RequestController.update] Erro:", error);
@@ -178,7 +188,7 @@ export class RequestController {
       if (!profile || !profile.tenant_id) return ApiResponse.error(res, 'Tenant não identificado.', 403);
 
       const useCase = new CancelEntryRequest(requestRepo);
-      await useCase.execute(id, profile.tenant_id);
+      await useCase.execute(id, profile.tenant_id, profile.role, profile.id);
       return ApiResponse.success(res, { message: 'Solicitação cancelada com sucesso!' });
     } catch (error: any) {
       console.error("[RequestController.cancel] Erro:", error);
@@ -193,7 +203,7 @@ export class RequestController {
       if (!profile || !profile.tenant_id) return ApiResponse.error(res, 'Perfil não encontrado.', 403);
       
       const useCase = new DeleteEntryRequest(requestRepo);
-      await useCase.execute(id, profile.role, profile.tenant_id);
+      await useCase.execute(id, profile.role, profile.tenant_id, profile.id);
       return ApiResponse.success(res, { message: 'Solicitação excluída com sucesso!' });
     } catch (error: any) {
       console.error("[RequestController.delete] Erro:", error);
@@ -217,10 +227,61 @@ export class RequestController {
     }
   }
 
+  static async markCheckout(req: AuthRequest, res: Response) {
+    try {
+      const { request_id } = req.body;
+      if (!request_id) return ApiResponse.error(res, 'request_id é obrigatório.', 400);
+
+      const profile = await userService.findProfileById(req.user.id);
+      if (!profile || !profile.tenant_id) return ApiResponse.error(res, 'Tenant não identificado.', 403);
+
+      const useCase = new MarkCheckout(requestRepo);
+      await useCase.execute(request_id, req.user.id, profile.tenant_id);
+      
+      return ApiResponse.success(res, { message: 'Saída definitiva registrada com sucesso!' });
+    } catch (error: any) {
+      console.error("[RequestController.markCheckout] Erro:", error);
+      return ApiResponse.error(res, error.message);
+    }
+  }
+
+  static async cancelByGatekeeper(req: AuthRequest, res: Response) {
+    try {
+      const id = req.params.id as string;
+      const { reason } = req.body;
+      const profile = await userService.findProfileById(req.user.id);
+      if (!profile || !profile.tenant_id) return ApiResponse.error(res, 'Tenant não identificado.', 403);
+
+      const useCase = new CancelByGatekeeper(requestRepo);
+      await useCase.execute(id, profile.tenant_id, reason, req.user.id);
+      return ApiResponse.success(res, { message: 'Solicitação cancelada com sucesso.' });
+    } catch (error: any) {
+      console.error("[RequestController.cancelByGatekeeper] Erro:", error);
+      return ApiResponse.error(res, error.message);
+    }
+  }
+
+  static async markMaterialForExit(req: AuthRequest, res: Response) {
+    try {
+      const { materialIds, signature, photos, observation } = req.body;
+      const profile = await userService.findProfileById(req.user.id);
+      if (!profile || !profile.tenant_id) return ApiResponse.error(res, 'Perfil ou Unidade não identificada.', 403);
+
+      const useCase = new MarkMaterialForExit(requestRepo);
+      await useCase.execute(materialIds, profile.tenant_id, profile.id, signature, photos, observation);
+      
+      return ApiResponse.success(res, { message: 'Materiais enviados para a Portaria com sucesso!' });
+    } catch (error: any) {
+      console.error("[RequestController.markMaterialForExit] Erro:", error);
+      return ApiResponse.error(res, error.message);
+    }
+  }
+
   static async getAuditHistory(req: AuthRequest, res: Response) {
     try {
       const profile = await userService.findProfileById(req.user.id);
       if (!profile) return ApiResponse.error(res, 'Perfil não encontrado.', 404);
+
 
       let tenantIdToAudit = profile.tenant_id;
 
@@ -233,8 +294,18 @@ export class RequestController {
         return ApiResponse.error(res, 'Acesso negado: Unidade não identificada.', 403);
       }
 
+      let sectorId: string | undefined;
+      let actorId: string | undefined;
+      if (profile.role === 'LIDER_SETOR') {
+        actorId = profile.id;
+        sectorId = profile.sector_id || undefined;
+        if (!sectorId && profile.sector) {
+          sectorId = await requestRepo.findSectorByName(tenantIdToAudit, profile.sector) || undefined;
+        }
+      }
+
       const useCase = new GetAuditHistory(requestRepo);
-      const history = await useCase.execute(tenantIdToAudit);
+      const history = await useCase.execute(tenantIdToAudit, sectorId, actorId);
       console.log(`[RequestController] Enviando ${history.length} registros para o cliente.`);
       return ApiResponse.success(res, history);
     } catch (error: any) {
@@ -268,12 +339,12 @@ export class RequestController {
 
   static async transferMaterial(req: AuthRequest, res: Response) {
     try {
-      const { materialIds, toSectorId, signature } = req.body;
+      const { materialIds, toSectorId, signature, photos, observation } = req.body;
       const profile = await userService.findProfileById(req.user.id);
       if (!profile || !profile.tenant_id || !profile.sector_id) return ApiResponse.error(res, 'Perfil ou Setor não encontrado.', 403);
 
       const useCase = new TransferMaterial(requestRepo);
-      await useCase.execute(materialIds, profile.sector_id, toSectorId, req.user.id, profile.tenant_id, signature);
+      await useCase.execute(materialIds, profile.sector_id, toSectorId, req.user.id, profile.tenant_id, signature, photos, observation);
       
       return ApiResponse.success(res, { message: 'Transferência iniciada com sucesso!' });
     } catch (error: any) {
@@ -297,4 +368,37 @@ export class RequestController {
       return ApiResponse.error(res, error.message);
     }
   }
+
+  static async rejectTransfer(req: AuthRequest, res: Response) {
+    try {
+      const { materialIds } = req.body;
+      const profile = await userService.findProfileById(req.user.id);
+      if (!profile || !profile.tenant_id || !profile.sector_id) return ApiResponse.error(res, 'Perfil ou Setor não encontrado.', 403);
+
+      const useCase = new RejectMaterialTransfer(requestRepo);
+      await useCase.execute(materialIds, req.user.id, profile.tenant_id);
+      
+      return ApiResponse.success(res, { message: 'Transferência recusada. Materiais devolvidos ao setor de origem.' });
+    } catch (error: any) {
+      console.error("[RequestController.rejectTransfer] Erro:", error);
+      return ApiResponse.error(res, error.message);
+    }
+  }
+
+  static async cancelTransfer(req: AuthRequest, res: Response) {
+    try {
+      const { materialIds } = req.body;
+      const profile = await userService.findProfileById(req.user.id);
+      if (!profile || !profile.tenant_id || !profile.sector_id) return ApiResponse.error(res, 'Perfil ou Setor não encontrado.', 403);
+
+      const useCase = new CancelMaterialTransfer(requestRepo);
+      await useCase.execute(materialIds, req.user.id, profile.tenant_id);
+      
+      return ApiResponse.success(res, { message: 'Envio cancelado com sucesso. Material retornado ao setor.' });
+    } catch (error: any) {
+      console.error("[RequestController.cancelTransfer] Erro:", error);
+      return ApiResponse.error(res, error.message);
+    }
+  }
+
 }

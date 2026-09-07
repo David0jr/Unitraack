@@ -11,6 +11,7 @@ const router = Router();
 router.get('/requisicoes', requireAuth, RequestController.listByTenant);
 router.get('/dashboard', requireAuth, RequestController.listByTenant);
 router.post('/approve/:id', requireAuth, RequestController.review);
+router.post('/mark-checkout', requireAuth, RequestController.markCheckout);
 
 // Monitoramento Operativo
 router.get('/monitoring', requireAuth, MonitoringController.getOperationalData);

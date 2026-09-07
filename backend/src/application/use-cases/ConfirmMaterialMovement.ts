@@ -5,7 +5,7 @@ import { supabaseAdmin } from '../../config/supabase';
 export class ConfirmMaterialMovement {
   constructor(private requestRepository: IRequestRepository) {}
 
-  async execute(requestId: string, materialIds: string[], type: 'ENTRY' | 'EXIT', movedBy: string, tenantId: string, signature?: string, photos?: string[]): Promise<void> {
+  async execute(requestId: string, materialIds: string[], type: 'ENTRY' | 'EXIT', movedBy: string, tenantId: string, signature?: string, photos?: string[], observation?: string): Promise<void> {
     const request = await this.requestRepository.findById(requestId);
     
     if (!request) {
@@ -64,30 +64,21 @@ export class ConfirmMaterialMovement {
 
       const targetRespId = await getSectorResponsible(targetName);
 
-      // Mov 1: Entrada na Portaria (Responsável é quem está na portaria: movedBy)
+      // Movimento único: Entrada externa direta para o Setor de Destino
+      // Atribuímos a operação a quem está na portaria (movedBy) e registramos a assinatura/fotos
       await this.requestRepository.updateMultipleMaterialsStatus(
           materialIds, 
           status, 
-          timestampField, 
-          movedBy, 
+          timestampField,
+          movedBy,
           request.tenant_id,
-          undefined,
-          portariaSectorId || undefined,
-          signature,
-          photos
-      );
-
-      // Mov 2: Encaminhamento para o Setor (Atribuímos ao Líder do Setor que aprovou a entrada)
-      await this.requestRepository.updateMultipleMaterialsStatus(
-          materialIds, 
-          status, 
-          undefined,
-          request.approved_leader_by || targetRespId, // Atribuímos ao responsável do setor de destino
-          request.tenant_id,
-          portariaSectorId || undefined,
+          undefined, // From external (---)
           targetSectorId || undefined,
           signature,
-          photos
+          photos,
+          undefined,
+          true,
+          observation
       );
     } else {
       // Saída: Setor Alvo -> Portaria
@@ -100,7 +91,10 @@ export class ConfirmMaterialMovement {
           request.sector_id || undefined,
           portariaSectorId || undefined,
           signature,
-          photos
+          photos,
+          undefined,
+          true,
+          observation
       );
     }
 

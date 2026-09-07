@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { ArrowRight, Loader2, CheckCircle2, ShieldAlert, Building2, UserCircle2, Phone, Mail, Lock, ShieldCheck } from 'lucide-react';
+import { ArrowRight, Loader2, CheckCircle2, ShieldAlert, Building2, UserCircle2, Phone, Mail, Lock, ShieldCheck, Eye, EyeOff } from 'lucide-react';
 import { maskCNPJ, maskPhone, validateEmail } from '../../../utils/masks';
 import { useTenant } from '../../../contexts/TenantContext';
 import ParticleBackground from '../components/ParticleBackground';
@@ -127,25 +127,35 @@ export default function RegisterTerceirizada() {
         <div className="bg-white rounded-2xl shadow-xl overflow-hidden flex flex-col md:flex-row min-h-[650px] border border-white/20 backdrop-blur-sm">
           
           {/* Left Side - Identity (Same as Login) */}
-          <div className="w-full md:w-5/12 bg-navy p-10 lg:p-12 flex flex-col justify-between relative overflow-hidden hidden md:flex">
+          <div 
+            className="w-full md:w-5/12 bg-navy p-10 lg:p-12 flex flex-col justify-between relative overflow-hidden hidden md:flex transition-colors duration-500"
+            style={{ backgroundColor: tenant?.tertiary_color || undefined }}
+          >
             
             {/* Particle Canvas */}
             <div className="absolute inset-0 opacity-40 mix-blend-screen">
               <ParticleBackground />
             </div>
 
-            <div className="absolute inset-0 bg-gradient-to-br from-primary/30 via-transparent to-black/40 pointer-events-none"></div>
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/30 via-secondary/20 to-black/40 pointer-events-none"></div>
 
             <div className="relative z-10 flex flex-col h-full">
               <div className="mb-auto">
-                <img 
-                  src={tenant?.logo_url || "https://linsagro.com.br/wp-content/uploads/2022/07/cropped-Lins_Logo_Horizontal_RGB_Preferencial_20250512_Keenwork_AF.png"} 
-                  alt={tenant?.name || "Lins"} 
-                  className="h-16 lg:h-20 object-contain brightness-0 invert mb-6" 
-                />
-                <div className="inline-flex items-center gap-3 px-4 py-2 bg-white/10 backdrop-blur-md rounded-full border border-white/10">
-                  <ShieldCheck className="w-4 h-4 text-primary" />
-                  <span className="text-[10px] text-white/70 font-bold uppercase tracking-widest">Credenciamento Oficial</span>
+                <div className="h-16 lg:h-20 flex items-center mb-6">
+                  {tenant?.logo_url ? (
+                    <img 
+                      src={tenant.logo_url} 
+                      alt={tenant?.name || "Logo"} 
+                      className="max-h-full max-w-[200px] object-contain drop-shadow-md" 
+                    />
+                  ) : (
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-white font-black text-xl shadow-lg">
+                        {tenant?.name?.[0] || 'U'}
+                      </div>
+                      <span className="text-white font-black text-xl tracking-tight uppercase">{tenant?.name || 'Usina'}</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -285,19 +295,32 @@ interface InputProps {
 }
 
 function InputGroup({ label, placeholder, type = "text", value, onChange, icon: Icon }: InputProps) {
+  const [showPassword, setShowPassword] = useState(false);
+  const isPassword = type === 'password';
+  const currentType = isPassword ? (showPassword ? 'text' : 'password') : type;
+
   return (
     <div className="space-y-1.5 group">
       <label className="text-[10px] uppercase tracking-widest font-bold text-slate-400 ml-1 transition-colors group-focus-within:text-primary">{label}</label>
       <div className="relative">
         <Icon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 group-focus-within:text-primary transition-all" />
         <input 
-          type={type}
+          type={currentType}
           required
           value={value}
           onChange={e => onChange(e.target.value)}
           placeholder={placeholder}
-          className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-navy font-bold placeholder-slate-300 focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all text-xs shadow-inner"
+          className={`w-full pl-11 py-3 bg-slate-50 border border-slate-100 rounded-xl text-navy font-bold placeholder-slate-300 focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all text-xs shadow-inner ${isPassword ? 'pr-11' : 'pr-4'}`}
         />
+        {isPassword && (
+          <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-primary focus:outline-none p-1 transition-colors"
+          >
+            {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+          </button>
+        )}
       </div>
     </div>
   );

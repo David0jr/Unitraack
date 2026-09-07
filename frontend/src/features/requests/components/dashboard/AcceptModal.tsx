@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { X, ShieldCheck, Loader2, Package, Camera } from 'lucide-react';
-import { SignaturePad } from '../../../../components/SignaturePad';
+import { X, ShieldCheck, Loader2, Package, Camera, Hash } from 'lucide-react';
 
 interface AcceptModalProps {
   materialName: string;
@@ -40,8 +39,8 @@ export const AcceptModal: React.FC<AcceptModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-navy/70 backdrop-blur-md animate-in fade-in duration-300">
-      <div className="bg-white w-full max-w-md rounded-2xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 border border-slate-200 flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-navy/70 backdrop-blur-md animate-in fade-in duration-300" onClick={onClose}>
+      <div className="bg-white w-full max-w-md rounded-2xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 border border-slate-200 flex flex-col max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
         <div className="bg-navy p-6 flex justify-between items-center text-white shrink-0">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-primary/20 rounded-lg">
@@ -91,12 +90,20 @@ export const AcceptModal: React.FC<AcceptModalProps> = ({
               </div>
             )}
           </div>
-
-          <SignaturePad 
-            placeholder="Assinatura de Recebimento"
-            onSave={setSignature}
-            onClear={() => setSignature('')}
-          />
+          <div className="space-y-3 pt-4 border-t border-slate-100 group">
+            <div className="flex items-center gap-2">
+              <Hash className="w-4 h-4 text-primary" />
+              <label className="text-[10px] text-slate-400 font-bold uppercase tracking-widest block transition-colors group-focus-within:text-primary">Matrícula de Recebimento</label>
+            </div>
+            <input 
+              type="text" 
+              placeholder="DIGITE SUA MATRÍCULA PARA CONFIRMAR..."
+              value={signature}
+              onChange={(e) => setSignature(e.target.value)}
+              className="w-full px-5 py-4 bg-slate-50/50 border border-slate-100 rounded-2xl text-navy placeholder:text-slate-300 focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all font-black text-sm tracking-widest uppercase"
+              required
+            />
+          </div>
 
           <button 
             type="submit"

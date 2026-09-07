@@ -33,6 +33,11 @@ export const dashboardService = {
   async updateMapLayout(layouts: any[]) {
     const response = await api.post('/gestor/map-layout', { layouts });
     return response.data;
+  },
+
+  async getThirdPartyStats() {
+    const response = await api.get('/gestor/third-parties');
+    return response.data;
   }
 };
 

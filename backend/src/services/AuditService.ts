@@ -89,38 +89,63 @@ export class AuditService {
 
   /**
    * Consolida métricas de desempenho e frequência de empresas terceirizadas.
-   * Calcula total de visitas e última interação registrada.
+   * Calcula total de visitas, equipamentos na planta, movimentações e dados da empresa.
    * @param tenantId ID da unidade industrial
    */
   async getThirdPartyStats(tenantId: string) {
-    // 1. Identifica todos os perfis cadastrados como TERCEIRIZADA na unidade
     const { data: profiles, error } = await supabaseAdmin
       .from('profiles')
-      .select('id, full_name, role')
+      .select('id, full_name, role, theme_color, cnpj')
       .eq('tenant_id', tenantId)
       .eq('role', 'TERCEIRIZADA');
 
     if (error) throw error;
 
-    // 2. Calcula as métricas quantitativas para cada empresa mapeada
     const stats = await Promise.all(profiles.map(async (p) => {
+      // 1. Visitas (Requisições)
       const { data: requests } = await supabaseAdmin
         .from('entry_requests')
-        .select('id, created_at, exit_at')
-        .eq('profile_id', p.id)
-        .in('status', ['APPROVED_PORTARIA', 'IN_PLANTA', 'COMPLETED'])
-        .order('created_at', { ascending: false });
+        .select('id, created_at, status')
+        .eq('profile_id', p.id);
 
       const totalVisits = requests?.length || 0;
+      const lastVisit = requests?.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0]?.created_at || null;
+
+      // 2. Equipamentos na Planta (vinculados às requisições desta terceirizada que estão ativas)
+      const activeRequestIds = requests?.filter(r => ['IN_PLANTA', 'APPROVED_LIDER', 'APPROVED_GESTOR', 'APPROVED_PORTARIA'].includes(r.status)).map(r => r.id) || [];
+      let equipmentInPlanta = 0;
+      let totalMovements = 0;
+
+      if (activeRequestIds.length > 0) {
+        const { data: materials } = await supabaseAdmin
+          .from('materials')
+          .select('id')
+          .in('request_id', activeRequestIds);
+        equipmentInPlanta = materials?.length || 0;
+      }
+
+      // 3. Total de Movimentações (histórico inteiro)
+      const allRequestIds = requests?.map(r => r.id) || [];
+      if (allRequestIds.length > 0) {
+        const { data: materialsAll } = await supabaseAdmin
+          .from('materials')
+          .select('id, movements:material_movements(id)')
+          .in('request_id', allRequestIds);
+          
+        totalMovements = materialsAll?.reduce((acc: number, mat: any) => acc + (mat.movements?.length || 0), 0) || 0;
+      }
       
       return {
         ...p,
         totalVisits,
-        lastVisit: requests?.[0]?.created_at || null
+        lastVisit,
+        equipmentInPlanta,
+        totalMovements
       };
     }));
 
-    return stats;
+    // Ordenar por total de visitas para o ranking padrão
+    return stats.sort((a, b) => b.totalVisits - a.totalVisits);
   }
 }
 

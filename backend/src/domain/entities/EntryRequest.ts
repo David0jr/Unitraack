@@ -32,7 +32,7 @@ export interface EntryRequest {
   created_at: string;
 }
 
-export type MaterialStatus = 'PENDING' | 'IN_PLANTA' | 'OUT_PLANTA' | 'MOVING';
+export type MaterialStatus = 'PENDING' | 'IN_PLANTA' | 'OUT_PLANTA' | 'MOVING' | 'WAITING_EXIT';
 
 export interface Material {
   id: string;
@@ -48,4 +48,6 @@ export interface Material {
   status: MaterialStatus;
   entry_at?: string | null;
   exit_at?: string | null;
+  current_sector_id?: string | null;
+  pending_sector_id?: string | null;
 }

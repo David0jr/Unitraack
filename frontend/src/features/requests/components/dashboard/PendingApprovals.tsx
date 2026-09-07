@@ -35,7 +35,8 @@ export const PendingApprovals: React.FC = () => {
     if (!dateStr) return { date: 'N/A', time: 'N/A' };
     
     try {
-      const d = new Date(dateStr);
+      const isMissingTimezone = !dateStr.includes('Z') && !dateStr.includes('+') && !dateStr.match(/-\d{2}:\d{2}$/);
+      const d = new Date(isMissingTimezone ? `${dateStr}Z` : dateStr);
       return {
         date: d.toLocaleDateString('pt-BR'),
         time: d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
@@ -144,8 +145,14 @@ export const PendingApprovals: React.FC = () => {
 
       {/* Modals */}
       {selectedRequest && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-navy/70 backdrop-blur-md animate-in fade-in duration-300">
-          <div className="bg-white w-full max-w-2xl rounded-2xl overflow-hidden shadow-xl animate-in zoom-in-95 duration-200 border border-slate-200 flex flex-col max-h-[90vh]">
+        <div 
+          onClick={() => setSelectedRequest(null)} 
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-navy/70 backdrop-blur-md animate-in fade-in duration-300 cursor-pointer"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()} 
+            className="bg-white w-full max-w-2xl rounded-2xl overflow-hidden shadow-xl animate-in zoom-in-95 duration-200 border border-slate-200 flex flex-col max-h-[90vh] cursor-default"
+          >
             <div className="p-6 md:p-8 border-b border-slate-50 flex justify-between items-center">
                <div>
                   <span className="text-[9px] md:text-[10px] font-bold text-primary uppercase tracking-widest">Protocolo #{selectedRequest.id.slice(0, 8)}</span>
@@ -202,8 +209,14 @@ export const PendingApprovals: React.FC = () => {
 
       {/* Material Detail Modal */}
       {selectedMaterial && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-navy/70 backdrop-blur-md animate-in fade-in duration-300">
-          <div className="bg-white w-full max-w-2xl rounded-[16px] overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.3)] animate-in zoom-in-95 duration-200 flex flex-col md:flex-row max-h-[85vh] border border-slate-200">
+        <div 
+          onClick={() => setSelectedMaterial(null)} 
+          className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-navy/70 backdrop-blur-md animate-in fade-in duration-300 cursor-pointer"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()} 
+            className="bg-white w-full max-w-2xl rounded-[16px] overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.3)] animate-in zoom-in-95 duration-200 flex flex-col md:flex-row max-h-[85vh] border border-slate-200 cursor-default"
+          >
             <div className="md:w-[40%] relative bg-slate-900 flex-shrink-0 min-h-[220px]">
               {selectedMaterial.image_url || selectedMaterial.imageUrl ? (
                 <img 
@@ -273,8 +286,14 @@ export const PendingApprovals: React.FC = () => {
 
       {/* Company Detail Modal */}
       {selectedCompany && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-navy/70 backdrop-blur-md animate-in fade-in duration-300">
-          <div className="bg-white w-full max-w-md rounded-2xl overflow-hidden shadow-xl animate-in zoom-in-95 duration-200 border border-slate-200">
+        <div 
+          onClick={() => setSelectedCompany(null)} 
+          className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-navy/70 backdrop-blur-md animate-in fade-in duration-300 cursor-pointer"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()} 
+            className="bg-white w-full max-w-md rounded-2xl overflow-hidden shadow-xl animate-in zoom-in-95 duration-200 border border-slate-200 cursor-default"
+          >
              <div className="p-8">
                 <div className="flex justify-between items-start mb-8">
                    <div 

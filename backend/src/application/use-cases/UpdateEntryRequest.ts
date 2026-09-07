@@ -4,13 +4,17 @@ import { EntryRequest, Material } from '../../domain/entities/EntryRequest';
 export class UpdateEntryRequest {
   constructor(private requestRepository: IRequestRepository) {}
 
-  async execute(requestId: string, requestData: Partial<EntryRequest>, materials: Partial<Material>[], tenantId: string): Promise<void> {
+  async execute(requestId: string, requestData: Partial<EntryRequest>, materials: Partial<Material>[], tenantId: string, userRole?: string, profileId?: string): Promise<void> {
     const existing = await this.requestRepository.findById(requestId);
     if (!existing) throw new Error('Solicitação não encontrada.');
 
     // SECURITY: Garantir isolamento de dados
     if (existing.tenant_id !== tenantId) {
       throw new Error('Acesso negado: Esta requisição pertence a outra unidade industrial.');
+    }
+
+    if (userRole === 'TERCEIRIZADA' && existing.profile_id !== profileId) {
+      throw new Error('Acesso negado: Você não pode modificar uma requisição de outra empresa.');
     }
 
     // Só permite editar se não estiver em estados finais ou dentro da planta

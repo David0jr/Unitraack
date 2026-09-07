@@ -9,7 +9,10 @@ import {
   CheckCircle2, 
   AlertCircle,
   ArrowRight,
-  Copy
+  Copy,
+  Hash,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { getSubdomain } from '../../../utils/subdomain';
 import ParticleBackground from '../components/ParticleBackground';
@@ -28,6 +31,7 @@ export default function RegisterGestor() {
 
   const [formData, setFormData] = useState({
     fullName: '',
+    registrationNumber: '',
     email: '',
     password: '',
     confirmPassword: ''
@@ -49,8 +53,8 @@ export default function RegisterGestor() {
         });
         const data = await resp.json();
         
-        if (resp.ok) {
-          setInvitation(data);
+        if (resp.ok && (data.success !== false)) {
+          setInvitation(data.data || data);
         } else {
           setError(data.error || 'Convite inválido ou expirado.');
         }
@@ -82,16 +86,17 @@ export default function RegisterGestor() {
         body: JSON.stringify({
           token,
           fullName: formData.fullName,
+          registrationNumber: formData.registrationNumber,
           email: formData.email,
           password: formData.password
         })
       });
 
-      if (resp.ok) {
+      const d = await resp.json();
+      if (resp.ok && (d.success !== false)) {
         setSuccess(true);
       } else {
-        const d = await resp.json();
-        alert(d.error);
+        alert(d.error || 'Erro ao realizar cadastro.');
       }
     } catch (err) {
       alert('Erro ao realizar cadastro.');
@@ -195,24 +200,31 @@ export default function RegisterGestor() {
 
             <div className="relative z-10 flex flex-col h-full">
               <div className="mb-auto">
-                <img 
-                  src={invitation?.tenant?.logo_url || "https://linsagro.com.br/wp-content/uploads/2022/07/cropped-Lins_Logo_Horizontal_RGB_Preferencial_20250512_Keenwork_AF.png"} 
-                  alt={invitation?.tenant?.name || "Lins"} 
-                  className="h-16 lg:h-20 object-contain brightness-0 invert mb-6" 
-                />
-                <div className="inline-flex items-center gap-3 px-4 py-2 bg-white/10 backdrop-blur-md rounded-full border border-white/10">
-                  <ShieldCheck className="w-4 h-4 text-primary" />
-                  <span className="text-[10px] text-white/70 font-bold uppercase tracking-widest">Acesso Gestor</span>
+                <div className="h-16 lg:h-20 flex items-center mb-6">
+                  {invitation?.tenant?.logo_url ? (
+                    <img 
+                      src={invitation.tenant.logo_url} 
+                      alt={invitation?.tenant?.name || "Logo"} 
+                      className="max-h-full max-w-[200px] object-contain drop-shadow-md" 
+                    />
+                  ) : (
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-white font-black text-xl shadow-lg">
+                        {invitation?.tenant?.name?.[0] || 'U'}
+                      </div>
+                      <span className="text-white font-black text-xl tracking-tight uppercase">{invitation?.tenant?.name || 'Usina'}</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
               <div className="mt-auto">
                 <p className="text-slate-400 text-sm max-w-xs leading-relaxed font-medium mb-8">
-                  Provisionamento de acesso administrativo para a gestão de segurança e operações.
+                  Provisionamento de acesso administrativo para a gestão de segurança e operações da <strong className="text-white">{invitation?.tenant?.name || 'Usina'}</strong>.
                 </p>
                 
                 <div className="pt-6 border-t border-white/10 flex items-center justify-between">
-                  <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Protocolo Seguro &copy; 2026</p>
+                  <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">{invitation?.tenant?.name || 'Unitraack Control'} &copy; 2026</p>
                 </div>
               </div>
             </div>
@@ -234,6 +246,14 @@ export default function RegisterGestor() {
                   value={formData.fullName} 
                   onChange={(v: string) => setFormData({...formData, fullName: v})} 
                   placeholder="Seu nome profissional" 
+                />
+
+                <InputGroup 
+                  label="Número de Matrícula" 
+                  icon={<Hash className="w-4 h-4" />} 
+                  value={formData.registrationNumber} 
+                  onChange={(v: string) => setFormData({...formData, registrationNumber: v})} 
+                  placeholder="Sua matrícula corporativa" 
                 />
                 
                 <InputGroup 
@@ -303,6 +323,10 @@ function InputGroup({
   onChange: (v: string) => void, 
   icon?: React.ReactNode 
 }) {
+  const [showPassword, setShowPassword] = useState(false);
+  const isPassword = type === 'password';
+  const currentType = isPassword ? (showPassword ? 'text' : 'password') : type;
+
   return (
     <div className="space-y-1.5 w-full group">
       <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 tracking-widest leading-none group-focus-within:text-primary transition-colors">
@@ -311,13 +335,22 @@ function InputGroup({
       <div className="relative">
         <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-primary transition-colors">{icon}</div>
         <input 
-          type={type}
+          type={currentType}
           required
           value={value}
           onChange={e => onChange(e.target.value)}
           placeholder={placeholder}
-          className="w-full pl-11 pr-5 py-3 bg-slate-50 border border-slate-100 rounded-xl text-navy placeholder-slate-300 focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all font-bold text-sm"
+          className={`w-full pl-11 py-3 bg-slate-50 border border-slate-100 rounded-xl text-navy placeholder-slate-300 focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all font-bold text-sm ${isPassword ? 'pr-11' : 'pr-5'}`}
         />
+        {isPassword && (
+          <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-primary focus:outline-none p-1 transition-colors"
+          >
+            {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+          </button>
+        )}
       </div>
     </div>
   );

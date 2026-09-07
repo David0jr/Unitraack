@@ -44,7 +44,9 @@ export interface Profile {
   representative_name?: string | null;
   phone?: string | null;
   company_color?: string | null;
+  theme_color?: string | null;
   is_active: boolean;
+  registration_number?: string | null;
   created_at: string;
 }
 
@@ -60,6 +62,8 @@ export interface Tenant {
   company_phone?: string;
   logo_url?: string;
   company_color?: string;
+  secondary_color?: string;
+  tertiary_color?: string;
   subdomain?: string;
 }
 
