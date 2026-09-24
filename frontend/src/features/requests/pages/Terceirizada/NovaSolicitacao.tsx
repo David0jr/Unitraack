@@ -8,7 +8,8 @@ import {
   Plus, 
   Trash2, 
   Camera, 
-  ArrowLeft, 
+  ArrowLeft,
+  X,
   Save, 
   Loader2,
   Package,
@@ -141,7 +142,7 @@ export default function NovaSolicitacao() {
       imageUrl: '',
       uploading: false
     };
-    setMaterials([...materials, newItem]);
+    setMaterials(prev => [newItem, ...prev]);
   };
 
   const removeMaterial = (id: string) => {
@@ -286,8 +287,8 @@ export default function NovaSolicitacao() {
                  </div>
                  <p className="text-sm font-bold tracking-tight">{errorMessage}</p>
               </div>
-              <button onClick={() => setErrorMessage('')} className="p-2 hover:bg-white/10 rounded-lg transition-all ml-4">
-                 <ArrowLeft className="w-4 h-4 rotate-90" />
+              <button onClick={() => setErrorMessage('')} className="p-2 hover:bg-white/10 rounded-lg transition-all ml-4 cursor-pointer">
+                 <X className="w-4 h-4" />
               </button>
            </div>
         </div>
@@ -307,7 +308,7 @@ export default function NovaSolicitacao() {
                     navigate('/painel');
                   }
                 }}
-                className="p-2.5 bg-slate-50 text-slate-400 hover:text-navy hover:bg-slate-100 rounded-xl transition-all"
+                className="p-2.5 bg-slate-50 text-slate-400 hover:text-navy hover:bg-slate-100 rounded-xl transition-all cursor-pointer"
              >
                 <ArrowLeft className="w-5 h-5" />
              </button>
@@ -445,7 +446,7 @@ export default function NovaSolicitacao() {
               <button 
                 type="button" 
                 onClick={addMaterial}
-                className="flex items-center gap-2 bg-navy text-white text-[10px] font-bold uppercase tracking-widest px-6 py-3 rounded-full hover:bg-[#002880] transition-all shadow-lg"
+                className="flex items-center gap-2 bg-navy text-white text-[10px] font-bold uppercase tracking-widest px-6 py-3 rounded-full hover:bg-[#002880] transition-all shadow-lg cursor-pointer"
               >
                 <Plus className="w-4 h-4" /> Adicionar Item
               </button>
@@ -454,16 +455,16 @@ export default function NovaSolicitacao() {
             {materials.length === 0 && (
               <div className="p-16 border-2 border-dashed border-slate-200 rounded-2xl text-center bg-white/50">
                  <p className="text-slate-400 font-bold uppercase text-[10px] tracking-widest mb-4 italic">Nenhum equipamento listado no protocolo.</p>
-                 <button type="button" onClick={addMaterial} className="text-primary font-bold text-xs uppercase underline">Clique para começar</button>
+                 <button type="button" onClick={addMaterial} className="text-primary font-bold text-xs uppercase underline cursor-pointer">Clique para começar</button>
               </div>
             )}
 
             <div className="grid grid-cols-1 gap-6">
               {materials.map((mat, index) => (
-                <div key={mat.id} className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100 hover:border-primary/30 transition-all group animate-in fade-in slide-in-from-bottom-4">
+                <div key={mat.id} className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100 hover:border-primary/30 transition-all group animate-in fade-in slide-in-from-top-4">
                   <div className="flex items-center justify-between mb-8 border-b border-slate-50 pb-6">
                     <span className="bg-navy text-white text-[10px] font-bold px-4 py-1.5 rounded-full uppercase tracking-widest">Equipamento #{index + 1}</span>
-                    <button type="button" onClick={() => removeMaterial(mat.id)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all">
+                    <button type="button" onClick={() => removeMaterial(mat.id)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all cursor-pointer">
                       <Trash2 className="w-5 h-5" />
                     </button>
                   </div>
@@ -474,7 +475,7 @@ export default function NovaSolicitacao() {
                           {mat.imageUrl ? (
                             <>
                               <img src={mat.imageUrl} alt="Material" className="w-full h-full object-cover" />
-                              <button type="button" onClick={() => updateMaterial(mat.id, 'imageUrl', '')} className="absolute inset-0 bg-red-500/80 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
+                              <button type="button" onClick={() => updateMaterial(mat.id, 'imageUrl', '')} className="absolute inset-0 bg-red-500/80 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center cursor-pointer">
                                  <Trash2 className="text-white" />
                               </button>
                             </>
@@ -490,9 +491,9 @@ export default function NovaSolicitacao() {
                     </div>
 
                     <div className="md:col-span-9 grid grid-cols-1 md:grid-cols-2 gap-6">
-                       <InputGroup label="Nome do Equipamento" value={mat.name} onChange={v => updateMaterial(mat.id, 'name', v)} placeholder="Ex: Compressor de Ar" />
-                       <InputGroup label="Marca / Fabr." value={mat.brand} onChange={v => updateMaterial(mat.id, 'brand', v)} placeholder="Ex: Schulz" />
-                       <InputGroup label="Modelo" value={mat.model} onChange={v => updateMaterial(mat.id, 'model', v)} placeholder="Ex: MSV 40" />
+                       <InputGroup label="Nome do Equipamento" value={mat.name} onChange={v => updateMaterial(mat.id, 'name', v)} placeholder="Ex: Compressor de Ar" required/>
+                       <InputGroup label="Marca / Fabr." value={mat.brand} onChange={v => updateMaterial(mat.id, 'brand', v)} placeholder="Ex: Schulz" required/>
+                       <InputGroup label="Modelo" value={mat.model} onChange={v => updateMaterial(mat.id, 'model', v)} placeholder="Ex: MSV 40" required/>
                        <InputGroup label="Nº Série / Placa" value={mat.serial_number} onChange={v => updateMaterial(mat.id, 'serial_number', v)} placeholder="Ex: SN-000A" />
                        
                        <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -511,7 +512,7 @@ export default function NovaSolicitacao() {
                             />
                          </div>
                          <div className="md:col-span-2">
-                            <InputGroup label="Descrição de Avarias / Obs" value={mat.description} onChange={v => updateMaterial(mat.id, 'description', v)} placeholder="Pequenos riscos na lateral..." />
+                            <InputGroup label="Descrição de Avarias / Obs" value={mat.description} onChange={v => updateMaterial(mat.id, 'description', v)} placeholder="Pequenos riscos na lateral..." required/>
                          </div>
                        </div>
                     </div>
@@ -526,7 +527,7 @@ export default function NovaSolicitacao() {
              <button 
                 type="submit" 
                 disabled={submitting}
-                className="w-full max-w-sm py-6 bg-[#0032A0] hover:bg-[#002880] text-white font-bold uppercase tracking-widest rounded-xl shadow-xl shadow-navy/20 flex items-center justify-center gap-4 transition-all active:scale-[0.98] disabled:opacity-50"
+                className="w-full max-w-sm py-6 bg-[#0032A0] hover:bg-[#002880] text-white font-bold uppercase tracking-widest rounded-xl shadow-xl shadow-navy/20 flex items-center justify-center gap-4 transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer"
              >
                 {submitting ? <Loader2 className="w-6 h-6 animate-spin" /> : (
                   <>
@@ -546,17 +547,17 @@ export default function NovaSolicitacao() {
   );
 }
 
-function InputGroup({ label, placeholder, type = "text", value, onChange }: { label: string, placeholder: string, type?: string, value: string, onChange: (v: string) => void }) {
+function InputGroup({ label, placeholder, type = "text", value, onChange, ...props }: { label: string, placeholder: string, type?: string, value: string, onChange: (v: string) => void } & Record<string, any>) {
   return (
     <div className="space-y-1.5 w-full">
       <label className="text-[9px] font-bold text-slate-400 uppercase ml-1 tracking-widest leading-none">{label}</label>
       <input 
         type={type}
-        required
         value={value}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
         className="w-full px-5 py-3.5 bg-[#F8FAFC] border border-slate-100 rounded-xl text-slate-900 placeholder-slate-300 focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all font-bold text-xs"
+        {...props}
       />
     </div>
   );

@@ -270,7 +270,7 @@ export default function PortariaDashboard() {
 
     const { value: reason, isConfirmed } = await Swal.fire({
       title: 'Cancelar Entrada?',
-      text: 'A terceirizada não compareceu na data/prazo agendado?',
+      text: 'Informe o motivo do cancelamento da entrada.',
       input: 'text',
       inputValue: 'Cancelado pela Portaria: Não compareceu na data/prazo estimado',
       icon: 'warning',
@@ -950,38 +950,38 @@ export default function PortariaDashboard() {
       {detailMaterial && (
         <div 
           onClick={() => setDetailMaterial(null)}
-          className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-navy/80 backdrop-blur-xl animate-in fade-in duration-300 cursor-pointer"
+          className="fixed inset-0 z-[120] flex items-center justify-center p-4 sm:p-6 md:p-8 bg-navy/80 backdrop-blur-xl animate-in fade-in duration-300 cursor-pointer overflow-y-auto"
         >
            <div 
              onClick={(e) => e.stopPropagation()}
-             className="bg-white w-full max-w-4xl rounded-3xl overflow-hidden shadow-xl flex flex-col md:flex-row animate-in zoom-in-95 duration-200 cursor-default"
+             className="bg-white w-full max-w-4xl max-h-[calc(100dvh-2rem)] sm:max-h-[90vh] md:max-h-[85vh] my-auto rounded-3xl overflow-hidden shadow-2xl flex flex-col md:flex-row animate-in zoom-in-95 duration-200 cursor-default border border-slate-100"
            >
-              <div className="md:w-1/2 bg-slate-50 relative min-h-[400px]">
+              <div className="md:w-1/2 bg-slate-50 relative h-56 sm:h-72 md:h-auto md:min-h-[350px] shrink-0">
                  {detailMaterial.image_url ? (
                    <img src={detailMaterial.image_url} alt={detailMaterial.name} className="w-full h-full object-cover" />
                  ) : (
-                   <div className="w-full h-full flex flex-col items-center justify-center text-slate-300">
-                      <Camera className="w-20 h-20 mb-4 opacity-20" />
+                   <div className="w-full h-full min-h-[200px] flex flex-col items-center justify-center text-slate-300">
+                      <Camera className="w-16 h-16 sm:w-20 sm:h-20 mb-3 sm:mb-4 opacity-20" />
                       <p className="font-bold text-[10px] uppercase tracking-widest">Sem Foto Disponível</p>
                    </div>
                  )}
-                 <div className="absolute top-6 left-6">
-                    <span className="bg-navy/80 backdrop-blur-md text-white text-[10px] font-bold uppercase tracking-widest px-4 py-2 rounded-full">Visualização Técnica</span>
+                 <div className="absolute top-4 left-4 sm:top-6 sm:left-6">
+                    <span className="bg-navy/80 backdrop-blur-md text-white text-[9px] sm:text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 sm:px-4 sm:py-2 rounded-full shadow-md">Visualização Técnica</span>
                  </div>
               </div>
-              <div className="md:w-1/2 p-12 flex flex-col justify-between">
+              <div className="md:w-1/2 p-6 sm:p-8 md:p-10 flex flex-col justify-between overflow-y-auto">
                  <div>
-                    <div className="flex justify-between items-start mb-8">
+                    <div className="flex justify-between items-start mb-6 sm:mb-8 gap-4">
                        <div>
-                          <p className="text-[10px] font-bold text-primary uppercase tracking-widest mb-2">Equipamento</p>
-                          <h2 className="text-4xl font-bold text-navy uppercase leading-none tracking-tighter">{detailMaterial.name}</h2>
+                          <p className="text-[10px] font-bold text-primary uppercase tracking-widest mb-1.5 sm:mb-2">Equipamento</p>
+                          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-navy uppercase leading-tight tracking-tighter">{detailMaterial.name}</h2>
                        </div>
-                       <button onClick={() => setDetailMaterial(null)} className="p-3 bg-slate-50 text-slate-400 hover:text-navy rounded-xl transition-all">
-                          <X className="w-6 h-6" />
+                       <button onClick={() => setDetailMaterial(null)} className="p-2.5 sm:p-3 bg-slate-50 text-slate-400 hover:text-navy hover:bg-slate-100 rounded-xl transition-all shrink-0 cursor-pointer">
+                          <X className="w-5 h-5 sm:w-6 sm:h-6" />
                        </button>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-8 mb-10">
+                    <div className="grid grid-cols-2 gap-4 sm:gap-6 md:gap-8 mb-6 sm:mb-8">
                        <DetailItem label="Marca" value={detailMaterial.brand || '---'} />
                        <DetailItem label="Modelo" value={detailMaterial.model || '---'} />
                        <DetailItem label="Nº de Série" value={detailMaterial.serial_number || 'REGISTRO ÚNICO'} />
@@ -989,8 +989,8 @@ export default function PortariaDashboard() {
                     </div>
 
                     <div>
-                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Descrição Adicional</p>
-                       <p className="text-sm text-slate-600 font-medium leading-relaxed bg-slate-50 p-6 rounded-2xl border border-slate-100">
+                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Descrição Adicional</p>
+                       <p className="text-xs sm:text-sm text-slate-600 font-medium leading-relaxed bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
                           {detailMaterial.description || 'Nenhuma descrição detalhada fornecida para este item.'}
                        </p>
                     </div>
@@ -998,7 +998,7 @@ export default function PortariaDashboard() {
 
                  <button 
                   onClick={() => setDetailMaterial(null)}
-                  className="w-full bg-navy text-white font-bold uppercase tracking-widest py-6 rounded-2xl mt-12 hover:bg-[#002880] transition-all"
+                  className="w-full bg-navy text-white font-bold uppercase tracking-widest py-4 sm:py-5 rounded-2xl mt-6 sm:mt-8 hover:bg-[#002880] transition-all text-xs shadow-lg shadow-navy/10 active:scale-[0.99] cursor-pointer shrink-0"
                  >
                     Fechar Detalhes
                  </button>
@@ -1186,7 +1186,7 @@ export default function PortariaDashboard() {
         >
            <div 
              onClick={(e) => e.stopPropagation()}
-             className="bg-white w-full max-sm rounded-[2rem] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 border border-slate-100 cursor-default"
+             className="bg-white w-full max-w-sm rounded-[2rem] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 border border-slate-100 cursor-default"
            >
               <div className="p-10 text-center">
                  <div className={`w-20 h-20 mx-auto rounded-3xl flex items-center justify-center mb-6 shadow-lg ${modalConfig.type === 'success' ? 'bg-emerald-500 shadow-emerald-500/20' : 'bg-rose-500 shadow-rose-500/20'}`}>
