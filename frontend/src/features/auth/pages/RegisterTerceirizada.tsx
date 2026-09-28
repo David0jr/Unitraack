@@ -141,21 +141,12 @@ export default function RegisterTerceirizada() {
 
             <div className="relative z-10 flex flex-col h-full">
               <div className="mb-auto">
-                <div className="h-16 lg:h-20 flex items-center mb-6">
-                  {tenant?.logo_url ? (
-                    <img 
-                      src={tenant.logo_url} 
-                      alt={tenant?.name || "Logo"} 
-                      className="max-h-full max-w-[200px] object-contain drop-shadow-md" 
-                    />
-                  ) : (
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-white font-black text-xl shadow-lg">
-                        {tenant?.name?.[0] || 'U'}
-                      </div>
-                      <span className="text-white font-black text-xl tracking-tight uppercase">{tenant?.name || 'Usina'}</span>
-                    </div>
-                  )}
+                <div className="h-16 lg:h-20 flex items-center mb-4">
+                  <img 
+                    src="/logo-lins-white.png" 
+                    alt={tenant?.name || "Usina Lins"} 
+                    className="h-11 lg:h-12 w-auto max-w-[270px] object-contain drop-shadow-md" 
+                  />
                 </div>
               </div>
 

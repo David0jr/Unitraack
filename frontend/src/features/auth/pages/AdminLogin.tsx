@@ -15,14 +15,15 @@ export default function AdminLogin() {
   const navigate = useNavigate();
   const isLoggingIn = useRef(false);
 
-  // SECURITY: Se o usuário chegar nesta página já estando logado (ex: via botão 'Voltar'), 
-  // forçamos o logout para proteger a rota e impedir o re-ingresso via botão 'Avançar'.
+  // Se o usuário já for SUPER_ADMIN ativo, redireciona diretamente para o painel
   useEffect(() => {
     if (!authLoading && user && profile && !isLoggingIn.current) {
-      console.warn('[AdminLogin] Sessão ativa detectada na página de login. Invalidando sessão para proteção...');
-      signOut();
+      if (profile.role === 'SUPER_ADMIN') {
+        console.log('[AdminLogin] Sessão ativa detectada. Redirecionando para o painel administrativo...');
+        navigate('/admin/painel', { replace: true });
+      }
     }
-  }, [user, profile, authLoading, signOut]);
+  }, [user, profile, authLoading, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

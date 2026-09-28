@@ -34,7 +34,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Usamos a chave de token do utilitário para consistência em toda a aplicação
   const tokenKey = getTokenKey();
 
-  const [token, setToken] = useState<string | null>(sessionStorage.getItem(tokenKey));
+  const [token, setToken] = useState<string | null>(
+    typeof window !== 'undefined' ? (localStorage.getItem(tokenKey) || sessionStorage.getItem(tokenKey)) : null
+  );
   const [loading, setLoading] = useState(true);
   const fetchingProfile = React.useRef<Promise<any> | null>(null);
 
@@ -57,7 +59,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Define um timeout para a consulta ao Supabase
         const profileRequest = supabase
           .from('profiles')
-          .select('id, role, full_name, tenant_id, is_active, registration_number')
+          .select('id, role, full_name, tenant_id, is_active, registration_number, sector, sector_id')
           .eq('id', userId)
           .maybeSingle();
 
@@ -90,7 +92,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           
           const { data: retryData, error: retryError } = await supabase
             .from('profiles')
-            .select('id, role, full_name, tenant_id, is_active, registration_number')
+            .select('id, role, full_name, tenant_id, is_active, registration_number, sector, sector_id')
             .eq('id', userId)
             .maybeSingle();
             
@@ -198,6 +200,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         if (session?.access_token && mounted) {
           setToken(session.access_token);
+          localStorage.setItem(tokenKey, session.access_token);
           sessionStorage.setItem(tokenKey, session.access_token);
         }
       } catch (err: any) {
@@ -240,9 +243,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         if (session?.access_token) {
           setToken(session.access_token);
+          localStorage.setItem(tokenKey, session.access_token);
           sessionStorage.setItem(tokenKey, session.access_token);
         } else if (event === 'SIGNED_OUT') {
           setToken(null);
+          localStorage.removeItem(tokenKey);
           sessionStorage.removeItem(tokenKey);
         }
 
@@ -282,6 +287,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       await authService.signOut();
       const tokenKey = getTokenKey();
+      localStorage.removeItem(tokenKey);
       sessionStorage.removeItem(tokenKey);
       sessionStorage.clear(); // Limpeza total por segurança
       setUser(null);

@@ -63,7 +63,7 @@ export default function MonitoringDashboard({ parentSectorId }: { parentSectorId
         return (
           (m.name?.toLowerCase() || '').includes(filterText.toLowerCase()) || 
           (m.request?.profile?.full_name?.toLowerCase() || '').includes(filterText.toLowerCase()) ||
-          (m.code?.toLowerCase() || '').includes(filterText.toLowerCase())
+          (m.serial_number?.toLowerCase() || '').includes(filterText.toLowerCase())
         );
       });
   };
@@ -262,7 +262,7 @@ export default function MonitoringDashboard({ parentSectorId }: { parentSectorId
                       Condição: {selectedMaterial.condition}
                     </span>
                   </div>
-                  <div className="grid grid-cols-2 gap-x-6 gap-y-4 pt-2 border-t border-slate-50">
+                  <div className="grid grid-cols-3 gap-x-4 gap-y-4 pt-2 border-t border-slate-50">
                     <div>
                       <p className="text-[7px] text-slate-400 font-bold uppercase tracking-widest mb-0.5">Fabricante</p>
                       <p className="font-bold text-navy text-[10px] truncate">{selectedMaterial.brand || '---'}</p>
@@ -274,10 +274,6 @@ export default function MonitoringDashboard({ parentSectorId }: { parentSectorId
                     <div>
                       <p className="text-[7px] text-slate-400 font-bold uppercase tracking-widest mb-0.5">Nº de Série</p>
                       <p className="font-bold text-navy text-[10px] font-mono tracking-tighter truncate">{selectedMaterial.serial_number || '---'}</p>
-                    </div>
-                    <div>
-                      <p className="text-[7px] text-slate-400 font-bold uppercase tracking-widest mb-0.5">Patrimônio</p>
-                      <p className="font-bold text-navy text-[10px] font-mono tracking-tighter truncate">{selectedMaterial.code || '---'}</p>
                     </div>
                   </div>
                 </div>
@@ -425,10 +421,10 @@ function AssetListItem({
         </div>
       </div>
 
-      {/* Patrimônio / Código */}
+      {/* Nº de Série */}
       <div className="hidden md:block md:col-span-4">
         <span className="text-[9px] font-mono text-slate-500 bg-slate-100 px-2 py-0.5 rounded uppercase tracking-tighter">
-          {item.code || 'S/N'}
+          {item.serial_number || 'S/N'}
         </span>
       </div>
 

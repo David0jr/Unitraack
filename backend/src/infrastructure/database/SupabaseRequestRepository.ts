@@ -80,7 +80,10 @@ export class SupabaseRequestRepository implements IRequestRepository {
   }
 
   async updateStatus(id: string, status: RequestStatus, reason?: string, updatedBy?: string): Promise<void> {
-    const updateData: any = { status, rejection_reason: reason || null };
+    const updateData: any = { status };
+    if (reason !== undefined) {
+      updateData.rejection_reason = reason || null;
+    }
     
     if (updatedBy) {
       if (status === 'APPROVED_LIDER') updateData.approved_leader_by = updatedBy;
@@ -182,7 +185,7 @@ export class SupabaseRequestRepository implements IRequestRepository {
         if (status === 'OUT_PLANTA') updateData.check_out_by = movedBy;
     }
 
-    if (toSectorId) {
+    if (toSectorId && status !== 'MOVING' && status !== 'WAITING_EXIT') {
         updateData.current_sector_id = toSectorId;
     }
     
@@ -206,13 +209,13 @@ export class SupabaseRequestRepository implements IRequestRepository {
         from_sector_id: fromSectorId || null,
         to_sector_id: toSectorId || null,
         moved_by: movedBy,
-        status: status,
+        moved_at: new Date().toISOString(),
         signature: signature || null,
         photos: photoUrls || null,
         observation: observation || null
       };
       const { error: moveError } = await supabaseAdmin.from('material_movements').insert(movement);
-        if (moveError) console.error("[SupabaseRequestRepository.updateMaterialStatus] Erro ao logar movimento:", moveError.message);
+      if (moveError) console.error("[SupabaseRequestRepository.updateMaterialStatus] Erro ao logar movimento:", moveError.message);
     }
   }
 
@@ -227,7 +230,7 @@ export class SupabaseRequestRepository implements IRequestRepository {
         if (status === 'OUT_PLANTA') updateData.check_out_by = movedBy;
     }
 
-    if (toSectorId) {
+    if (toSectorId && status !== 'MOVING' && status !== 'WAITING_EXIT') {
         updateData.current_sector_id = toSectorId;
     }
     if (pendingSectorId !== undefined) {
@@ -247,10 +250,10 @@ export class SupabaseRequestRepository implements IRequestRepository {
             moved_by: movedBy,
             moved_at: new Date().toISOString(),
             tenant_id: tenantId,
-            from_sector_id: fromSectorId,
-            to_sector_id: toSectorId,
+            from_sector_id: fromSectorId || null,
+            to_sector_id: toSectorId || null,
             signature: signature || null,
-            photos: photos || null,
+            photos: (photos && photos.length > 0) ? photos : null,
             observation: observation || null
         }));
         const { error: moveError } = await supabaseAdmin.from('material_movements').insert(movements);
@@ -258,8 +261,8 @@ export class SupabaseRequestRepository implements IRequestRepository {
     }
   }
 
-  async getAuditHistory(tenantId: string, sectorId?: string, actorId?: string): Promise<any[]> {
-    console.log(`[SupabaseRequestRepository.getAuditHistory] Buscando logs para tenant: ${tenantId}`);
+  async getAuditHistory(tenantId: string, sectorId?: string, actorId?: string, onlyPortaria?: boolean): Promise<any[]> {
+    console.log(`[SupabaseRequestRepository.getAuditHistory] Buscando logs para tenant: ${tenantId}, onlyPortaria: ${!!onlyPortaria}`);
     let query = supabaseAdmin
       .from('material_movements')
       .select(`
@@ -267,19 +270,45 @@ export class SupabaseRequestRepository implements IRequestRepository {
         moved_at,
         photos,
         signature,
+        observation,
+        from_sector_id,
+        to_sector_id,
         material:materials!inner(
+          id,
           name,
+          brand,
+          model,
+          serial_number,
+          description,
           request:entry_requests!inner(
-            tenant_id
+            id,
+            tenant_id,
+            sector,
+            driver_name,
+            plate,
+            status,
+            rejection_reason,
+            profile:profiles!profile_id(
+              full_name,
+              theme_color,
+              logo_url
+            )
           )
         ),
         actor:profiles(full_name, role, registration_number),
-        from_sector:sectors!material_movements_from_sector_id_fkey(name),
-        to_sector:sectors!material_movements_to_sector_id_fkey(name)
+        from_sector:sectors!material_movements_from_sector_id_fkey(id, name),
+        to_sector:sectors!material_movements_to_sector_id_fkey(id, name)
       `)
       .eq('tenant_id', tenantId);
 
-    if (sectorId || actorId) {
+    if (onlyPortaria) {
+      const portariaSectorId = await this.findSectorByName(tenantId, 'Portaria');
+      if (portariaSectorId) {
+        query = query.or(`from_sector_id.is.null,to_sector_id.is.null,to_sector_id.eq.${portariaSectorId}`);
+      } else {
+        query = query.or('from_sector_id.is.null,to_sector_id.is.null');
+      }
+    } else if (sectorId || actorId) {
       const conditions = [];
       if (sectorId) {
         conditions.push(`from_sector_id.eq.${sectorId}`);
@@ -317,12 +346,27 @@ export class SupabaseRequestRepository implements IRequestRepository {
   async listMaterialsBySector(tenantId: string, sectorId: string, status?: MaterialStatus): Promise<Material[]> {
     let query = supabaseAdmin
       .from('materials')
-      .select('*, request:entry_requests!inner(*, profile:profiles!profile_id(*))')
+      .select(`
+        *,
+        request:entry_requests!inner(*, profile:profiles!profile_id(*)),
+        movements:material_movements(
+          id,
+          moved_at,
+          photos,
+          signature,
+          observation,
+          from_sector:sectors!material_movements_from_sector_id_fkey(id, name),
+          to_sector:sectors!material_movements_to_sector_id_fkey(id, name),
+          actor:profiles(full_name, registration_number)
+        )
+      `)
       .eq('request.tenant_id', tenantId)
       .or(`current_sector_id.eq.${sectorId},pending_sector_id.eq.${sectorId}`);
 
     if (status) {
       query = query.eq('status', status);
+    } else {
+      query = query.in('status', ['IN_PLANTA', 'MOVING']);
     }
 
     const { data, error } = await query;
@@ -333,7 +377,20 @@ export class SupabaseRequestRepository implements IRequestRepository {
   async findMaterialById(id: string): Promise<Material | null> {
     const { data, error } = await supabaseAdmin
       .from('materials')
-      .select('*, request:entry_requests!inner(*, profile:profiles!profile_id(*))')
+      .select(`
+        *,
+        request:entry_requests!inner(*, profile:profiles!profile_id(*)),
+        movements:material_movements(
+          id,
+          moved_at,
+          photos,
+          signature,
+          observation,
+          from_sector:sectors!material_movements_from_sector_id_fkey(id, name),
+          to_sector:sectors!material_movements_to_sector_id_fkey(id, name),
+          actor:profiles(full_name, registration_number)
+        )
+      `)
       .eq('id', id)
       .maybeSingle();
 

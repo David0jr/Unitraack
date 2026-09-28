@@ -14,13 +14,15 @@ import {
   Trash2,
   Edit2,
   XOctagon,
-  AlertTriangle
+  AlertTriangle,
+  Truck
 } from 'lucide-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useTenant } from '../../../contexts/TenantContext';
 import { api } from '../../../lib/axios';
 import Swal from 'sweetalert2';
 import 'sweetalert2/dist/sweetalert2.min.css';
+import { NotificationDropdown } from '../components/dashboard/NotificationDropdown';
 
 export default function TerceirizadaDashboard() {
   const { signOut, user, profile: authProfile } = useAuth();
@@ -65,13 +67,17 @@ export default function TerceirizadaDashboard() {
     'PENDING': { label: 'Análise (Líder)', color: 'text-amber-600', bg: 'bg-amber-50', icon: Clock },
     'APPROVED_LIDER': { label: 'Autorizado', color: 'text-emerald-600', bg: 'bg-emerald-50', icon: CheckCircle2 },
     'REJECTED_LIDER': { label: 'Recusado (Líder)', color: 'text-red-600', bg: 'bg-red-50', icon: XCircle },
-    'APPROVED_GESTOR': { label: 'Aprovado (Gestor)', color: 'text-emerald-600', bg: 'bg-emerald-50', icon: CheckCircle2 },
+    'APPROVED_GESTOR': { label: 'Aguardando Chegada', color: 'text-sky-600', bg: 'bg-sky-50', icon: CheckCircle2 },
+    'WAITING_ARRIVAL': { label: 'Aguardando Chegada', color: 'text-sky-600', bg: 'bg-sky-50', icon: Clock },
+    'ARRIVED': { label: 'Chegada na Portaria', color: 'text-indigo-600', bg: 'bg-indigo-50', icon: Truck },
+    'IN_ANALYSIS': { label: 'Em Análise (Portaria)', color: 'text-amber-600', bg: 'bg-amber-50', icon: Clock },
     'REJECTED_GESTOR': { label: 'Recusado (Gestor)', color: 'text-red-600', bg: 'bg-red-50', icon: XCircle },
     'APPROVED': { label: 'Aprovado', color: 'text-emerald-600', bg: 'bg-emerald-50', icon: CheckCircle2 },
     'REJECTED': { label: 'Recusado', color: 'text-red-600', bg: 'bg-red-50', icon: XCircle },
     'IN_PLANTA': { label: 'Dentro da Planta', color: 'text-purple-600', bg: 'bg-purple-50', icon: CheckCircle2 },
     'COMPLETED': { label: 'Finalizado', color: 'text-slate-600', bg: 'bg-slate-100', icon: CheckCircle2 },
     'CANCELED': { label: 'Cancelado', color: 'text-slate-400', bg: 'bg-slate-50', icon: XOctagon },
+    'DISCREPANCY': { label: 'Divergência', color: 'text-rose-600', bg: 'bg-rose-50', icon: XCircle },
   };
 
   const formatDateTime = (dateStr: string) => {
@@ -172,11 +178,12 @@ export default function TerceirizadaDashboard() {
             </div>
           </div>
 
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-4">
             <div className="hidden sm:flex flex-col items-end">
               <p className="text-xs font-bold text-navy uppercase leading-none">{profile?.full_name || 'Carregando...'}</p>
               <p className="text-[10px] text-primary font-bold uppercase tracking-widest mt-1">Fornecedor Ativo</p>
             </div>
+            <NotificationDropdown />
             <button 
               onClick={signOut}
               className="p-2.5 bg-slate-50 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
@@ -231,7 +238,7 @@ export default function TerceirizadaDashboard() {
           />
           <StatCard 
             label="Aprovados" 
-            value={requests.filter(r => r.status === 'APPROVED_LIDER' || r.status === 'APPROVED' || r.status === 'APPROVED_GESTOR' || r.status === 'IN_PLANTA' || r.status === 'COMPLETED').length.toString()} 
+            value={requests.filter(r => ['APPROVED_LIDER', 'APPROVED', 'APPROVED_GESTOR', 'WAITING_ARRIVAL', 'ARRIVED', 'IN_ANALYSIS', 'IN_PLANTA', 'COMPLETED'].includes(r.status)).length.toString()} 
             icon={<CheckCircle2 className="w-6 h-6" />}
             color="bg-emerald-50 text-emerald-600"
           />
@@ -577,7 +584,7 @@ export default function TerceirizadaDashboard() {
                       Condição: {selectedMaterial.condition}
                     </span>
                   </div>
-                  <div className="grid grid-cols-2 gap-x-6 gap-y-4 pt-2 border-t border-slate-50">
+                  <div className="grid grid-cols-3 gap-x-4 gap-y-4 pt-2 border-t border-slate-50">
                     <div>
                       <p className="text-[7px] text-slate-400 font-bold uppercase tracking-widest mb-0.5">Fabricante</p>
                       <p className="font-bold text-navy text-[10px] truncate">{selectedMaterial.brand || '---'}</p>
@@ -589,10 +596,6 @@ export default function TerceirizadaDashboard() {
                     <div>
                       <p className="text-[7px] text-slate-400 font-bold uppercase tracking-widest mb-0.5">Nº de Série</p>
                       <p className="font-bold text-navy text-[10px] font-mono tracking-tighter truncate">{selectedMaterial.serial_number || '---'}</p>
-                    </div>
-                    <div>
-                      <p className="text-[7px] text-slate-400 font-bold uppercase tracking-widest mb-0.5">Patrimônio</p>
-                      <p className="font-bold text-navy text-[10px] font-mono tracking-tighter truncate">{selectedMaterial.code || '---'}</p>
                     </div>
                   </div>
                   {selectedMaterial.description && (

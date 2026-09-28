@@ -1,5 +1,6 @@
 import { IRequestRepository } from '../../domain/repositories/IRequestRepository';
 import { supabaseAdmin } from '../../config/supabase';
+import { NotificationService } from '../../services/NotificationService';
 
 export class MarkMaterialForExit {
   constructor(private requestRepository: IRequestRepository) {}
@@ -9,9 +10,6 @@ export class MarkMaterialForExit {
       throw new Error('Nenhum material selecionado para baixa.');
     }
 
-    // Buscar setor da Portaria
-    const portariaSectorId = await this.requestRepository.findSectorByName(tenantId, 'Portaria');
-    
     // Para cada material, devemos garantir que pertence a uma requisição do mesmo tenant
     for (const matId of materialIds) {
       const { data: material, error } = await supabaseAdmin
@@ -37,11 +35,41 @@ export class MarkMaterialForExit {
         profileId,
         tenantId,
         material.current_sector_id || material.request.sector_id,
-        portariaSectorId || undefined,
+        undefined, // Saída da Usina (to_sector_id null para não conflitar com o setor do Líder de Portaria)
         signature,
         photos,
         observation
       );
+    }
+
+    try {
+      const { data: firstMat, error: matErr } = await supabaseAdmin
+        .from('materials')
+        .select('request:entry_requests(*, profile:profiles!profile_id(full_name))')
+        .eq('id', materialIds[0])
+        .maybeSingle();
+
+      if (matErr) {
+        console.error('[MarkMaterialForExit] Erro ao buscar dados da requisição:', matErr.message);
+      }
+
+      if (firstMat?.request) {
+        const reqObj: any = Array.isArray(firstMat.request) ? firstMat.request[0] : firstMat.request;
+        if (reqObj?.id) {
+          const { data: allMats } = await supabaseAdmin
+            .from('materials')
+            .select('status')
+            .eq('request_id', reqObj.id);
+
+          const allLeaving = allMats?.every((m: any) => m.status === 'WAITING_EXIT' || m.status === 'OUT_PLANTA');
+          if (allLeaving) {
+            await this.requestRepository.updateStatus(reqObj.id, 'WAITING_EXIT', undefined, profileId);
+          }
+        }
+        await NotificationService.notifyExitWaiting(reqObj, materialIds.length);
+      }
+    } catch (e) {
+      console.error('[MarkMaterialForExit] Erro ao disparar notificação:', e);
     }
   }
 }

@@ -13,11 +13,11 @@ export class TransferMaterial {
       movedBy,
       tenantId,
       fromSectorId,
-      undefined, // toSectorId
+      toSectorId, // toSectorId
       signature,
       photos, // photos
       toSectorId, // pendingSectorId
-      false, // logMovement
+      true, // logMovement
       observation // observation
     );
   }

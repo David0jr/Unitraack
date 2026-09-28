@@ -18,7 +18,7 @@ export interface IRequestRepository {
   markCheckout(id: string, checkOutBy: string): Promise<void>;
   updateMaterialStatus(materialId: string, status: any, timestampField?: 'entry_at' | 'exit_at', movedBy?: string, tenantId?: string, fromSectorId?: string, toSectorId?: string, signature?: string, photos?: string[], observation?: string): Promise<void>;
   updateMultipleMaterialsStatus(materialIds: string[], status: any, timestampField?: 'entry_at' | 'exit_at', movedBy?: string, tenantId?: string, fromSectorId?: string, toSectorId?: string, signature?: string, photos?: string[], pendingSectorId?: string | null, logMovement?: boolean, observation?: string): Promise<void>;
-  getAuditHistory(tenantId: string, sectorId?: string, actorId?: string): Promise<any[]>;
+  getAuditHistory(tenantId: string, sectorId?: string, actorId?: string, onlyPortaria?: boolean): Promise<any[]>;
   findSectorByName(tenantId: string, name: string): Promise<string | null>;
   listMaterialsBySector(tenantId: string, sectorId: string, status?: MaterialStatus): Promise<Material[]>;
   findMaterialById(id: string): Promise<Material | null>;

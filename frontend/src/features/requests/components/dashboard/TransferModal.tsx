@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
-import { X, Send, ShieldCheck, Loader2, ChevronDown, Package, ClipboardCheck, Info, Camera, Hash, Upload } from 'lucide-react';
+import { X, Send, Loader2, ChevronDown, Camera, Upload, Hash } from 'lucide-react';
 import { useDashboard } from '../../../../contexts/DashboardContext';
+import { useAuth } from '../../../../contexts/AuthContext';
 import { WebcamModal } from '../../../../components/WebcamModal';
+import { compressImage } from '../../../../utils/imageCompressor';
+import Swal from 'sweetalert2';
 
 interface TransferModalProps {
   materialIds: string[];
   onClose: () => void;
   onConfirm: (toSectorId: string, signature: string, extraData?: any, photos?: string[]) => Promise<void>;
-  onMarkExit?: (signature: string, extraData?: any, photos?: string[]) => Promise<void>;
   isProcessing: boolean;
 }
 
@@ -15,302 +17,303 @@ export const TransferModal: React.FC<TransferModalProps> = ({
   materialIds, 
   onClose, 
   onConfirm,
-  onMarkExit,
   isProcessing
 }) => {
   const { sectors } = useDashboard();
+  const { profile } = useAuth();
   const [selectedParentSector, setSelectedParentSector] = useState('');
   const [selectedSubSector, setSelectedSubSector] = useState('');
   const [signature, setSignature] = useState('');
   const [photos, setPhotos] = useState<string[]>([]);
   const [observation, setObservation] = useState('');
   const [isWebcamOpen, setIsWebcamOpen] = useState(false);
-  
-  // Novos campos para fluxo de Portaria
-  const [transferType, setTransferType] = useState('TOTAL');
-  const [exitReason, setExitReason] = useState('CONCLUSÃO DO SERVIÇO');
 
   const parentSectors = sectors.filter(s => !s.parent_id);
   const subSectors = sectors.filter(s => s.parent_id === selectedParentSector);
 
-  const selectedSectorObj = sectors.find(s => s.id === (selectedSubSector || selectedParentSector));
-  const isPortaria = selectedSectorObj?.name?.toUpperCase().includes('PORTARIA');
-
-  const handleCapturePhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCapturePhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPhotos(prev => [...prev, reader.result as string]);
-      };
-      reader.readAsDataURL(file);
+      try {
+        const compressed = await compressImage(file);
+        setPhotos(prev => [...prev, compressed]);
+      } catch (err) {
+        console.error('Erro ao comprimir imagem:', err);
+      }
     }
+    e.target.value = '';
   };
 
   const removePhoto = (index: number) => {
     setPhotos(prev => prev.filter((_, i) => i !== index));
   };
 
+  const validateSignature = () => {
+    const cleanSignature = signature.trim().toUpperCase();
+    const userReg = profile?.registration_number?.trim().toUpperCase();
+
+    if (!cleanSignature) {
+      Swal.fire({
+        title: 'Matrícula Obrigatória',
+        text: 'Por favor, informe a matrícula do responsável para confirmar.',
+        icon: 'warning',
+        confirmButtonColor: '#0052cc',
+        customClass: {
+          popup: 'rounded-2xl font-brand',
+          confirmButton: 'rounded-xl font-bold uppercase text-xs px-6 py-3'
+        }
+      });
+      return false;
+    }
+
+    if (profile?.role !== 'SUPER_ADMIN') {
+      if (!userReg) {
+        Swal.fire({
+          title: 'Matrícula Não Cadastrada',
+          text: 'Seu usuário não possui matrícula cadastrada no sistema. Contate o administrador.',
+          icon: 'error',
+          confirmButtonColor: '#0052cc',
+          customClass: {
+            popup: 'rounded-2xl font-brand',
+            confirmButton: 'rounded-xl font-bold uppercase text-xs px-6 py-3'
+          }
+        });
+        return false;
+      }
+
+      if (cleanSignature !== userReg) {
+        Swal.fire({
+          title: 'Matrícula Inválida!',
+          text: 'A matrícula informada não confere com o responsável por este setor.',
+          icon: 'error',
+          confirmButtonColor: '#0052cc',
+          customClass: {
+            popup: 'rounded-2xl font-brand',
+            confirmButton: 'rounded-xl font-bold uppercase text-xs px-6 py-3'
+          }
+        });
+        return false;
+      }
+    }
+
+    return true;
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedSubSector || !signature) return;
+    if (!selectedSubSector) return;
+    if (!validateSignature()) return;
     
-    const extraData = isPortaria ? { transferType, exitReason, observation } : { observation };
-    onConfirm(selectedSubSector, signature, extraData, photos.length > 0 ? photos : undefined);
+    onConfirm(selectedSubSector, signature.trim(), { observation }, photos.length > 0 ? photos : undefined);
   };
-
-  const getMissingMessage = () => {
-    if (!selectedParentSector) return "Selecione a área de destino geral";
-    if (!selectedSubSector) return "Selecione o local específico";
-    if (!signature) return "Digite a matrícula do responsável";
-    return null;
-  };
-
-  const missingMessage = getMissingMessage();
 
   return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center p-2 md:p-4 bg-navy/80 backdrop-blur-md animate-in fade-in duration-300" onClick={onClose}>
-      <div className="bg-white w-full max-w-md max-h-[95vh] flex flex-col rounded-[2.5rem] overflow-hidden shadow-[0_50px_100px_-20px_rgba(0,0,0,0.3)] animate-in zoom-in-95 duration-300" onClick={(e) => e.stopPropagation()}>
-        
-        {/* Header - Premium Style (Fixed) */}
-        <div className="bg-navy p-6 md:p-8 relative overflow-hidden shrink-0">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-3xl -mr-16 -mt-16"></div>
-          
-          <div className="relative z-10 flex justify-between items-center text-white">
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 md:w-12 md:h-12 bg-white/10 backdrop-blur-xl rounded-2xl flex items-center justify-center border border-white/10 shadow-inner">
-                <Send className="w-5 h-5 md:w-6 md:h-6 text-primary" />
+    <>
+      <div 
+        className="fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-4 bg-navy/80 backdrop-blur-md animate-in fade-in duration-300"
+        onClick={onClose}
+      >
+        <div 
+          className="bg-white w-full max-w-3xl rounded-3xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh] border border-slate-100"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header Horizontal Compacto & Elegante */}
+          <div className="bg-navy px-6 py-4 sm:px-8 sm:py-5 flex items-center justify-between text-white shrink-0">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-primary/20 border border-primary/30 flex items-center justify-center text-primary">
+                <Send className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="font-bold uppercase text-sm md:text-base tracking-tighter leading-none">Movimentação <span className="text-primary italic">Interna</span></h3>
-                <p className="text-[9px] md:text-[10px] text-white/40 font-bold uppercase tracking-widest mt-1 md:mt-1.5 flex items-center gap-2">
-                  <ShieldCheck className="w-3 h-3" />
-                  Protocolo de Transferência
+                <div className="flex items-center gap-2">
+                  <h3 className="font-black uppercase text-base sm:text-lg tracking-tight">Movimentação Interna</h3>
+                  <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-primary/20 text-cyan-300 border border-primary/30">
+                    {materialIds.length} {materialIds.length > 1 ? 'itens' : 'item'}
+                  </span>
+                </div>
+                <p className="text-[10px] text-white/50 font-bold uppercase tracking-widest">
+                  Transferência de custódia entre setores internos
                 </p>
               </div>
             </div>
+
             <button 
-              onClick={onClose} 
-              className="w-8 h-8 md:w-10 md:h-10 flex items-center justify-center hover:bg-white/10 rounded-full transition-all border border-white/5"
+              type="button"
+              onClick={onClose}
+              className="w-9 h-9 rounded-xl flex items-center justify-center text-white/50 hover:text-white hover:bg-white/10 transition-all cursor-pointer"
             >
-              <X className="w-4 h-4 md:w-5 md:h-5" />
+              <X className="w-5 h-5" />
             </button>
           </div>
-        </div>
 
-        {/* Scrollable Body */}
-        <form onSubmit={handleSubmit} className="flex flex-col overflow-hidden">
-          <div className="p-6 md:p-8 space-y-6 md:space-y-8 overflow-y-auto max-h-full custom-scrollbar">
-            {/* Summary Card */}
-            <div className="bg-slate-50/50 p-4 md:p-5 rounded-[2rem] border border-slate-100 flex items-center justify-between shadow-inner">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-white rounded-xl shadow-sm text-slate-400">
-                  <Package className="w-4 h-4" />
-                </div>
-                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Itens Selecionados</span>
-              </div>
-              <span className="bg-navy text-white text-[11px] font-black px-4 py-1.5 rounded-full shadow-lg shadow-navy/20">{materialIds.length}</span>
-            </div>
-
-            <div className="space-y-4 md:space-y-6">
-              <div className="group">
-                <label className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-2 ml-1 block transition-colors group-focus-within:text-primary">Setor de Destino (Geral)</label>
-                <div className="relative">
-                  <select 
-                    value={selectedParentSector}
-                    onChange={(e) => {
-                      setSelectedParentSector(e.target.value);
-                      setSelectedSubSector('');
-                    }}
-                    className="w-full bg-slate-50/50 border border-slate-100 rounded-2xl px-5 py-3.5 md:py-4 text-sm font-bold text-navy appearance-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all outline-none shadow-sm cursor-pointer"
-                    required
-                  >
-                    <option value="">SELECIONE A ÁREA...</option>
-                    {parentSectors.map(s => (
-                      <option key={s.id} value={s.id}>{s.name.toUpperCase()}</option>
-                    ))}
-                  </select>
-                  <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 pointer-events-none group-focus-within:text-primary transition-colors" />
-                </div>
-              </div>
-
-              {selectedParentSector && (
-                <div className="animate-in fade-in slide-in-from-top-4 duration-500 group">
-                  <label className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-2 ml-1 block transition-colors group-focus-within:text-primary">Sub-setor / Local Específico</label>
-                  <div className="relative">
-                    <select 
-                      value={selectedSubSector}
-                      onChange={(e) => setSelectedSubSector(e.target.value)}
-                      className="w-full bg-slate-50/50 border border-slate-100 rounded-2xl px-5 py-3.5 md:py-4 text-sm font-bold text-navy appearance-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all outline-none shadow-sm cursor-pointer"
-                      required
-                    >
-                      <option value="">SELECIONE O LOCAL...</option>
-                      {subSectors.map(s => (
-                        <option key={s.id} value={s.id}>{s.name.toUpperCase()}</option>
-                      ))}
-                    </select>
-                    <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 pointer-events-none group-focus-within:text-primary transition-colors" />
-                  </div>
-                </div>
-              )}
-
-              {/* Foto de Evidência */}
-              <div className="space-y-4 pt-4 border-t border-slate-100">
-                <div className="flex items-center justify-between">
-                  <label className="text-[10px] text-slate-400 font-bold uppercase tracking-widest block">Evidência Fotográfica</label>
-                  <div className="flex gap-2">
-                    <button 
-                      type="button"
-                      onClick={() => setIsWebcamOpen(true)}
-                      className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 text-primary rounded-xl hover:bg-primary hover:text-white transition-all cursor-pointer group"
-                    >
-                      <Camera className="w-4 h-4" />
-                      <span className="text-[10px] font-black uppercase hidden sm:inline">Câmera</span>
-                    </button>
-                    <label className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-200 hover:text-slate-800 transition-all cursor-pointer group">
-                      <Upload className="w-4 h-4" />
-                      <span className="text-[10px] font-black uppercase hidden sm:inline">Galeria</span>
-                      <input type="file" accept="image/*" className="hidden" onChange={handleCapturePhoto} />
+          {/* Form em 2 Colunas Horizontais */}
+          <form onSubmit={handleSubmit} className="p-6 sm:p-8 overflow-y-auto flex-1 custom-scrollbar">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              
+              {/* Coluna Esquerda: Destino & Autorização */}
+              <div className="space-y-4 flex flex-col justify-between">
+                <div className="space-y-4">
+                  {/* Setor Geral */}
+                  <div>
+                    <label className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1.5 block">
+                      Área de Destino Geral
                     </label>
+                    <div className="relative">
+                      <select 
+                        value={selectedParentSector}
+                        onChange={(e) => {
+                          setSelectedParentSector(e.target.value);
+                          setSelectedSubSector('');
+                        }}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-navy appearance-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all outline-none cursor-pointer"
+                        required
+                      >
+                        <option value="">SELECIONE A ÁREA GERAL...</option>
+                        {parentSectors.map(s => (
+                          <option key={s.id} value={s.id}>{s.name.toUpperCase()}</option>
+                        ))}
+                      </select>
+                      <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                    </div>
                   </div>
-                </div>
 
-                {photos.length > 0 && (
-                  <div className="grid grid-cols-4 gap-3">
-                    {photos.map((p, i) => (
-                      <div key={i} className="aspect-square rounded-xl overflow-hidden relative group/img shadow-sm border border-slate-200">
-                        <img src={p} className="w-full h-full object-cover" />
+                  {/* Sub-setor / Local */}
+                  <div>
+                    <label className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1.5 block">
+                      Sub-setor / Local Específico
+                    </label>
+                    <div className="relative">
+                      <select 
+                        value={selectedSubSector}
+                        onChange={(e) => setSelectedSubSector(e.target.value)}
+                        disabled={!selectedParentSector}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-navy appearance-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all outline-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                        required
+                      >
+                        <option value="">{selectedParentSector ? 'SELECIONE O LOCAL ESPECÍFICO...' : 'PRIMEIRO ESCOLHA A ÁREA GERAL'}</option>
+                        {subSectors.map(s => (
+                          <option key={s.id} value={s.id}>{s.name.toUpperCase()}</option>
+                        ))}
+                      </select>
+                      <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                    </div>
+                  </div>
+
+                  {/* Matrícula do Responsável */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-[10px] text-slate-400 font-bold uppercase tracking-widest block">
+                        Matrícula do Líder
+                      </label>
+                      {profile?.registration_number && (
                         <button 
                           type="button"
-                          onClick={() => removePhoto(i)}
-                          className="absolute top-1 right-1 p-1 bg-rose-500 text-white rounded-lg opacity-0 group-hover/img:opacity-100 transition-all shadow-md"
+                          onClick={() => setSignature(profile.registration_number || '')}
+                          className="text-[9px] font-black text-primary bg-primary/10 hover:bg-primary/20 px-2 py-0.5 rounded-lg uppercase tracking-wider transition-colors cursor-pointer"
                         >
-                          <X className="w-3 h-3" />
+                          Usar Minha: {profile.registration_number}
                         </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                
-                <div className="group">
-                  <label className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-2 ml-1 block transition-colors group-focus-within:text-primary">Observação da Evidência</label>
-                  <textarea 
-                    placeholder="Descreva o estado do equipamento..."
-                    value={observation}
-                    onChange={(e) => setObservation(e.target.value)}
-                    className="w-full bg-slate-50/50 border border-slate-100 rounded-2xl px-5 py-3.5 md:py-4 text-sm font-bold text-navy focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all outline-none shadow-sm min-h-[80px] custom-scrollbar"
-                  />
-                </div>
-              </div>
-
-              {/* Fluxo de Saída para Portaria */}
-              {isPortaria && (
-                <div className="space-y-4 pt-4 border-t border-slate-100 animate-in fade-in slide-in-from-bottom-2 duration-500">
-                  <div className="bg-primary/5 p-4 rounded-2xl border border-primary/10 mb-4 flex items-center gap-3">
-                    <Info className="w-5 h-5 text-primary" />
-                    <p className="text-[10px] text-primary font-bold uppercase tracking-tight">Fluxo de Baixa de Equipamento Terceirizado</p>
-                  </div>
-
-                  <div className="group">
-                    <label className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-2 ml-1 block">Tipo de Saída</label>
-                    <div className="relative">
-                      <select 
-                        value={transferType}
-                        onChange={(e) => setTransferType(e.target.value)}
-                        className="w-full bg-slate-50/50 border border-slate-100 rounded-2xl px-5 py-3.5 text-sm font-bold text-navy appearance-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all outline-none"
-                        required
-                      >
-                        <option value="TOTAL">SAÍDA TOTAL</option>
-                        <option value="PARCIAL">SAÍDA PARCIAL</option>
-                      </select>
-                      <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 pointer-events-none" />
+                      )}
                     </div>
-                  </div>
-
-                  <div className="group">
-                    <label className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-2 ml-1 block">Motivo da Saída</label>
                     <div className="relative">
-                      <select 
-                        value={exitReason}
-                        onChange={(e) => setExitReason(e.target.value)}
-                        className="w-full bg-slate-50/50 border border-slate-100 rounded-2xl px-5 py-3.5 text-sm font-bold text-navy appearance-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all outline-none"
+                      <input 
+                        type="text"
+                        placeholder="DIGITE SUA MATRÍCULA..."
+                        value={signature}
+                        onChange={(e) => setSignature(e.target.value)}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 pl-10 text-xs font-black text-navy uppercase tracking-widest focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all outline-none"
                         required
-                      >
-                        <option value="CONCLUSÃO DO SERVIÇO">CONCLUSÃO DO SERVIÇO</option>
-                        <option value="MANUTENÇÃO DO EQUIPAMENTO">MANUTENÇÃO DO EQUIPAMENTO</option>
-                        <option value="TROCA DE EQUIPAMENTO">TROCA DE EQUIPAMENTO</option>
-                        <option value="OUTROS">OUTROS</option>
-                      </select>
-                      <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 pointer-events-none" />
+                      />
+                      <Hash className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     </div>
                   </div>
                 </div>
-              )}
-            </div>
 
-            <div className="space-y-3 pt-4 border-t border-slate-100 group">
-              <div className="flex items-center gap-2">
-                <Hash className="w-4 h-4 text-primary" />
-                <label className="text-[10px] text-slate-400 font-bold uppercase tracking-widest block transition-colors group-focus-within:text-primary">Matrícula do Responsável</label>
-              </div>
-              <input 
-                type="text" 
-                placeholder="DIGITE SUA MATRÍCULA PARA CONFIRMAR..."
-                value={signature}
-                onChange={(e) => setSignature(e.target.value)}
-                className="w-full px-5 py-4 bg-slate-50/50 border border-slate-100 rounded-2xl text-navy placeholder:text-slate-300 focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all font-black text-sm tracking-widest uppercase"
-                required
-              />
-            </div>
-          </div>
-
-          {/* Footer - Fixed Button */}
-          <div className="p-6 md:p-8 pt-0 shrink-0 flex flex-col gap-3">
-            {missingMessage && !onMarkExit && (
-               <div className="bg-amber-50/50 border border-amber-100 p-3 rounded-2xl flex items-center justify-center gap-2 animate-in fade-in zoom-in duration-300">
-                 <Info className="w-4 h-4 text-amber-500" />
-                 <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest">{missingMessage}</p>
-               </div>
-            )}
-            
-            <div className="flex flex-col gap-2">
-              <button 
-                type="submit"
-                disabled={!selectedSubSector || !signature || isProcessing}
-                className="w-full bg-navy hover:bg-[#001D4A]/90 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-[11px] md:text-xs uppercase tracking-widest py-4 md:py-5 rounded-[1.5rem] shadow-[0_20px_40px_-10px_rgba(0,29,74,0.3)] transition-all flex items-center justify-center gap-3 active:scale-[0.98] group"
-              >
-                {isProcessing ? (
-                  <Loader2 className="w-5 h-5 animate-spin opacity-40" />
-                ) : (
-                  <>
-                    <ShieldCheck className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                    Confirmar Transferência
-                  </>
-                )}
-              </button>
-
-              {onMarkExit && (
+                {/* Botão de Envio */}
                 <button 
-                  type="button"
-                  onClick={() => onMarkExit(signature, isPortaria ? { transferType, exitReason, observation } : { observation }, photos.length > 0 ? photos : undefined)}
-                  disabled={!signature || isProcessing}
-                  className="w-full bg-rose-50 hover:bg-rose-100 disabled:opacity-50 disabled:cursor-not-allowed text-rose-600 font-bold text-[11px] md:text-xs uppercase tracking-widest py-4 md:py-5 rounded-[1.5rem] border border-rose-200 transition-all flex items-center justify-center gap-3 active:scale-[0.98] group mt-2"
+                  type="submit"
+                  disabled={!selectedSubSector || !signature || isProcessing}
+                  className="w-full bg-primary hover:bg-[#009e96] disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-xs uppercase tracking-widest py-3.5 rounded-xl shadow-lg shadow-primary/20 transition-all flex items-center justify-center gap-2 active:scale-[0.99] cursor-pointer mt-4"
                 >
                   {isProcessing ? (
-                    <Loader2 className="w-5 h-5 animate-spin opacity-40 text-rose-600" />
+                    <Loader2 className="w-5 h-5 animate-spin" />
                   ) : (
                     <>
-                      <Package className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                      Dar Baixa / Enviar para Portaria
+                      <Send className="w-4 h-4" />
+                      Confirmar Transferência
                     </>
                   )}
                 </button>
-              )}
+              </div>
+
+              {/* Coluna Direita: Fotos & Observações */}
+              <div className="space-y-4 bg-slate-50/70 p-4 sm:p-5 rounded-2xl border border-slate-100 flex flex-col justify-between">
+                <div>
+                  {/* Header Fotos */}
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-[10px] text-slate-400 font-bold uppercase tracking-widest block">
+                      Evidências Fotográficas ({photos.length})
+                    </label>
+                    <div className="flex gap-2">
+                      <button 
+                        type="button"
+                        onClick={() => setIsWebcamOpen(true)}
+                        className="flex items-center gap-1 px-2.5 py-1 bg-white border border-slate-200 text-slate-600 hover:text-primary hover:border-primary/30 rounded-lg transition-all text-[9px] font-black uppercase cursor-pointer"
+                      >
+                        <Camera className="w-3.5 h-3.5" />
+                        <span>Câmera</span>
+                      </button>
+                      <label className="flex items-center gap-1 px-2.5 py-1 bg-white border border-slate-200 text-slate-600 hover:text-primary hover:border-primary/30 rounded-lg transition-all text-[9px] font-black uppercase cursor-pointer">
+                        <Upload className="w-3.5 h-3.5" />
+                        <span>Galeria</span>
+                        <input type="file" accept="image/*" className="hidden" onChange={handleCapturePhoto} />
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Thumbnails */}
+                  {photos.length > 0 ? (
+                    <div className="grid grid-cols-4 gap-2 mb-3">
+                      {photos.map((p, i) => (
+                        <div key={i} className="aspect-square rounded-lg overflow-hidden relative group/img shadow-xs border border-slate-200">
+                          <img src={p} className="w-full h-full object-cover" />
+                          <button 
+                            type="button"
+                            onClick={() => removePhoto(i)}
+                            className="absolute top-1 right-1 p-1 bg-rose-600 text-white rounded-md opacity-0 group-hover/img:opacity-100 transition-all hover:scale-110 shadow-sm cursor-pointer"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-3 bg-white/60 rounded-xl border border-dashed border-slate-200 text-center mb-3">
+                      <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">
+                        Opcional • Fotos do estado do equipamento
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Observação */}
+                  <div>
+                    <label className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1.5 block">
+                      Observação / Estado do Equipamento
+                    </label>
+                    <textarea 
+                      placeholder="Descreva o estado do equipamento para o setor de destino..."
+                      value={observation}
+                      onChange={(e) => setObservation(e.target.value)}
+                      className="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs font-medium text-navy placeholder:text-slate-300 focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all outline-none resize-none min-h-[90px] custom-scrollbar"
+                    />
+                  </div>
+                </div>
+              </div>
+
             </div>
-          </div>
-        </form>
+          </form>
+        </div>
       </div>
-      
+
       {isWebcamOpen && (
         <WebcamModal 
           onClose={() => setIsWebcamOpen(false)}
@@ -320,6 +323,6 @@ export const TransferModal: React.FC<TransferModalProps> = ({
           }}
         />
       )}
-    </div>
+    </>
   );
 };

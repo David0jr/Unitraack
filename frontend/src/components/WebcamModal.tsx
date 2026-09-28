@@ -83,7 +83,10 @@ export const WebcamModal: React.FC<WebcamModalProps> = ({ onCapture, onClose }) 
   };
 
   return (
-    <div className="fixed inset-0 z-[100] bg-black/90 flex flex-col items-center justify-center p-4">
+    <div 
+      className="fixed inset-0 z-[200] bg-black/90 flex flex-col items-center justify-center p-4 animate-in fade-in duration-200"
+      onClick={(e) => e.stopPropagation()}
+    >
       <div className="w-full max-w-lg relative bg-slate-900 rounded-3xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
         <div className="absolute top-4 right-4 z-10">
           <button 

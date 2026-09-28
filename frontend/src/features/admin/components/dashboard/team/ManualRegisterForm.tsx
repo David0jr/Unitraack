@@ -213,7 +213,7 @@ export function ManualRegisterForm({ tenantId, usinaCnpj, onSuccess, onError }: 
             placeholder="Selecione a função"
             options={[
               { type: 'option', value: 'LIDER_SETOR', label: 'Líder de Setor' },
-              { type: 'option', value: 'PORTARIA', label: 'Segurança da Portaria' }
+              { type: 'option', value: 'PORTARIA', label: 'Controle de Acesso' }
             ]}
           />
         </div>

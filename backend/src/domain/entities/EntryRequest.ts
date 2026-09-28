@@ -6,7 +6,12 @@ export type RequestStatus =
   | 'REJECTED_LIDER' 
   | 'APPROVED_GESTOR' 
   | 'REJECTED_GESTOR' 
+  | 'WAITING_ARRIVAL'
+  | 'ARRIVED'
+  | 'IN_ANALYSIS'
   | 'IN_PLANTA'
+  | 'WAITING_EXIT'
+  | 'EXIT_CONFERENCE'
   | 'COMPLETED'
   | 'CANCELED'
   | 'DISCREPANCY';
@@ -32,7 +37,7 @@ export interface EntryRequest {
   created_at: string;
 }
 
-export type MaterialStatus = 'PENDING' | 'IN_PLANTA' | 'OUT_PLANTA' | 'MOVING' | 'WAITING_EXIT';
+export type MaterialStatus = 'PENDING' | 'IN_PLANTA' | 'OUT_PLANTA' | 'MOVING' | 'WAITING_EXIT' | 'EXIT_CONFERENCE';
 
 export interface Material {
   id: string;

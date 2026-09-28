@@ -157,9 +157,17 @@ export function MemberList({ tenantId }: MemberListProps) {
                 <div className="flex items-center gap-2 mt-0.5">
                    <p className="text-[9px] text-primary font-bold uppercase tracking-widest">
                      {member.role === 'LIDER_SETOR' ? 'Líder de Setor' : 
-                      member.role === 'PORTARIA' ? 'Segurança da Portaria' : 
+                      member.role === 'PORTARIA' ? 'Controle de Acesso' : 
                       member.role.replace('_', ' ')}
                    </p>
+                   {member.registration_number && (
+                     <>
+                        <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
+                        <p className="text-[9px] text-emerald-600 font-black uppercase tracking-wider">
+                          Mat: {member.registration_number}
+                        </p>
+                     </>
+                   )}
                    {member.sector && (
                      <>
                         <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
@@ -216,6 +224,13 @@ export function MemberList({ tenantId }: MemberListProps) {
             value={editingMember?.full_name || ''}
             onChange={(val: string) => setEditingMember({...editingMember, full_name: val})}
           />
+
+          <InputGroup 
+            label="Número de Matrícula (Código de Autorização)"
+            value={editingMember?.registration_number || ''}
+            onChange={(val: string) => setEditingMember({...editingMember, registration_number: val})}
+            placeholder="Ex: 60293847"
+          />
           
           <div className="space-y-1.5">
             <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Função / Cargo</label>
@@ -224,7 +239,7 @@ export function MemberList({ tenantId }: MemberListProps) {
               onChange={(val: string) => setEditingMember({...editingMember, role: val})}
               options={[
                 { type: 'option', value: 'LIDER_SETOR', label: 'Líder de Setor' },
-                { type: 'option', value: 'PORTARIA', label: 'Segurança da Portaria' }
+                { type: 'option', value: 'PORTARIA', label: 'Controle de Acesso' }
               ]}
             />
           </div>

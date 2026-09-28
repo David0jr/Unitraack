@@ -15,6 +15,7 @@ interface DashboardState {
     pending: number;
     active: number;
     completed: number;
+    discrepancies: number;
   };
   loading: boolean;
   error: string | null;
@@ -37,7 +38,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     sectors: [],
     materials: [],
     movements: [],
-    stats: { pending: 0, active: 0, completed: 0 },
+    stats: { pending: 0, active: 0, completed: 0, discrepancies: 0 },
     loading: true,
     error: null
   });
@@ -75,10 +76,18 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       }
 
       // Cálculo de estatísticas rápidas
+      const discrepanciesCount = Array.isArray(requests)
+        ? requests.filter((r: any) => 
+            (r.status === 'DISCREPANCY' || (r.rejection_reason && !['REJECTED', 'REJECTED_LIDER', 'REJECTED_GESTOR', 'CANCELED'].includes(r.status))) &&
+            r.status !== 'COMPLETED'
+          ).length
+        : 0;
+
       const stats = {
         pending: Array.isArray(requests) ? requests.filter((r: any) => r.status === 'PENDING').length : 0,
         active: materials.length,
-        completed: movements.length
+        completed: movements.length,
+        discrepancies: discrepanciesCount
       };
 
       setState({

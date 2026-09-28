@@ -3,8 +3,8 @@ import { IRequestRepository } from '../../domain/repositories/IRequestRepository
 export class GetAuditHistory {
   constructor(private requestRepo: IRequestRepository) {}
 
-  async execute(tenantId: string, sectorId?: string, actorId?: string) {
+  async execute(tenantId: string, sectorId?: string, actorId?: string, onlyPortaria?: boolean) {
     if (!tenantId) throw new Error('ID da empresa é obrigatório.');
-    return await this.requestRepo.getAuditHistory(tenantId, sectorId, actorId);
+    return await this.requestRepo.getAuditHistory(tenantId, sectorId, actorId, onlyPortaria);
   }
 }

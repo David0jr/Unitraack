@@ -17,14 +17,25 @@ export default function Login() {
   const location = useLocation();
   const isLoggingIn = useRef(false);
 
-  // SECURITY: Se o usuário chegar nesta página já estando logado (ex: via botão 'Voltar'), 
-  // forçamos o logout para proteger a rota e impedir o re-ingresso via botão 'Avançar'.
+  // Se o usuário já possuir sessão ativa e salva, redireciona diretamente para o painel correto
   useEffect(() => {
     if (!authLoading && user && profile && !isLoggingIn.current) {
-      console.warn('[Login] Sessão ativa detectada na página de login. Invalidando sessão para proteção...');
-      signOut();
+      console.log('[Login] Sessão ativa detectada. Redirecionando automaticamente...');
+      if (profile.role === 'SUPER_ADMIN') {
+        navigate('/admin/painel', { replace: true });
+        return;
+      }
+      const userSlug = profile.tenant?.subdomain || slug;
+      const rolePath = profile.role?.toLowerCase().replace('_', '-');
+      if (userSlug && rolePath) {
+        navigate(`/${userSlug}/${rolePath}/painel`, { replace: true });
+      } else if (userSlug) {
+        navigate(`/${userSlug}/painel`, { replace: true });
+      } else {
+        navigate('/painel', { replace: true });
+      }
     }
-  }, [user, profile, authLoading, signOut]);
+  }, [user, profile, authLoading, slug, navigate]);
 
   useEffect(() => {
     const state = location.state as { error?: string } | null;
@@ -161,15 +172,11 @@ export default function Login() {
         
         {/* Logo Section (Mobile Only) */}
         <div className="flex flex-col items-center mb-8 lg:hidden">
-           {tenant?.logo_url ? (
-             <img 
-               src={tenant.logo_url} 
-               alt={tenant?.name || "Usina"} 
-               className="h-8 object-contain mb-2" 
-             />
-           ) : (
-             <span className="text-lg font-black uppercase text-navy tracking-tight mb-1">{tenant?.name || 'Portal'}</span>
-           )}
+          <img 
+            src="/logo-lins.png" 
+            alt={tenant?.name || "Usina Lins"} 
+            className="h-10 max-w-[220px] object-contain mb-2" 
+          />
         </div>
 
         {/* Main Card */}
@@ -192,21 +199,12 @@ export default function Login() {
             <div className="relative z-10 flex flex-col h-full">
               {/* Logo Section */}
               <div className="mb-auto">
-                <div className="h-20 lg:h-28 flex items-center mb-6">
-                  {tenant?.logo_url ? (
-                    <img 
-                      src={tenant.logo_url} 
-                      alt={tenant?.name || "Logo"} 
-                      className="max-h-full max-w-[240px] object-contain drop-shadow-md transition-all" 
-                    />
-                  ) : (
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center text-white font-black text-2xl shadow-lg">
-                        {tenant?.name?.[0] || 'U'}
-                      </div>
-                      <span className="text-white font-black text-2xl tracking-tight uppercase">{tenant?.name || 'Usina'}</span>
-                    </div>
-                  )}
+                <div className="h-16 lg:h-20 flex items-center mb-4">
+                  <img 
+                    src="/logo-lins-white.png" 
+                    alt={tenant?.name || "Usina Lins"} 
+                    className="h-11 lg:h-12 w-auto max-w-[270px] object-contain drop-shadow-md transition-all" 
+                  />
                 </div>
               </div>
 

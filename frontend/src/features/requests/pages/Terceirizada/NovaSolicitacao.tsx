@@ -30,7 +30,7 @@ interface MaterialItem {
   serial_number: string;
   description: string;
   condition: string;
-  code: string;
+  code?: string;
   imageUrl: string;
   uploading: boolean;
 }
@@ -69,7 +69,6 @@ export default function NovaSolicitacao() {
           serial_number: m.serial_number || '',
           description: m.description || '',
           condition: m.condition || 'USADO',
-          code: m.code || '',
           imageUrl: m.image_url || '',
           uploading: false
         })));

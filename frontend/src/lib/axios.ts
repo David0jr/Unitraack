@@ -29,6 +29,7 @@ api.interceptors.request.use(
 
       if (activeSession?.access_token) {
         config.headers.Authorization = `Bearer ${activeSession.access_token}`;
+        sessionStorage.setItem('usinalins-auth-token-v1', activeSession.access_token);
       }
     } catch (error) {
       console.error('[Axios Interceptor] Erro ao obter sessão do Supabase:', error);
@@ -36,6 +37,30 @@ api.interceptors.request.use(
     return config;
   },
   (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Interceptor de resposta para renovar automaticamente caso receba 401 (Token expirado)
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+    if (error.response?.status === 401 && !originalRequest?._retry) {
+      originalRequest._retry = true;
+      try {
+        console.warn('[Axios Interceptor] 401 recebido (Token inválido/expirado). Renovando sessão...');
+        const { data: { session }, error: refreshError } = await supabase.auth.refreshSession();
+        if (!refreshError && session?.access_token) {
+          sessionStorage.setItem('usinalins-auth-token-v1', session.access_token);
+          originalRequest.headers = originalRequest.headers || {};
+          originalRequest.headers.Authorization = `Bearer ${session.access_token}`;
+          return api(originalRequest);
+        }
+      } catch (err) {
+        console.error('[Axios Interceptor] Falha ao renovar sessão após 401:', err);
+      }
+    }
     return Promise.reject(error);
   }
 );

@@ -25,7 +25,12 @@ export type RequestStatus =
   | 'REJECTED_LIDER' 
   | 'APPROVED_GESTOR' 
   | 'REJECTED_GESTOR' 
+  | 'WAITING_ARRIVAL'
+  | 'ARRIVED'
+  | 'IN_ANALYSIS'
   | 'IN_PLANTA'
+  | 'WAITING_EXIT'
+  | 'EXIT_CONFERENCE'
   | 'COMPLETED'
   | 'CANCELED'
   | 'DISCREPANCY';
@@ -133,4 +138,18 @@ export interface Sector {
   layout_y?: number;
   layout_w?: number;
   layout_h?: number;
+}
+
+export interface AppNotification {
+  id: string;
+  tenant_id: string;
+  user_id?: string | null;
+  role?: string | null;
+  sector_id?: string | null;
+  request_id?: string | null;
+  title: string;
+  message: string;
+  type: 'ARRIVAL' | 'ANALYSIS' | 'IN_PLANTA' | 'EXIT_WAITING' | 'EXIT_CONFERENCE' | 'EXIT_COMPLETED' | 'DISCREPANCY' | 'INFO';
+  read: boolean;
+  created_at: string;
 }

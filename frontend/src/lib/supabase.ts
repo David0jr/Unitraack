@@ -14,11 +14,21 @@ const storageKey = `usinalins-auth-global`;
 
 console.log(`[Supabase] Initializing with storageKey: ${storageKey} (Path: ${window.location.pathname})`);
 
+// Migração de segurança: se houver sessão ativa em sessionStorage, copia para localStorage
+try {
+  const existingSession = window.sessionStorage.getItem(storageKey);
+  if (existingSession && !window.localStorage.getItem(storageKey)) {
+    window.localStorage.setItem(storageKey, existingSession);
+  }
+} catch (e) {
+  // Ignora se cookies/storage restrito
+}
+
 // In the frontend, we use the Anon Key. The security is enforced by Row Level Security (RLS)
 // inside the database, identifying the user from the JWT.
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    storage: window.sessionStorage,
+    storage: window.localStorage,
     storageKey: storageKey,
     autoRefreshToken: true,
     persistSession: true,

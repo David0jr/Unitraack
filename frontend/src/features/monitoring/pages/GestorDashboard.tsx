@@ -3,6 +3,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { DashboardSidebar } from '../../requests/components/dashboard/DashboardSidebar';
 import { DashboardHeader } from '../../requests/components/dashboard/DashboardHeader';
 import { DashboardStats } from '../../requests/components/dashboard/DashboardStats';
+import { DiscrepanciesTracker } from '../../requests/components/dashboard/DiscrepanciesTracker';
 import { PendingApprovals } from '../../requests/components/dashboard/PendingApprovals';
 import AuditSection from '../../requests/components/AuditSection';
 import MonitoringDashboard from '../components/MonitoringDashboard';
@@ -76,6 +77,7 @@ export default function GestorDashboard() {
           {activeSection === 'approvals' ? (
             <div className="space-y-8 lg:space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
               <DashboardStats />
+              <DiscrepanciesTracker />
               <PendingApprovals />
             </div>
           ) : activeSection === 'team' ? (

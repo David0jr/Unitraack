@@ -3,7 +3,7 @@ import { IRequestRepository } from '../../domain/repositories/IRequestRepository
 export class AcceptMaterialTransfer {
   constructor(private requestRepository: IRequestRepository) {}
 
-  async execute(materialIds: string[], sectorId: string, movedBy: string, tenantId: string, signature?: string): Promise<void> {
+  async execute(materialIds: string[], sectorId: string, movedBy: string, tenantId: string, signature?: string, photos?: string[], observation?: string): Promise<void> {
     if (materialIds.length === 0) throw new Error('Nenhum material selecionado.');
     
     // Precisamos pegar o setor de origem (que está no current_sector_id antes de aceitarmos)
@@ -20,9 +20,10 @@ export class AcceptMaterialTransfer {
       fromSectorId || undefined,
       sectorId,
       signature,
-      undefined, // photos
+      photos,
       null, // pendingSectorId cleared
-      true // logMovement
+      true, // logMovement
+      observation
     );
   }
 }

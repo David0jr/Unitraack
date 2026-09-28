@@ -589,7 +589,7 @@ export default function InteractiveMap() {
                       Condição: {selectedMaterial.condition}
                     </span>
                   </div>
-                  <div className="grid grid-cols-2 gap-x-6 gap-y-4 pt-2 border-t border-slate-50">
+                  <div className="grid grid-cols-3 gap-x-4 gap-y-4 pt-2 border-t border-slate-50">
                     <div>
                       <p className="text-[7px] text-slate-400 font-bold uppercase tracking-widest mb-0.5">Fabricante</p>
                       <p className="font-bold text-navy text-[10px] truncate">{selectedMaterial.brand || '---'}</p>
@@ -601,10 +601,6 @@ export default function InteractiveMap() {
                     <div>
                       <p className="text-[7px] text-slate-400 font-bold uppercase tracking-widest mb-0.5">Nº de Série</p>
                       <p className="font-bold text-navy text-[10px] font-mono tracking-tighter truncate">{selectedMaterial.serial_number || '---'}</p>
-                    </div>
-                    <div>
-                      <p className="text-[7px] text-slate-400 font-bold uppercase tracking-widest mb-0.5">Patrimônio</p>
-                      <p className="font-bold text-navy text-[10px] font-mono tracking-tighter truncate">{selectedMaterial.code || '---'}</p>
                     </div>
                   </div>
                 </div>
@@ -750,7 +746,7 @@ export default function InteractiveMap() {
                             <p className="font-bold text-navy text-xs uppercase truncate">{mat.name}</p>
                             <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest truncate">{mat.request?.profile?.full_name || 'Desconhecida'}</p>
                             <div className="flex items-center gap-2 mt-2">
-                               <span className="text-[8px] bg-slate-50 text-slate-400 px-2 py-0.5 rounded font-bold uppercase">{mat.code || 'S/N'}</span>
+                               <span className="text-[8px] bg-slate-50 text-slate-400 px-2 py-0.5 rounded font-bold uppercase">{mat.serial_number || 'S/N'}</span>
                                <span className="text-[8px] bg-primary/10 text-primary px-2 py-0.5 rounded font-bold uppercase">{mat.condition}</span>
                             </div>
                           </div>

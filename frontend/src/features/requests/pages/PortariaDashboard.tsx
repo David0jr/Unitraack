@@ -1,11 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { getAuthToken } from '../../../utils/subdomain';
-import { Truck, Search, CheckCircle, Loader2, Package, Hash, Info, LogOut, Eye, AlertTriangle, X, Camera, ShieldAlert, ChevronRight, MapPin, ShieldCheck, ClipboardList, History, Users, Calendar, Clock, XOctagon } from 'lucide-react';
+import { Truck, Search, CheckCircle, Loader2, Package, Hash, Info, LogOut, Eye, AlertTriangle, X, Camera, ShieldAlert, ChevronRight, MapPin, ShieldCheck, ClipboardList, History, Users, Calendar, Clock, XOctagon, ArrowRight, RotateCcw, Play } from 'lucide-react';
 import { MobileNav } from '../components/dashboard/MobileNav';
 import Swal from 'sweetalert2';
 import { supabase } from '../../../lib/supabase';
 import { WebcamModal } from '../../../components/WebcamModal';
+import { PortariaHistoryView } from '../components/dashboard/PortariaHistoryView';
+import { NotificationDropdown } from '../components/dashboard/NotificationDropdown';
+import { compressImage } from '../../../utils/imageCompressor';
 
 interface Material {
   id: string;
@@ -17,7 +20,7 @@ interface Material {
   condition: string;
   code?: string;
   image_url?: string;
-  status: 'PENDING' | 'IN_PLANTA' | 'OUT_PLANTA' | 'MOVING' | 'WAITING_EXIT';
+  status: 'PENDING' | 'IN_PLANTA' | 'OUT_PLANTA' | 'MOVING' | 'WAITING_EXIT' | 'EXIT_CONFERENCE';
   photos?: string[];
 }
 
@@ -28,6 +31,9 @@ interface Requisicao {
   entry_date: string;
   created_at: string;
   status: string;
+  reason?: string;
+  rejection_reason?: string;
+  gate_checked_at?: string;
   driver_name?: string;
   plate?: string;
   profile: {
@@ -72,6 +78,8 @@ export default function PortariaDashboard() {
   const [discrepancyReason, setDiscrepancyReason] = useState('');
   const [mobileSection, setMobileSection] = useState<'list' | 'details' | 'history'>('list');
   const [auditHistory, setAuditHistory] = useState<any[]>([]);
+  const [isHistoryPageOpen, setIsHistoryPageOpen] = useState(false);
+  const [loadingHistory, setLoadingHistory] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [modalConfig, setModalConfig] = useState({ title: '', message: '', type: 'success' as 'success' | 'error' });
@@ -80,6 +88,8 @@ export default function PortariaDashboard() {
   const [selectedPhotos, setSelectedPhotos] = useState<string[] | null>(null);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [observation, setObservation] = useState('');
+  const [entrySubFilter, setEntrySubFilter] = useState<'WAITING' | 'ARRIVED' | 'ANALYSIS'>('WAITING');
+  const [exitSubFilter, setExitSubFilter] = useState<'WAITING' | 'CONFERENCE'>('WAITING');
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -102,32 +112,82 @@ export default function PortariaDashboard() {
     }
   };
 
-  const fetchAuditHistory = async (id: string) => {
+  const fetchAuditHistory = async (id?: string) => {
+    const targetId = id || userProfile?.tenant_id;
+    if (!targetId) return;
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/portaria/audit/${id}`, {
+      setLoadingHistory(true);
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/portaria/audit/${targetId}?onlyPortaria=true`, {
         headers: { 'Authorization': `Bearer ${getAuthToken()}` }
       });
       const payload = await response.json();
       if (response.ok) setAuditHistory(payload.data || []);
     } catch (err) {
       console.error('Erro ao buscar histórico:', err);
+    } finally {
+      setLoadingHistory(false);
     }
   };
 
   useEffect(() => {
     if (selectedCompany) {
       fetchAuditHistory(selectedCompany.id);
-    } else if (mobileSection === 'history' && userProfile?.tenant_id) {
+    }
+  }, [selectedCompany]);
+
+  useEffect(() => {
+    if (isHistoryPageOpen && userProfile?.tenant_id) {
       fetchAuditHistory(userProfile.tenant_id);
     }
-  }, [selectedCompany, mobileSection]);
+  }, [isHistoryPageOpen, userProfile?.tenant_id]);
+
+  const handleUpdateGateStatus = async (targetId: string, newStatus: 'WAITING_ARRIVAL' | 'ARRIVED' | 'IN_ANALYSIS' | 'WAITING_EXIT' | 'EXIT_CONFERENCE') => {
+    setProcessing(true);
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/portaria/status/${targetId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${getAuthToken()}`
+        },
+        body: JSON.stringify({ status: newStatus })
+      });
+
+      if (response.ok) {
+        setRequisicoes(prev => prev.map(r => r.id === targetId ? { ...r, status: newStatus } : r));
+        const statusLabel = 
+          newStatus === 'ARRIVED' ? 'Chegada Registrada' : 
+          newStatus === 'IN_ANALYSIS' ? 'Em Análise' : 
+          newStatus === 'WAITING_ARRIVAL' ? 'Aguardando Chegada' :
+          newStatus === 'EXIT_CONFERENCE' ? 'Conferência de Saída Iniciada' :
+          newStatus === 'WAITING_EXIT' ? 'Aguardando Saída' : newStatus;
+        Swal.fire({
+          icon: 'success',
+          title: statusLabel,
+          text: `O status da solicitação foi alterado para "${statusLabel}". Notificações enviadas aos gestores e líderes.`,
+          timer: 2000,
+          showConfirmButton: false
+        });
+        fetchRequisicoes();
+      } else {
+        const data = await response.json();
+        Swal.fire('Erro', data.error || 'Não foi possível alterar o status.', 'error');
+      }
+    } catch (err) {
+      Swal.fire('Erro de Conexão', 'Não foi possível conectar com o servidor.', 'error');
+    } finally {
+      setProcessing(false);
+    }
+  };
 
   const fetchRequisicoes = async () => {
     try {
       setLoading(true);
       const statusList = activeTab === 'ENTRY' 
-        ? ['APPROVED_LIDER', 'APPROVED_GESTOR', 'APPROVED', 'DISCREPANCY'] 
-        : ['IN_PLANTA'];
+        ? ['APPROVED_LIDER', 'APPROVED_GESTOR', 'APPROVED', 'WAITING_ARRIVAL', 'ARRIVED', 'IN_ANALYSIS', 'DISCREPANCY'] 
+        : activeTab === 'EXIT'
+        ? ['WAITING_EXIT', 'EXIT_CONFERENCE', 'IN_PLANTA']
+        : ['IN_PLANTA', 'DISCREPANCY', 'WAITING_EXIT', 'EXIT_CONFERENCE'];
         
       const query = new URLSearchParams();
       statusList.forEach(s => query.append('status', s));
@@ -158,6 +218,8 @@ export default function PortariaDashboard() {
     setSelecionadoId(null);
     setSelectedMaterials([]);
     setPhotos([]);
+    setEntrySubFilter('WAITING');
+    setExitSubFilter('WAITING');
   }, [activeTab]);
 
   useEffect(() => {
@@ -183,7 +245,7 @@ export default function PortariaDashboard() {
   useEffect(() => {
     if (selectedReq) {
       const initial = selectedReq.materials
-        .filter(m => (activeTab === 'ENTRY' ? m.status !== 'IN_PLANTA' : m.status === 'WAITING_EXIT'))
+        .filter(m => (activeTab === 'ENTRY' ? m.status !== 'IN_PLANTA' : ['WAITING_EXIT', 'EXIT_CONFERENCE'].includes(m.status)))
         .map(m => m.id);
       setSelectedMaterials(initial);
     }
@@ -201,15 +263,17 @@ export default function PortariaDashboard() {
     );
   };
 
-  const handleCapturePhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCapturePhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPhotos(prev => [...prev, reader.result as string]);
-      };
-      reader.readAsDataURL(file);
+      try {
+        const compressed = await compressImage(file);
+        setPhotos(prev => [...prev, compressed]);
+      } catch (err) {
+        console.error('Erro ao comprimir imagem:', err);
+      }
     }
+    e.target.value = '';
   };
 
   const removePhoto = (index: number) => {
@@ -218,8 +282,14 @@ export default function PortariaDashboard() {
 
   const handleConfirmMovement = async () => {    
     if (!selecionadoId || selectedMaterials.length === 0) return;
-    if ((activeTab === 'EXIT' || activeTab === 'ENTRY') && !signature) {
-      alert('Por favor, insira o número de matrícula para confirmar a operação.');
+    const cleanSignature = signature.trim().toUpperCase();
+    if (!cleanSignature) {
+      setModalConfig({
+        title: 'Matrícula Obrigatória',
+        message: 'Por favor, insira o número de matrícula para autorizar a operação.',
+        type: 'error'
+      });
+      setShowSuccessModal(true);
       return;
     }
     
@@ -234,11 +304,13 @@ export default function PortariaDashboard() {
         body: JSON.stringify({
           materialIds: selectedMaterials,
           type: activeTab,
-          signature: signature ? signature.toUpperCase() : undefined,
+          signature: cleanSignature,
           photos: photos.length > 0 ? photos : undefined,
           observation: observation ? observation : undefined
         })
       });
+
+      const payload = await response.json().catch(() => null);
 
       if (response.ok) {
         setRequisicoes(prev => prev.filter(r => r.id !== selecionadoId));
@@ -246,15 +318,21 @@ export default function PortariaDashboard() {
         setMobileSection('list');
         setPhotos([]);
         setObservation('');
+        setSignature('');
         setModalConfig({
           title: activeTab === 'ENTRY' ? 'Entrada Confirmada' : 'Saída Confirmada',
-          message: `O protocolo de ${activeTab === 'ENTRY' ? 'entrada' : 'saída'} foi processado com sucesso e registrado no histórico.`,
+          message: payload?.data?.message || payload?.message || `O protocolo de ${activeTab === 'ENTRY' ? 'entrada' : 'saída'} foi processado com sucesso e registrado no histórico.`,
           type: 'success'
         });
         setShowSuccessModal(true);
         fetchRequisicoes();
       } else {
-        setModalConfig({ title: 'Falha na Operação', message: 'Ocorreu um erro ao processar a movimentação no servidor.', type: 'error' });
+        const errorMsg = payload?.error || payload?.message || 'Matrícula inválida! A matrícula informada não foi encontrada ou não possui autorização ativa.';
+        setModalConfig({ 
+          title: 'Matrícula Inválida', 
+          message: errorMsg, 
+          type: 'error' 
+        });
         setShowSuccessModal(true);
       }
     } catch (err) {
@@ -330,13 +408,12 @@ export default function PortariaDashboard() {
       });
 
       if (response.ok) {
-        setRequisicoes(prev => prev.filter(r => r.id !== selecionadoId));
-        setSelecionadoId(null);
+        setRequisicoes(prev => prev.map(r => r.id === selecionadoId ? { ...r, status: 'DISCREPANCY', reason: discrepancyReason } : r));
         setShowDiscrepancyModal(false);
         setDiscrepancyReason('');
         setModalConfig({
-          title: 'Divergência Notificada',
-          message: 'O alerta foi enviado com sucesso e o protocolo está sob auditoria do Gestor de Segurança.',
+          title: 'Divergência Registrada',
+          message: 'Divergência gravada com sucesso e notificada ao Gestor de Segurança. O registro fica ativo para auditoria e a entrada pode ser liberada normalmente após a conferência dos itens.',
           type: 'success'
         });
         setShowSuccessModal(true);
@@ -354,21 +431,47 @@ export default function PortariaDashboard() {
   };
 
   const filteredReqs = Array.isArray(requisicoes) ? requisicoes.filter(r => {
-    if (activeTab === 'EXIT' && !r.materials?.some((m: any) => m.status === 'WAITING_EXIT')) {
-      return false;
+    if (activeTab === 'EXIT') {
+      const hasExitMaterials = r.materials?.some((m: any) => ['WAITING_EXIT', 'EXIT_CONFERENCE'].includes(m.status)) || ['WAITING_EXIT', 'EXIT_CONFERENCE'].includes(r.status);
+      if (!hasExitMaterials) return false;
+
+      const isWaitingExit = r.status === 'WAITING_EXIT' || r.materials?.some((m: any) => m.status === 'WAITING_EXIT');
+      const isConference = r.status === 'EXIT_CONFERENCE' || r.materials?.some((m: any) => m.status === 'EXIT_CONFERENCE');
+
+      if (exitSubFilter === 'WAITING' && !isWaitingExit) return false;
+      if (exitSubFilter === 'CONFERENCE' && !isConference) return false;
     }
     if (activeTab === 'IN_PLANTA' && !r.materials?.some((m: any) => m.status === 'IN_PLANTA')) {
       return false;
+    }
+    if (activeTab === 'ENTRY') {
+      if (r.status === 'DISCREPANCY' && (r.gate_checked_at || r.materials?.some((m: any) => m.status === 'IN_PLANTA'))) return false;
+
+      const isWaiting = ['APPROVED_LIDER', 'APPROVED_GESTOR', 'APPROVED', 'WAITING_ARRIVAL'].includes(r.status);
+      const isArrived = r.status === 'ARRIVED';
+      const isAnalysis = r.status === 'IN_ANALYSIS';
+      const isDiscrepancy = r.status === 'DISCREPANCY';
+
+      if (entrySubFilter === 'WAITING' && !isWaiting) return false;
+      if (entrySubFilter === 'ARRIVED' && !isArrived) return false;
+      if (entrySubFilter === 'ANALYSIS' && !(isAnalysis || isDiscrepancy)) return false;
+    }
+    if (activeTab === 'IN_PLANTA') {
+      if (r.status === 'DISCREPANCY' && !r.gate_checked_at && !r.materials?.some((m: any) => m.status === 'IN_PLANTA')) return false;
     }
     const search = (searchTerm || '').toLowerCase();
     const matchesName = (r.profile?.full_name || '').toLowerCase().includes(search);
     const matchesId = (r.id || '').toLowerCase().includes(search);
     const matchesMaterials = (r.materials || []).some(m => 
       (m.name || '').toLowerCase().includes(search) || 
-      (m.code || '').toLowerCase().includes(search) ||
       (m.serial_number || '').toLowerCase().includes(search)
     );
     return matchesName || matchesId || matchesMaterials;
+  }).sort((a, b) => {
+    const dateA = a.entry_date ? new Date(a.entry_date).getTime() : 0;
+    const dateB = b.entry_date ? new Date(b.entry_date).getTime() : 0;
+    if (dateA !== dateB) return dateA - dateB;
+    return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
   }) : [];
 
   const InfoItem = ({ label, value, icon }: { label: string; value: string; icon: React.ReactNode }) => (
@@ -422,10 +525,22 @@ export default function PortariaDashboard() {
             <p className="text-[10px] font-black text-white uppercase tracking-tighter mb-0.5">{userProfile?.full_name || 'Agente de Portaria'}</p>
           </div>
 
+          <NotificationDropdown />
+
           <button 
-            onClick={() => setMobileSection(mobileSection === 'history' ? 'list' : 'history')}
-            className={`hidden lg:flex items-center gap-2 px-4 py-2 rounded-xl transition-all font-black text-[10px] uppercase tracking-widest ${mobileSection === 'history' ? 'bg-primary text-white shadow-lg' : 'bg-white/5 text-white/70 hover:bg-white/10 hover:text-white'}`}
-            title="Histórico"
+            onClick={() => {
+              const nextState = !isHistoryPageOpen;
+              setIsHistoryPageOpen(nextState);
+              if (nextState && userProfile?.tenant_id) {
+                fetchAuditHistory(userProfile.tenant_id);
+              }
+            }}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all font-black text-[10px] md:text-xs uppercase tracking-wider ${
+              isHistoryPageOpen 
+                ? 'bg-primary text-white shadow-lg shadow-primary/30 ring-2 ring-white/20' 
+                : 'bg-white/10 text-white hover:bg-white/20'
+            }`}
+            title="Histórico de Portaria"
           >
             <History className="w-4 h-4" /> Histórico
           </button>
@@ -440,8 +555,19 @@ export default function PortariaDashboard() {
         </div>
       </nav>
 
-      <main className="max-w-[1600px] mx-auto p-4 md:p-10 pb-36 lg:pb-10">
-        
+      <main className="max-w-[1700px] mx-auto p-4 md:p-8 pb-36 lg:pb-12">
+        {isHistoryPageOpen ? (
+          <PortariaHistoryView 
+            history={auditHistory}
+            loading={loadingHistory}
+            onRefresh={() => fetchAuditHistory(userProfile?.tenant_id)}
+            onBack={() => {
+              setIsHistoryPageOpen(false);
+              setMobileSection('list');
+            }}
+            onViewPhotos={(p) => setSelectedPhotos(p)}
+          />
+        ) : (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           
           <div className={`lg:col-span-4 space-y-6 sticky top-28 ${mobileSection !== 'list' ? 'hidden lg:block' : ''}`}>
@@ -477,6 +603,81 @@ export default function PortariaDashboard() {
                 className="w-full pl-14 pr-6 py-5 bg-white border border-slate-200 rounded-2xl shadow-sm focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all font-bold text-xs text-navy placeholder:text-slate-300 uppercase"
                />
             </div>
+
+            {activeTab === 'ENTRY' && (
+              <div className="grid grid-cols-3 gap-1.5 p-1 bg-white border border-slate-200 rounded-2xl shadow-sm">
+                <button
+                  onClick={() => setEntrySubFilter('WAITING')}
+                  className={`py-2.5 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all flex flex-col items-center justify-center ${
+                    entrySubFilter === 'WAITING'
+                      ? 'bg-sky-500 text-white shadow-sm'
+                      : 'text-slate-400 hover:text-sky-600 hover:bg-sky-50'
+                  }`}
+                >
+                  <span>Aguardando</span>
+                  <span className={`text-[8px] font-bold ${entrySubFilter === 'WAITING' ? 'text-white/80' : 'text-slate-400'}`}>
+                    {requisicoes.filter(r => ['APPROVED_LIDER', 'APPROVED_GESTOR', 'APPROVED', 'WAITING_ARRIVAL'].includes(r.status)).length}
+                  </span>
+                </button>
+                <button
+                  onClick={() => setEntrySubFilter('ARRIVED')}
+                  className={`py-2.5 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all flex flex-col items-center justify-center ${
+                    entrySubFilter === 'ARRIVED'
+                      ? 'bg-indigo-600 text-white shadow-sm'
+                      : 'text-slate-400 hover:text-indigo-600 hover:bg-indigo-50'
+                  }`}
+                >
+                  <span>Chegada</span>
+                  <span className={`text-[8px] font-bold ${entrySubFilter === 'ARRIVED' ? 'text-white/80' : 'text-slate-400'}`}>
+                    {requisicoes.filter(r => r.status === 'ARRIVED').length}
+                  </span>
+                </button>
+                <button
+                  onClick={() => setEntrySubFilter('ANALYSIS')}
+                  className={`py-2.5 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all flex flex-col items-center justify-center ${
+                    entrySubFilter === 'ANALYSIS'
+                      ? 'bg-amber-500 text-white shadow-sm'
+                      : 'text-slate-400 hover:text-amber-600 hover:bg-amber-50'
+                  }`}
+                >
+                  <span>Em Análise</span>
+                  <span className={`text-[8px] font-bold ${entrySubFilter === 'ANALYSIS' ? 'text-white/80' : 'text-slate-400'}`}>
+                    {requisicoes.filter(r => r.status === 'IN_ANALYSIS' || r.status === 'DISCREPANCY').length}
+                  </span>
+                </button>
+              </div>
+            )}
+
+            {activeTab === 'EXIT' && (
+              <div className="grid grid-cols-2 gap-1.5 p-1 bg-white border border-slate-200 rounded-2xl shadow-sm">
+                <button
+                  onClick={() => setExitSubFilter('WAITING')}
+                  className={`py-2.5 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all flex flex-col items-center justify-center ${
+                    exitSubFilter === 'WAITING'
+                      ? 'bg-amber-500 text-white shadow-sm'
+                      : 'text-slate-400 hover:text-amber-600 hover:bg-amber-50'
+                  }`}
+                >
+                  <span>Aguardando Saída</span>
+                  <span className={`text-[8px] font-bold ${exitSubFilter === 'WAITING' ? 'text-white/80' : 'text-slate-400'}`}>
+                    {requisicoes.filter(r => r.status === 'WAITING_EXIT' || r.materials?.some((m: any) => m.status === 'WAITING_EXIT')).length}
+                  </span>
+                </button>
+                <button
+                  onClick={() => setExitSubFilter('CONFERENCE')}
+                  className={`py-2.5 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all flex flex-col items-center justify-center ${
+                    exitSubFilter === 'CONFERENCE'
+                      ? 'bg-purple-600 text-white shadow-sm'
+                      : 'text-slate-400 hover:text-purple-600 hover:bg-purple-50'
+                  }`}
+                >
+                  <span>Conferência</span>
+                  <span className={`text-[8px] font-bold ${exitSubFilter === 'CONFERENCE' ? 'text-white/80' : 'text-slate-400'}`}>
+                    {requisicoes.filter(r => r.status === 'EXIT_CONFERENCE' || r.materials?.some((m: any) => m.status === 'EXIT_CONFERENCE')).length}
+                  </span>
+                </button>
+              </div>
+            )}
 
             <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col min-h-[500px]">
                <div className="px-6 py-5 bg-slate-50/50 border-b border-slate-100 flex items-center justify-between">
@@ -522,19 +723,65 @@ export default function PortariaDashboard() {
                              <img src={req.profile.logo_url} className="w-full h-full object-cover" />
                           ) : req.profile.full_name[0]}
                           
-                          {req.status === 'DISCREPANCY' && (
-                            <div className="absolute -top-1 -right-1 bg-rose-500 rounded-full p-1 border-2 border-white shadow-lg">
+                          {(req.status === 'DISCREPANCY' || Boolean(req.rejection_reason || req.reason)) && (
+                            <div className="absolute -top-1 -right-1 bg-amber-500 rounded-full p-1 border-2 border-white shadow-lg" title="Remessa com divergência / observação">
                                <AlertTriangle className="w-2.5 h-2.5 text-white" />
                             </div>
                           )}
                         </div>
                         <div>
                           <p className="font-black text-navy text-xs uppercase leading-tight mb-1">{req.profile.full_name}</p>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 mb-1.5">
                              <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{req.sector}</span>
                              <span className="text-[10px] text-slate-200">/</span>
                              <span className="text-[9px] text-primary font-black uppercase tracking-widest">#{req.id.slice(0, 8)}</span>
                           </div>
+                          {activeTab === 'ENTRY' && (
+                            <div>
+                              {req.status === 'DISCREPANCY' && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-wider bg-rose-50 text-rose-700 border border-rose-200">
+                                  <AlertTriangle className="w-2.5 h-2.5 text-rose-600" /> Divergência
+                                </span>
+                              )}
+                              {req.status === 'ARRIVED' && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-wider bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                  <Truck className="w-2.5 h-2.5" /> Chegada
+                                </span>
+                              )}
+                              {req.status === 'IN_ANALYSIS' && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200">
+                                  <Search className="w-2.5 h-2.5" /> Em Análise
+                                </span>
+                              )}
+                              {['APPROVED_LIDER', 'APPROVED_GESTOR', 'APPROVED', 'WAITING_ARRIVAL'].includes(req.status) && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-wider bg-sky-50 text-sky-700 border border-sky-200">
+                                  <Clock className="w-2.5 h-2.5" /> Aguardando Chegada
+                                </span>
+                              )}
+                            </div>
+                          )}
+                          {activeTab === 'IN_PLANTA' && (
+                            <div>
+                              {(req.status === 'DISCREPANCY' || Boolean(req.rejection_reason || req.reason)) && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200">
+                                  <AlertTriangle className="w-2.5 h-2.5 text-amber-600" /> Com Divergência
+                                </span>
+                              )}
+                            </div>
+                          )}
+                          {activeTab === 'EXIT' && (
+                            <div>
+                              {(req.status === 'EXIT_CONFERENCE' || req.materials?.some((m: any) => m.status === 'EXIT_CONFERENCE')) ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-wider bg-purple-50 text-purple-700 border border-purple-200">
+                                  <ClipboardList className="w-2.5 h-2.5" /> Conferência
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200">
+                                  <Clock className="w-2.5 h-2.5" /> Aguardando Saída
+                                </span>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
                       <ChevronRight className={`w-5 h-5 text-slate-200 transition-transform ${selecionadoId === req.id ? 'translate-x-1 text-primary' : ''}`} />
@@ -545,63 +792,7 @@ export default function PortariaDashboard() {
           </div>
 
           <div className={`lg:col-span-8 ${mobileSection !== 'details' ? 'hidden lg:block' : ''}`}>
-             {mobileSection === 'history' ? (
-                <div className="hidden lg:flex bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex-col h-full min-h-[700px]">
-                   <div className="p-10 border-b border-slate-100 flex justify-between items-end bg-slate-50">
-                      <div>
-                         <h2 className="text-4xl font-black text-navy uppercase tracking-tighter italic leading-none">
-                           Histórico de <span className="text-primary not-italic">Portaria</span>
-                         </h2>
-                         <p className="text-slate-400 font-bold uppercase text-[10px] tracking-[0.2em] mt-3">Registros recentes de entrada e saída.</p>
-                      </div>
-                      <div className="bg-white text-navy font-black text-[10px] uppercase tracking-widest px-4 py-2 rounded-xl border border-slate-200 shadow-sm">
-                         {auditHistory.length} Registros
-                      </div>
-                   </div>
-
-                   <div className="flex-1 overflow-y-auto p-10 bg-white space-y-4 custom-scrollbar">
-                      {auditHistory.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center h-full text-center py-20 border-2 border-dashed border-slate-100 rounded-3xl">
-                           <History className="w-16 h-16 text-slate-200 mb-4" />
-                           <p className="text-xs font-black text-slate-300 uppercase tracking-widest">Nenhum registro encontrado</p>
-                        </div>
-                      ) : auditHistory.map((audit, i) => (
-                        <div key={i} className="bg-slate-50 p-6 rounded-2xl border border-slate-100 shadow-sm flex justify-between items-center group hover:border-primary/20 transition-all">
-                            <div className="flex items-center gap-4">
-                               <div className="w-12 h-12 rounded-xl flex items-center justify-center text-white font-black text-lg shadow-md" style={{ backgroundColor: audit.material?.request?.profile?.theme_color || '#0032A0' }}>
-                                  {audit.material?.request?.profile?.logo_url ? (
-                                     <img src={audit.material?.request?.profile?.logo_url} className="w-full h-full object-cover rounded-xl" />
-                                  ) : audit.material?.request?.profile?.full_name?.[0]}
-                               </div>
-                               <div>
-                                  <p className="text-sm font-black text-navy uppercase leading-tight">{audit.material?.name}</p>
-                                  <p className="text-[10px] text-primary font-black uppercase tracking-widest mt-1">{audit.material?.request?.profile?.full_name}</p>
-                               </div>
-                            </div>
-                            
-                            <div className="flex items-center gap-8">
-                               <div className="flex items-center gap-3">
-                                  <span className="text-[10px] font-black text-slate-500 uppercase bg-white px-3 py-1.5 rounded-lg border border-slate-100 shadow-sm">{audit.from_sector?.name || '---'}</span>
-                                  <ChevronRight className="w-4 h-4 text-slate-300" />
-                                  <span className="text-[10px] font-black text-primary uppercase bg-primary/10 px-3 py-1.5 rounded-lg border border-primary/20">{audit.to_sector?.name || '---'}</span>
-                               </div>
-
-                               <div className="text-right border-l border-slate-200 pl-8">
-                                  <p className="text-xs font-black text-navy">{new Date(audit.moved_at).toLocaleDateString('pt-BR')}</p>
-                                  <p className="text-[10px] text-slate-400 font-bold mt-0.5">{new Date(audit.moved_at).toLocaleTimeString('pt-BR')}</p>
-                               </div>
-
-                               {audit.photos && audit.photos.length > 0 && (
-                                  <button onClick={() => setSelectedPhotos(audit.photos ?? null)} className="w-12 h-12 flex items-center justify-center bg-primary/10 text-primary rounded-xl hover:bg-primary/20 transition-all ml-2">
-                                     <Camera className="w-5 h-5" />
-                                  </button>
-                               )}
-                            </div>
-                        </div>
-                      ))}
-                   </div>
-                </div>
-             ) : selectedReq ? (
+             {selectedReq ? (
                <div className="bg-white rounded-3xl shadow-[0_20px_60px_-15px_rgba(0,50,160,0.06)] border border-slate-200 overflow-hidden animate-in fade-in slide-in-from-right-4 duration-500">
                   
                   <div className="p-6 md:p-10 border-b border-slate-100 flex flex-col md:flex-row justify-between items-start gap-8 relative">
@@ -631,15 +822,252 @@ export default function PortariaDashboard() {
                       </div>
                   </div>
 
-                  {selectedReq.status === 'DISCREPANCY' && (
-                    <div className="bg-rose-50 p-6 flex items-center gap-4 border-b border-rose-100">
-                       <div className="p-3 bg-rose-500 rounded-xl text-white shadow-lg shadow-rose-500/20">
-                          <ShieldAlert className="w-6 h-6" />
-                       </div>
-                       <div>
-                          <p className="text-rose-600 font-black uppercase text-[10px] tracking-widest mb-0.5">Divergência Detectada</p>
-                          <p className="text-rose-900 font-bold text-xs">Este veículo está sob análise de segurança e sua entrada está bloqueada.</p>
-                       </div>
+                  {activeTab === 'ENTRY' && (
+                    <div className="bg-slate-50/80 border-b border-slate-200/80 p-6 md:px-10">
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-5">
+                        <div>
+                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Fluxo de Entrada na Usina</p>
+                          <div className="flex items-center gap-2">
+                            {selectedReq.status === 'ARRIVED' && (
+                              <span className="px-3 py-1 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-sm">
+                                <Truck className="w-4 h-4 text-indigo-600" /> Veículo no Portão (Chegada)
+                              </span>
+                            )}
+                            {(selectedReq.status === 'IN_ANALYSIS' || selectedReq.status === 'DISCREPANCY') && (
+                              <span className="px-3 py-1 bg-amber-50 text-amber-800 border border-amber-200 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 shadow-sm">
+                                <Search className="w-3.5 h-3.5 text-amber-600" /> Em Análise de Entrada
+                              </span>
+                            )}
+                            {['APPROVED_LIDER', 'APPROVED_GESTOR', 'APPROVED', 'WAITING_ARRIVAL'].includes(selectedReq.status) && (
+                              <span className="px-3 py-1 bg-sky-50 text-sky-700 border border-sky-200 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 shadow-sm">
+                                <Clock className="w-3.5 h-3.5 text-sky-600" /> Aguardando Chegada no Portão
+                              </span>
+                            )}
+                            {selectedReq.status === 'IN_PLANTA' && (
+                              <span className="px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 shadow-sm">
+                                <CheckCircle className="w-3.5 h-3.5 text-emerald-600" /> Em Planta Industrial
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Botões de Ação Rápida de Status */}
+                        <div className="flex flex-wrap items-center gap-2">
+                          {['APPROVED_LIDER', 'APPROVED_GESTOR', 'APPROVED', 'WAITING_ARRIVAL'].includes(selectedReq.status) && (
+                            <>
+                              <button
+                                onClick={() => handleUpdateGateStatus(selectedReq.id, 'ARRIVED')}
+                                disabled={processing}
+                                className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all shadow-sm flex items-center gap-2 active:scale-95 disabled:opacity-50 cursor-pointer"
+                              >
+                                <Truck className="w-3.5 h-3.5" /> Registrar Chegada
+                              </button>
+                            </>
+                          )}
+
+                          {selectedReq.status === 'ARRIVED' && (
+                            <>
+                              <button
+                                onClick={() => handleUpdateGateStatus(selectedReq.id, 'IN_ANALYSIS')}
+                                disabled={processing}
+                                className="px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all shadow-sm flex items-center gap-2 active:scale-95 disabled:opacity-50 cursor-pointer"
+                              >
+                                <Search className="w-3.5 h-3.5" /> Iniciar Análise
+                              </button>
+                              <button
+                                onClick={() => handleUpdateGateStatus(selectedReq.id, 'WAITING_ARRIVAL')}
+                                disabled={processing}
+                                className="px-3 py-2 bg-white border border-slate-200 text-slate-500 hover:text-navy rounded-xl text-[9px] font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 active:scale-95 disabled:opacity-50 cursor-pointer"
+                                title="Voltar para Aguardando Chegada"
+                              >
+                                <RotateCcw className="w-3 h-3" /> Desfazer
+                              </button>
+                            </>
+                          )}
+
+                          {(selectedReq.status === 'IN_ANALYSIS' || selectedReq.status === 'DISCREPANCY') && (
+                            <button
+                              onClick={() => handleUpdateGateStatus(selectedReq.id, 'ARRIVED')}
+                              disabled={processing}
+                              className="px-3.5 py-2 bg-white border border-slate-200 text-slate-500 hover:text-navy rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 active:scale-95 disabled:opacity-50 cursor-pointer shadow-sm"
+                              title="Voltar para Chegada"
+                            >
+                              <RotateCcw className="w-3 h-3" /> Voltar p/ Chegada
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Stepper Visual de 4 Fases */}
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 pt-2">
+                        {/* 1. Aguardando Chegada */}
+                        <div className={`p-3 rounded-xl border flex flex-col gap-1 transition-all ${
+                          ['APPROVED_LIDER', 'APPROVED_GESTOR', 'APPROVED', 'WAITING_ARRIVAL', 'ARRIVED', 'IN_ANALYSIS', 'DISCREPANCY', 'IN_PLANTA'].includes(selectedReq.status)
+                            ? 'bg-white border-slate-200 text-navy font-semibold'
+                            : 'bg-slate-50/50 border-slate-100 text-slate-400'
+                        }`}>
+                          <div className="flex items-center justify-between">
+                            <span className="text-[8px] font-bold uppercase tracking-widest text-slate-400">Fase 1</span>
+                            <Clock className="w-3.5 h-3.5 text-sky-600" />
+                          </div>
+                          <p className="text-[11px] font-bold uppercase leading-tight">Aguardando Chegada</p>
+                        </div>
+
+                        {/* 2. Chegada */}
+                        <div className={`p-3 rounded-xl border flex flex-col gap-1 transition-all ${
+                          ['ARRIVED', 'IN_ANALYSIS', 'DISCREPANCY', 'IN_PLANTA'].includes(selectedReq.status)
+                            ? 'bg-white border-slate-200 text-navy font-semibold'
+                            : 'bg-slate-50/50 border-slate-100 text-slate-400'
+                        }`}>
+                          <div className="flex items-center justify-between">
+                            <span className="text-[8px] font-bold uppercase tracking-widest text-slate-400">Fase 2</span>
+                            <Truck className="w-3.5 h-3.5 text-indigo-600" />
+                          </div>
+                          <p className="text-[11px] font-bold uppercase leading-tight">Chegada</p>
+                        </div>
+
+                        {/* 3. Em Análise */}
+                        <div className={`p-3 rounded-xl border flex flex-col gap-1 transition-all ${
+                          ['IN_ANALYSIS', 'DISCREPANCY', 'IN_PLANTA'].includes(selectedReq.status)
+                            ? 'bg-amber-50/50 border-amber-200 text-amber-900 font-bold'
+                            : 'bg-slate-50/50 border-slate-100 text-slate-400'
+                        }`}>
+                          <div className="flex items-center justify-between">
+                            <span className="text-[8px] font-bold uppercase tracking-widest text-amber-700">Fase 3</span>
+                            <Search className="w-3.5 h-3.5 text-amber-600" />
+                          </div>
+                          <p className="text-[11px] font-bold uppercase leading-tight">Em Análise</p>
+                        </div>
+
+                        {/* 4. Em Planta */}
+                        <div className={`p-3 rounded-xl border flex flex-col gap-1 transition-all ${
+                          selectedReq.status === 'IN_PLANTA'
+                            ? 'bg-emerald-50/50 border-emerald-200 text-emerald-900 font-bold'
+                            : 'bg-slate-50/50 border-slate-100 text-slate-400'
+                        }`}>
+                          <div className="flex items-center justify-between">
+                            <span className="text-[8px] font-bold uppercase tracking-widest text-slate-400">Fase 4</span>
+                            <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+                          </div>
+                          <p className="text-[11px] font-bold uppercase leading-tight">Em Planta</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {activeTab === 'EXIT' && (
+                    <div className="bg-slate-50/80 border-b border-slate-200/80 p-6 md:px-10">
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-5">
+                        <div>
+                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Fluxo de Saída da Usina</p>
+                          <div className="flex items-center gap-2">
+                            {(selectedReq.status === 'EXIT_CONFERENCE' || selectedReq.materials?.some(m => m.status === 'EXIT_CONFERENCE')) ? (
+                              <span className="px-3 py-1 bg-purple-50 text-purple-700 border border-purple-200 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-sm">
+                                <ClipboardList className="w-4 h-4 text-purple-600" /> Em Conferência de Saída
+                              </span>
+                            ) : (
+                              <span className="px-3 py-1 bg-amber-50 text-amber-700 border border-amber-200 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-sm">
+                                <Clock className="w-4 h-4 text-amber-600" /> Aguardando Saída na Portaria
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Botões de Ação Rápida de Saída */}
+                        <div className="flex flex-wrap items-center gap-2.5">
+                          {!(selectedReq.status === 'EXIT_CONFERENCE' || selectedReq.materials?.some(m => m.status === 'EXIT_CONFERENCE')) ? (
+                            <button
+                              onClick={() => handleUpdateGateStatus(selectedReq.id, 'EXIT_CONFERENCE')}
+                              disabled={processing}
+                              className="px-5 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-wider transition-all shadow-lg shadow-purple-600/20 flex items-center gap-2 active:scale-95 disabled:opacity-50 animate-pulse hover:animate-none"
+                            >
+                              <ClipboardList className="w-4 h-4" /> Iniciar Conferência de Saída
+                            </button>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] font-black text-purple-700 bg-purple-100/60 border border-purple-200 px-3.5 py-2 rounded-xl uppercase tracking-wider flex items-center gap-1.5">
+                                <ClipboardList className="w-3.5 h-3.5" /> Conferindo Itens Abaixo
+                              </span>
+                              <button
+                                onClick={() => handleUpdateGateStatus(selectedReq.id, 'WAITING_EXIT')}
+                                disabled={processing}
+                                className="px-3.5 py-2.5 bg-white border border-slate-200 text-slate-500 hover:text-navy rounded-xl text-[9px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 active:scale-95 disabled:opacity-50"
+                                title="Voltar para Aguardando Saída"
+                              >
+                                <RotateCcw className="w-3.5 h-3.5" /> Voltar p/ Aguardando
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Stepper Visual de Saída: 1. Aguardando Saída -> 2. Conferência -> 3. Saiu */}
+                      <div className="grid grid-cols-3 gap-2 pt-2">
+                        {/* 1. Aguardando Saída */}
+                        <div className={`p-3 rounded-2xl border flex flex-col gap-1 transition-all ${
+                          ['WAITING_EXIT', 'EXIT_CONFERENCE', 'COMPLETED', 'OUT_PLANTA'].includes(selectedReq.status) || selectedReq.materials?.some(m => ['WAITING_EXIT', 'EXIT_CONFERENCE'].includes(m.status))
+                            ? 'bg-amber-50/80 border-amber-200 text-amber-800 font-bold ring-2 ring-amber-500/20'
+                            : 'bg-white border-slate-200 text-slate-400'
+                        }`}>
+                          <div className="flex items-center justify-between">
+                            <span className="text-[8px] font-black uppercase tracking-widest opacity-60">Fase 1</span>
+                            <Clock className="w-3.5 h-3.5 text-amber-600" />
+                          </div>
+                          <p className="text-[11px] font-black uppercase leading-tight">Aguardando Saída</p>
+                        </div>
+
+                        {/* 2. Conferência */}
+                        <div className={`p-3 rounded-2xl border flex flex-col gap-1 transition-all ${
+                          selectedReq.status === 'EXIT_CONFERENCE' || selectedReq.materials?.some(m => m.status === 'EXIT_CONFERENCE')
+                            ? 'bg-purple-50/80 border-purple-200 text-purple-800 font-bold ring-2 ring-purple-500/20'
+                            : 'bg-white border-slate-200 text-slate-400'
+                        }`}>
+                          <div className="flex items-center justify-between">
+                            <span className="text-[8px] font-black uppercase tracking-widest opacity-60">Fase 2</span>
+                            <ClipboardList className="w-3.5 h-3.5 text-purple-600" />
+                          </div>
+                          <p className="text-[11px] font-black uppercase leading-tight">Conferência</p>
+                        </div>
+
+                        {/* 3. Saiu */}
+                        <div className={`p-3 rounded-2xl border flex flex-col gap-1 transition-all ${
+                          selectedReq.status === 'COMPLETED' || selectedReq.materials?.every(m => m.status === 'OUT_PLANTA')
+                            ? 'bg-emerald-50/80 border-emerald-200 text-emerald-800 font-bold ring-2 ring-emerald-500/20'
+                            : 'bg-white border-slate-200 text-slate-400'
+                        }`}>
+                          <div className="flex items-center justify-between">
+                            <span className="text-[8px] font-black uppercase tracking-widest opacity-60">Fase 3</span>
+                            <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+                          </div>
+                          <p className="text-[11px] font-black uppercase leading-tight">Saiu da Usina</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {(selectedReq.status === 'DISCREPANCY' || Boolean(selectedReq.rejection_reason || selectedReq.reason)) && (
+                    <div className="bg-amber-50 border-b border-amber-200/80 px-6 md:px-10 py-4 flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2.5 bg-amber-100 text-amber-700 rounded-xl shrink-0">
+                          <AlertTriangle className="w-5 h-5" />
+                        </div>
+                        <div className="text-xs">
+                          <div className="flex items-center gap-2">
+                            <span className="font-black text-amber-950 uppercase tracking-wider text-[11px]">
+                              {selectedReq.status === 'DISCREPANCY' ? 'Divergência Registrada' : 'Remessa com Observação / Divergência'}
+                            </span>
+                            <span className="text-[8px] font-black uppercase text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-300">
+                              Atenção Portaria
+                            </span>
+                          </div>
+                          <p className="text-amber-900 font-semibold mt-1 leading-relaxed text-xs">
+                            {selectedReq.rejection_reason || selectedReq.reason || 'Divergência apontada durante a inspeção física dos equipamentos.'}
+                          </p>
+                        </div>
+                      </div>
+                      <span className="text-[9px] font-bold uppercase text-amber-800 bg-amber-100/90 px-3 py-1.5 rounded-xl shrink-0 border border-amber-200 shadow-sm">
+                        Gestor Notificado
+                      </span>
                     </div>
                   )}
 
@@ -670,78 +1098,140 @@ export default function PortariaDashboard() {
                         {(() => {
                            const visibleMaterials = selectedReq.materials.filter((m: any) => 
                              activeTab === 'ENTRY' ? m.status !== 'IN_PLANTA' : 
-                             activeTab === 'EXIT' ? m.status === 'WAITING_EXIT' : 
+                             activeTab === 'EXIT' ? ['WAITING_EXIT', 'EXIT_CONFERENCE'].includes(m.status) : 
                              m.status === 'IN_PLANTA'
                            );
                            return (
                              <>
                                <div className="flex items-center justify-between">
-                                  <p className="text-[10px] font-black text-navy uppercase tracking-widest">Itens para Conferência ({selectedMaterials.length}/{visibleMaterials.length})</p>
-                                  <button 
-                                   onClick={() => {
-                                     const allIds = visibleMaterials.map((m: any) => m.id);
-                                     setSelectedMaterials(selectedMaterials.length === allIds.length ? [] : allIds);
-                                   }}
-                                   className="text-[9px] font-black text-primary uppercase tracking-widest hover:underline"
-                                  >
-                                     {selectedMaterials.length === visibleMaterials.length ? 'Desmarcar Todos' : 'Marcar Todos'}
-                                  </button>
+                                  <p className="text-[10px] font-black text-navy uppercase tracking-widest">
+                                    {activeTab === 'IN_PLANTA' 
+                                      ? `Equipamentos em Planta (${visibleMaterials.length})` 
+                                      : `Itens para Conferência (${selectedMaterials.length}/${visibleMaterials.length})`
+                                    }
+                                  </p>
+                                  {activeTab !== 'IN_PLANTA' && (
+                                    <button 
+                                     onClick={() => {
+                                       const allIds = visibleMaterials.map((m: any) => m.id);
+                                       setSelectedMaterials(selectedMaterials.length === allIds.length ? [] : allIds);
+                                     }}
+                                     className="text-[9px] font-black text-primary uppercase tracking-widest hover:underline"
+                                    >
+                                       {selectedMaterials.length === visibleMaterials.length ? 'Desmarcar Todos' : 'Marcar Todos'}
+                                    </button>
+                                  )}
                                </div>
                                
                                <div className="space-y-3 max-h-[400px] overflow-y-auto pr-4 custom-scrollbar">
                                   {visibleMaterials.map((item: any) => (
-                              <button 
-                                key={item.id}
-                                onClick={() => handleToggleMaterial(item.id)}
-                                className={`w-full group p-5 rounded-2xl border transition-all flex items-center justify-between text-left ${selectedMaterials.includes(item.id) ? 'bg-primary/5 border-primary/20' : 'bg-white border-slate-100 hover:border-slate-300'}`}
-                              >
-                                 <div className="flex items-center gap-4">
-                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${selectedMaterials.includes(item.id) ? 'bg-primary text-white scale-110' : 'bg-slate-50 text-slate-300 group-hover:bg-slate-100'}`}>
-                                       {selectedMaterials.includes(item.id) ? <CheckCircle className="w-5 h-5" /> : <Package className="w-5 h-5" />}
-                                    </div>
-                                    <div>
-                                       <p className="text-[11px] font-black text-navy uppercase leading-tight group-hover:text-primary transition-colors">{item.name}</p>
-                                       <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">{item.brand} {item.model}</p>
-                                    </div>
-                                 </div>
-                                 
-                                 <div className="flex items-center gap-3">
-                                    <div className="text-right">
-                                       <p className="text-[8px] text-slate-300 font-bold uppercase tracking-tighter mb-0.5">Nº de Série</p>
-                                       <p className={`text-[9px] font-black uppercase ${selectedMaterials.includes(item.id) ? 'text-primary' : 'text-slate-400'}`}>
-                                          {item.code || (
-                                             item.serial_number ? 
-                                             (item.serial_number.length > 12 ? item.serial_number.slice(0, 12) + '...' : item.serial_number) 
-                                             : 'N/A'
-                                          )}
-                                       </p>
-                                    </div>
-
-                                    {item.photos && item.photos.length > 0 && (
-                                      <button 
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setSelectedPhotos(item.photos ?? null);
-                                        }}
-                                        className="p-1.5 bg-primary/10 text-primary rounded-lg hover:bg-primary hover:text-white transition-all flex items-center gap-1.5"
+                                    activeTab === 'IN_PLANTA' ? (
+                                      <div 
+                                        key={item.id}
+                                        className="w-full p-4 rounded-2xl border border-slate-100 bg-white flex items-center justify-between text-left"
                                       >
-                                         <Camera className="w-3 h-3" />
-                                         <span className="text-[8px] font-black uppercase">{item.photos.length}</span>
-                                      </button>
-                                    )}
+                                         <div className="flex items-center gap-4">
+                                            <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-emerald-50 text-emerald-600">
+                                               <Package className="w-5 h-5" />
+                                            </div>
+                                            <div>
+                                               <p className="text-[11px] font-black text-navy uppercase leading-tight">{item.name}</p>
+                                               <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">{item.brand} {item.model}</p>
+                                            </div>
+                                         </div>
+                                         
+                                         <div className="flex items-center gap-3">
+                                            <div className="text-right">
+                                               <p className="text-[8px] text-slate-300 font-bold uppercase tracking-tighter mb-0.5">Nº de Série</p>
+                                               <p className="text-[9px] font-bold text-slate-500 uppercase font-mono">
+                                                  {item.serial_number || 'N/A'}
+                                               </p>
+                                            </div>
 
-                                    <button
-                                       onClick={(e) => {
-                                         e.stopPropagation();
-                                         setDetailMaterial(item);
-                                       }}
-                                       className="p-1.5 bg-slate-50 text-slate-400 rounded-lg hover:bg-primary hover:text-white transition-all"
-                                       title="Visualizar Detalhes"
-                                    >
-                                       <Eye className="w-4 h-4" />
-                                    </button>
-                                 </div>
-                              </button>
+                                            {(() => {
+                                              const itemPhotos = (item.photos && item.photos.length > 0) ? item.photos : (item.image_url ? [item.image_url] : []);
+                                              if (itemPhotos.length === 0) return null;
+                                              return (
+                                                <button 
+                                                  type="button"
+                                                  onClick={() => setSelectedPhotos(itemPhotos)}
+                                                  className="p-1.5 bg-primary/10 text-primary rounded-lg hover:bg-primary hover:text-white transition-all flex items-center gap-1.5 cursor-pointer"
+                                                  title="Visualizar fotos do item"
+                                                >
+                                                   <Camera className="w-3 h-3" />
+                                                   <span className="text-[8px] font-black uppercase">{itemPhotos.length}</span>
+                                                </button>
+                                              );
+                                            })()}
+
+                                            <button
+                                               onClick={() => setDetailMaterial(item)}
+                                               className="p-1.5 bg-slate-50 text-slate-400 rounded-lg hover:bg-primary hover:text-white transition-all cursor-pointer"
+                                               title="Visualizar Detalhes"
+                                            >
+                                               <Eye className="w-4 h-4" />
+                                            </button>
+                                         </div>
+                                      </div>
+                                    ) : (
+                                      <button 
+                                        key={item.id}
+                                        onClick={() => handleToggleMaterial(item.id)}
+                                        className={`w-full group p-5 rounded-2xl border transition-all flex items-center justify-between text-left ${selectedMaterials.includes(item.id) ? 'bg-primary/5 border-primary/20' : 'bg-white border-slate-100 hover:border-slate-300'}`}
+                                      >
+                                         <div className="flex items-center gap-4">
+                                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${selectedMaterials.includes(item.id) ? 'bg-primary text-white scale-110' : 'bg-slate-50 text-slate-300 group-hover:bg-slate-100'}`}>
+                                               {selectedMaterials.includes(item.id) ? <CheckCircle className="w-5 h-5" /> : <Package className="w-5 h-5" />}
+                                            </div>
+                                            <div>
+                                               <p className="text-[11px] font-black text-navy uppercase leading-tight group-hover:text-primary transition-colors">{item.name}</p>
+                                               <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">{item.brand} {item.model}</p>
+                                            </div>
+                                         </div>
+                                         
+                                         <div className="flex items-center gap-3">
+                                            <div className="text-right">
+                                               <p className="text-[8px] text-slate-300 font-bold uppercase tracking-tighter mb-0.5">Nº de Série</p>
+                                               <p className={`text-[9px] font-black uppercase ${selectedMaterials.includes(item.id) ? 'text-primary' : 'text-slate-400'}`}>
+                                                  {item.serial_number ? 
+                                                     (item.serial_number.length > 12 ? item.serial_number.slice(0, 12) + '...' : item.serial_number) 
+                                                     : 'N/A'
+                                                  }
+                                               </p>
+                                            </div>
+
+                                            {(() => {
+                                              const itemPhotos = (item.photos && item.photos.length > 0) ? item.photos : (item.image_url ? [item.image_url] : []);
+                                              if (itemPhotos.length === 0) return null;
+                                              return (
+                                                <button 
+                                                  type="button"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setSelectedPhotos(itemPhotos);
+                                                  }}
+                                                  className="p-1.5 bg-primary/10 text-primary rounded-lg hover:bg-primary hover:text-white transition-all flex items-center gap-1.5 cursor-pointer"
+                                                  title="Visualizar fotos do item"
+                                                >
+                                                   <Camera className="w-3 h-3" />
+                                                   <span className="text-[8px] font-black uppercase">{itemPhotos.length}</span>
+                                                </button>
+                                              );
+                                            })()}
+
+                                            <button
+                                               onClick={(e) => {
+                                                 e.stopPropagation();
+                                                 setDetailMaterial(item);
+                                               }}
+                                               className="p-1.5 bg-slate-50 text-slate-400 rounded-lg hover:bg-primary hover:text-white transition-all"
+                                               title="Visualizar Detalhes"
+                                            >
+                                               <Eye className="w-4 h-4" />
+                                            </button>
+                                         </div>
+                                      </button>
+                                    )
                                   ))}
                                </div>
                              </>
@@ -750,7 +1240,7 @@ export default function PortariaDashboard() {
                      </div>
                   </div>
 
-                                       {activeTab !== 'ENTRY' && (
+                  {activeTab !== 'IN_PLANTA' && (
                     <div className="px-6 md:px-10 pb-8">
                        <div className="bg-slate-50/50 rounded-3xl border border-dashed border-slate-200 p-6 md:p-8">
                           <div className="flex items-center justify-between mb-6">
@@ -758,13 +1248,16 @@ export default function PortariaDashboard() {
                                 <Camera className="w-5 h-5 text-primary" />
                                 <div>
                                    <p className="text-[10px] font-black text-navy uppercase tracking-widest">Fotos da Operação</p>
-                                   <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Opcional para {activeTab === 'EXIT' ? 'saída' : 'registro'}</p>
+                                   <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">
+                                     {activeTab === 'ENTRY' ? 'Fotos do veículo, placa, caçamba, equipamentos ou inspeção' : 'Opcional para saída'}
+                                   </p>
                                 </div>
                              </div>
                              <div className="flex gap-2">
                                 <button 
+                                  type="button"
                                   onClick={() => setIsCameraOpen(true)}
-                                  className="px-4 py-2 bg-primary text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 flex items-center gap-2"
+                                  className="px-4 py-2 bg-primary text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 flex items-center gap-2 cursor-pointer"
                                 >
                                    <Camera className="w-4 h-4" /> Câmera
                                 </button>
@@ -781,8 +1274,9 @@ export default function PortariaDashboard() {
                                   <div key={i} className="aspect-square rounded-xl overflow-hidden border-2 border-white shadow-sm relative group/photo">
                                      <img src={p} className="w-full h-full object-cover" />
                                      <button 
+                                       type="button"
                                        onClick={() => removePhoto(i)}
-                                       className="absolute top-2 right-2 p-1.5 bg-rose-500 text-white rounded-lg opacity-0 group-hover/photo:opacity-100 transition-all hover:scale-110"
+                                       className="absolute top-2 right-2 p-1.5 bg-rose-500 text-white rounded-lg opacity-0 group-hover/photo:opacity-100 transition-all hover:scale-110 cursor-pointer"
                                      >
                                        <X className="w-3 h-3" />
                                      </button>
@@ -792,9 +1286,13 @@ export default function PortariaDashboard() {
                           )}
 
                           <div className="group mt-4">
-                             <label className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-2 ml-1 block transition-colors group-focus-within:text-primary">Observação da Evidência</label>
+                             <label className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-2 ml-1 block transition-colors group-focus-within:text-primary">
+                               {activeTab === 'ENTRY' ? 'Observação / Estado do Veículo e Equipamento' : 'Observação da Evidência de Saída'}
+                             </label>
                              <textarea 
-                               placeholder="Descreva o estado do equipamento (ex: veículo avariado, sem estepe)..."
+                               placeholder={activeTab === 'ENTRY' 
+                                 ? "Descreva o estado do veículo/equipamento (ex: veículo com amassado no para-choque, placa conferida, caçamba limpa)..." 
+                                 : "Descreva o estado do equipamento na saída (ex: equipamento em perfeito estado, liberado com o motorista)..."}
                                value={observation}
                                onChange={(e) => setObservation(e.target.value)}
                                className="w-full bg-white border border-slate-200 rounded-2xl px-5 py-3.5 text-sm font-bold text-navy focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all outline-none shadow-sm min-h-[80px] custom-scrollbar"
@@ -807,18 +1305,30 @@ export default function PortariaDashboard() {
                   {activeTab !== 'IN_PLANTA' && (
                     <div className="px-6 md:px-10 pb-6">
                       <div className="bg-slate-50/50 rounded-3xl border border-slate-200 p-6 md:p-8 space-y-4">
-                        <div className="flex items-center gap-3">
-                          <div className="p-3 bg-navy text-white rounded-xl shadow-lg shadow-navy/20">
-                            <Hash className="w-5 h-5 text-primary" />
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="p-3 bg-navy text-white rounded-xl shadow-lg shadow-navy/20">
+                              <Hash className="w-5 h-5 text-primary" />
+                            </div>
+                            <div>
+                              <p className="text-[10px] font-black text-navy uppercase tracking-widest">Matrícula de Confirmação</p>
+                              <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Digite seu código de matrícula cadastrado para validar no banco</p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="text-[10px] font-black text-navy uppercase tracking-widest">Matrícula de Confirmação</p>
-                            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Digite seu número de matrícula para confirmar a operação</p>
-                          </div>
+                          {userProfile?.registration_number && (
+                            <button
+                              type="button"
+                              onClick={() => setSignature(userProfile.registration_number || '')}
+                              className="text-[9px] font-black text-primary bg-primary/10 hover:bg-primary/20 px-3 py-1.5 rounded-lg uppercase tracking-wider transition-all"
+                              title="Preencher com minha matrícula"
+                            >
+                              Minha Matrícula: {userProfile.registration_number}
+                            </button>
+                          )}
                         </div>
                         <input 
                           type="text" 
-                          placeholder="DIGITE SUA MATRÍCULA..."
+                          placeholder="DIGITE O CÓDIGO DA SUA MATRÍCULA..."
                           value={signature}
                           onChange={(e) => setSignature(e.target.value)}
                           className="w-full px-5 py-4 bg-white border border-slate-200 rounded-xl text-navy placeholder:text-slate-300 focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all font-black text-sm tracking-widest uppercase"
@@ -831,7 +1341,7 @@ export default function PortariaDashboard() {
                     <div className="p-6 md:p-10 bg-slate-50/50 border-t border-slate-100 flex flex-col md:flex-row gap-5">
                        <button 
                           onClick={handleConfirmMovement}
-                          disabled={processing || selectedMaterials.length === 0 || !signature || selectedReq.status === 'DISCREPANCY'}
+                          disabled={processing || selectedMaterials.length === 0 || !signature}
                           className={`flex-[3] py-7 rounded-[2rem] font-black uppercase tracking-[0.2em] text-xs flex items-center justify-center gap-4 transition-all active:scale-[0.98] disabled:opacity-30 disabled:cursor-not-allowed shadow-2xl ${activeTab === 'ENTRY' ? 'bg-navy text-white shadow-navy/30 hover:bg-[#002880]' : 'bg-emerald-600 text-white shadow-emerald-500/20 hover:bg-emerald-700'}`}
                        >
                           {processing ? <Loader2 className="w-6 h-6 animate-spin" /> : (
@@ -864,6 +1374,36 @@ export default function PortariaDashboard() {
                         </button>
                      </div>
                   )}
+
+                  {activeTab === 'IN_PLANTA' && (
+                     <div className={`p-6 md:p-8 border-t flex items-center gap-4 rounded-b-[2.5rem] ${
+                       (selectedReq.status === 'DISCREPANCY' || Boolean(selectedReq.rejection_reason || selectedReq.reason))
+                         ? 'bg-amber-50/80 border-amber-200'
+                         : 'bg-slate-50/70 border-slate-100'
+                     }`}>
+                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${
+                          (selectedReq.status === 'DISCREPANCY' || Boolean(selectedReq.rejection_reason || selectedReq.reason))
+                            ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20'
+                            : 'bg-primary/10 text-primary'
+                        }`}>
+                           {(selectedReq.status === 'DISCREPANCY' || Boolean(selectedReq.rejection_reason || selectedReq.reason)) ? (
+                             <AlertTriangle className="w-6 h-6" />
+                           ) : (
+                             <CheckCircle className="w-6 h-6" />
+                           )}
+                        </div>
+                        <div>
+                           <p className="text-xs font-black text-navy uppercase tracking-wider">
+                             {(selectedReq.status === 'DISCREPANCY' || Boolean(selectedReq.rejection_reason || selectedReq.reason)) 
+                               ? 'Veículo & Materiais em Operação na Planta (Com Divergência Registrada)' 
+                               : 'Veículo & Materiais em Operação na Planta'}
+                           </p>
+                           <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">
+                              Destino designado: <span className="text-navy">{selectedReq.sector || 'Unidade Lins'}</span>. Nenhuma ação operacional pendente na portaria.
+                           </p>
+                        </div>
+                     </div>
+                  )}
                </div>
              ) : (
                <div className="h-[700px] flex flex-col items-center justify-center p-20 bg-white rounded-[3rem] border-2 border-slate-100 border-dashed relative overflow-hidden">
@@ -880,70 +1420,8 @@ export default function PortariaDashboard() {
              )}
           </div>
 
-          {/* Mobile History View */}
-          {mobileSection === 'history' && (
-            <div className="lg:hidden space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-               <div>
-                  <h2 className="text-3xl font-black text-navy uppercase tracking-tighter italic">
-                    Histórico de <span className="text-primary not-italic">Portaria</span>
-                  </h2>
-                  <p className="text-slate-400 font-bold uppercase text-[9px] tracking-[0.2em] mt-1">Registros recentes de entrada e saída.</p>
-               </div>
-
-               <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden divide-y divide-slate-50">
-                  {auditHistory.length === 0 ? (
-                    <div className="p-20 text-center flex flex-col items-center gap-4">
-                       <History className="w-10 h-10 text-slate-200" />
-                       <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Nenhum registro encontrado</p>
-                    </div>
-                  ) : auditHistory.map((audit, i) => (
-                    <div key={i} className="p-6 space-y-4">
-                        <div className="flex justify-between items-start">
-                           <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-black text-sm" style={{ backgroundColor: audit.material?.request?.profile?.theme_color || '#0032A0' }}>
-                                 {audit.material?.request?.profile?.logo_url ? (
-                                    <img src={audit.material?.request?.profile?.logo_url} className="w-full h-full object-cover rounded-xl" />
-                                 ) : audit.material?.request?.profile?.full_name?.[0]}
-                              </div>
-                              <div>
-                                 <p className="text-[11px] font-black text-navy uppercase leading-tight">{audit.material?.name}</p>
-                                 <p className="text-[9px] text-primary font-black uppercase tracking-widest mt-0.5">{audit.material?.request?.profile?.full_name}</p>
-                              </div>
-                           </div>
-                           <div className="text-right shrink-0">
-                              <p className="text-[10px] font-black text-navy">{new Date(audit.moved_at).toLocaleDateString('pt-BR')}</p>
-                              <p className="text-[9px] text-slate-400 font-bold">{new Date(audit.moved_at).toLocaleTimeString('pt-BR')}</p>
-                           </div>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                           <span className="text-[9px] font-black text-slate-500 uppercase bg-slate-100 px-2 py-1 rounded-md">{audit.from_sector?.name || '---'}</span>
-                           <ChevronRight className="w-3 h-3 text-slate-300" />
-                           <span className="text-[9px] font-black text-primary uppercase bg-primary/10 px-2 py-1 rounded-md">{audit.to_sector?.name || '---'}</span>
-                        </div>
-
-                        <div className="flex justify-between items-center pt-2 border-t border-slate-50">
-                           <div className="flex items-center gap-2">
-                              <div className="w-6 h-6 bg-navy text-white rounded-full flex items-center justify-center text-[9px] font-bold">
-                                 {audit.actor?.full_name?.[0]}
-                              </div>
-                              <span className="text-[10px] font-black text-navy uppercase tracking-tighter">{audit.actor?.full_name}</span>
-                           </div>
-                           <div className="flex items-center gap-3">
-                              {audit.photos && audit.photos.length > 0 && (
-                                <button onClick={() => setSelectedPhotos(audit.photos ?? null)} className="p-2.5 bg-primary/10 text-primary rounded-xl active:scale-90 transition-transform">
-                                   <Camera className="w-4 h-4" />
-                                </button>
-                              )}
-                           </div>
-                        </div>
-                    </div>
-                  ))}
-               </div>
-            </div>
-          )}
-
         </div>
+        )}
       </main>
 
       {/* Material Detail Modal */}
@@ -1262,8 +1740,16 @@ export default function PortariaDashboard() {
         )}
 
         <MobileNav 
-          activeSection={mobileSection} 
-          setActiveSection={(s: any) => setMobileSection(s)} 
+          activeSection={isHistoryPageOpen ? 'history' : mobileSection} 
+          setActiveSection={(s: any) => {
+            if (s === 'history') {
+              setIsHistoryPageOpen(true);
+              if (userProfile?.tenant_id) fetchAuditHistory(userProfile.tenant_id);
+            } else {
+              setIsHistoryPageOpen(false);
+              setMobileSection(s);
+            }
+          }} 
           items={portariaNavItems} 
         />
     </div>

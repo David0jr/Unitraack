@@ -127,7 +127,7 @@ export function InviteGenerator({ tenantId, usinaCnpj }: InviteGeneratorProps) {
             placeholder="Selecione a função"
             options={[
               { type: 'option', value: 'LIDER_SETOR', label: 'Líder de Setor' },
-              { type: 'option', value: 'PORTARIA', label: 'Segurança da Portaria' }
+              { type: 'option', value: 'PORTARIA', label: 'Controle de Acesso' }
             ]}
           />
         </div>

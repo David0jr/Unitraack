@@ -33,6 +33,31 @@
     @apply bg-slate-300 rounded-full hover:bg-primary transition-colors;
   }
 
+  /* Interatividade e Mãozinha (Cursor Pointer) Global em Todo o Sistema */
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  a,
+  label,
+  select,
+  summary,
+  input[type="button"]:not(:disabled),
+  input[type="submit"]:not(:disabled),
+  input[type="reset"]:not(:disabled),
+  input[type="checkbox"]:not(:disabled),
+  input[type="radio"]:not(:disabled),
+  input[type="file"]:not(:disabled),
+  .cursor-pointer {
+    cursor: pointer !important;
+  }
+
+  button:disabled,
+  [role="button"][aria-disabled="true"],
+  input:disabled,
+  select:disabled,
+  .cursor-not-allowed {
+    cursor: not-allowed !important;
+  }
+
   /* Industrial Grid Utility */
   .bg-industrial-grid {
     background-image: 

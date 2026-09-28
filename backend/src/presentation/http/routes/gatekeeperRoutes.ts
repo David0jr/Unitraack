@@ -5,6 +5,7 @@ import { requireAuth } from '../../../middlewares/authMiddleware';
 const router = Router();
 
 router.get('/approved', requireAuth, RequestController.listByTenant);
+router.post('/status/:id', requireAuth, RequestController.updateGateStatus);
 router.post('/checkin/:id', requireAuth, RequestController.confirmEntry);
 router.post('/movimentacao/:id', requireAuth, RequestController.confirmMovement);
 router.post('/divergencia/:id', requireAuth, RequestController.notifyDiscrepancy);

@@ -254,7 +254,7 @@ export const PendingApprovals: React.FC = () => {
                       Condição: {selectedMaterial.condition}
                     </span>
                   </div>
-                  <div className="grid grid-cols-2 gap-x-6 gap-y-4 pt-2 border-t border-slate-50">
+                  <div className="grid grid-cols-3 gap-x-4 gap-y-4 pt-2 border-t border-slate-50">
                     <div>
                       <p className="text-[7px] text-slate-400 font-bold uppercase tracking-widest mb-0.5">Fabricante</p>
                       <p className="font-bold text-navy text-[10px] truncate">{selectedMaterial.brand || '---'}</p>
@@ -266,10 +266,6 @@ export const PendingApprovals: React.FC = () => {
                     <div>
                       <p className="text-[7px] text-slate-400 font-bold uppercase tracking-widest mb-0.5">Nº de Série</p>
                       <p className="font-bold text-navy text-[10px] font-mono tracking-tighter truncate">{selectedMaterial.serial_number || '---'}</p>
-                    </div>
-                    <div>
-                      <p className="text-[7px] text-slate-400 font-bold uppercase tracking-widest mb-0.5">Patrimônio</p>
-                      <p className="font-bold text-navy text-[10px] font-mono tracking-tighter truncate">{selectedMaterial.code || '---'}</p>
                     </div>
                   </div>
                 </div>

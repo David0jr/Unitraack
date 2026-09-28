@@ -22,10 +22,54 @@ import { MarkCheckout } from '../../../application/use-cases/MarkCheckout';
 import { CancelByGatekeeper } from '../../../application/use-cases/CancelByGatekeeper';
 import { MarkMaterialForExit } from '../../../application/use-cases/MarkMaterialForExit';
 import { userService } from '../../../services/UserService';
+import { supabaseAdmin } from '../../../config/supabase';
+import { NotificationService } from '../../../services/NotificationService';
 
 const requestRepo = new SupabaseRequestRepository();
 
 export class RequestController {
+  
+  /**
+   * Valida se a matrícula informada existe e pertence a um colaborador ativo no banco de dados.
+   * Se expectedUserId for fornecido e o usuário não for SUPER_ADMIN, garante que a matrícula pertence ao usuário informado.
+   */
+  static async validateRegistrationNumber(
+    tenantId: string, 
+    registrationInput: string | undefined, 
+    options?: { expectedUserId?: string; userRole?: string }
+  ) {
+    const cleanSignature = (registrationInput || '').trim().toUpperCase();
+    if (!cleanSignature) {
+      throw new Error('A matrícula do colaborador é obrigatória.');
+    }
+
+    const { data: matchedUsers, error: searchError } = await supabaseAdmin
+      .from('profiles')
+      .select('id, full_name, role, registration_number, is_active')
+      .eq('tenant_id', tenantId)
+      .eq('is_active', true)
+      .ilike('registration_number', cleanSignature);
+
+    if (searchError) {
+      console.error('[RequestController.validateRegistrationNumber] Erro ao consultar banco:', searchError);
+      throw new Error('Erro ao validar matrícula no banco de dados.');
+    }
+
+    if (!matchedUsers || matchedUsers.length === 0) {
+      throw new Error(`Matrícula inválida! A matrícula informada ("${cleanSignature}") não foi encontrada no banco de dados ou não pertence a um colaborador ativo.`);
+    }
+
+    const authorizedUser = matchedUsers[0];
+
+    if (options?.expectedUserId && options?.userRole !== 'SUPER_ADMIN') {
+      if (authorizedUser.id !== options.expectedUserId) {
+        throw new Error(`Matrícula informada pertence a ${authorizedUser.full_name}, mas a operação está sendo realizada por outro usuário.`);
+      }
+    }
+
+    return authorizedUser;
+  }
+
   
   static async create(req: AuthRequest, res: Response) {
     try {
@@ -95,7 +139,8 @@ export class RequestController {
         lider: {
           full_name: profile.full_name,
           sector: profile.sector || 'Geral',
-          sector_id: profile.sector_id || undefined
+          sector_id: profile.sector_id || undefined,
+          registration_number: profile.registration_number || undefined
         }
       });
     } catch (error: any) {
@@ -142,12 +187,28 @@ export class RequestController {
       const profile = await userService.findProfileById(req.user.id);
       if (!profile || !profile.tenant_id) return ApiResponse.error(res, 'Tenant não identificado.', 403);
 
+      const cleanSignature = (signature || '').trim().toUpperCase();
+      if (!cleanSignature) {
+        return ApiResponse.error(res, 'A matrícula de confirmação é obrigatória.', 400);
+      }
+
+      // Validação no banco de dados da matrícula informada
+      const authorizedUser = await RequestController.validateRegistrationNumber(profile.tenant_id, cleanSignature);
+
+      // O responsável vinculado no histórico será o usuário identificado pela matrícula
+      const movedByUserId = authorizedUser.id;
+
       const useCase = new ConfirmMaterialMovement(requestRepo);
-      await useCase.execute(id, materialIds, type, req.user.id, profile.tenant_id, signature, photos, observation);
-      return ApiResponse.success(res, { message: 'Movimentação confirmada com sucesso!' });
+      await useCase.execute(id, materialIds, type, movedByUserId, profile.tenant_id, cleanSignature, photos, observation);
+      return ApiResponse.success(res, { 
+        message: `${type === 'ENTRY' ? 'Entrada' : 'Saída'} autorizada com sucesso por ${authorizedUser.full_name}!`,
+        authorizer: authorizedUser.full_name,
+        role: authorizedUser.role,
+        registration_number: authorizedUser.registration_number
+      });
     } catch (error: any) {
       console.error("[RequestController.confirmMovement] Erro:", error);
-      return ApiResponse.error(res, error.message);
+      return ApiResponse.error(res, error.message, 400);
     }
   }
 
@@ -220,6 +281,14 @@ export class RequestController {
 
       const useCase = new NotifyDiscrepancy(requestRepo);
       await useCase.execute(id, profile.tenant_id, reason);
+      
+      const reqDetails = await requestRepo.findById(id);
+      if (reqDetails) {
+        NotificationService.notifyDiscrepancy(reqDetails, reason).catch((err) =>
+          console.error('[RequestController.notifyDiscrepancy] Erro ao notificar:', err)
+        );
+      }
+      
       return ApiResponse.success(res, { message: 'Divergência notificada ao Gestor de Segurança!' });
     } catch (error: any) {
       console.error("[RequestController.notifyDiscrepancy] Erro:", error);
@@ -267,8 +336,15 @@ export class RequestController {
       const profile = await userService.findProfileById(req.user.id);
       if (!profile || !profile.tenant_id) return ApiResponse.error(res, 'Perfil ou Unidade não identificada.', 403);
 
+      const cleanSignature = (signature || '').trim().toUpperCase();
+      const authorizedUser = await RequestController.validateRegistrationNumber(
+        profile.tenant_id, 
+        cleanSignature, 
+        { expectedUserId: profile.id, userRole: profile.role }
+      );
+
       const useCase = new MarkMaterialForExit(requestRepo);
-      await useCase.execute(materialIds, profile.tenant_id, profile.id, signature, photos, observation);
+      await useCase.execute(materialIds, profile.tenant_id, authorizedUser.id, cleanSignature, photos, observation);
       
       return ApiResponse.success(res, { message: 'Materiais enviados para a Portaria com sucesso!' });
     } catch (error: any) {
@@ -304,9 +380,11 @@ export class RequestController {
         }
       }
 
+      const isPortaria = profile.role === 'PORTARIA' || (req.baseUrl && req.baseUrl.includes('portaria')) || req.query.onlyPortaria === 'true';
+
       const useCase = new GetAuditHistory(requestRepo);
-      const history = await useCase.execute(tenantIdToAudit, sectorId, actorId);
-      console.log(`[RequestController] Enviando ${history.length} registros para o cliente.`);
+      const history = await useCase.execute(tenantIdToAudit, sectorId, actorId, isPortaria);
+      console.log(`[RequestController] Enviando ${history.length} registros para o cliente (onlyPortaria: ${isPortaria}).`);
       return ApiResponse.success(res, history);
     } catch (error: any) {
       console.error("[RequestController.getAuditHistory] Erro:", error);
@@ -343,9 +421,20 @@ export class RequestController {
       const profile = await userService.findProfileById(req.user.id);
       if (!profile || !profile.tenant_id || !profile.sector_id) return ApiResponse.error(res, 'Perfil ou Setor não encontrado.', 403);
 
+      const cleanSignature = (signature || '').trim().toUpperCase();
+      const authorizedUser = await RequestController.validateRegistrationNumber(
+        profile.tenant_id, 
+        cleanSignature, 
+        { expectedUserId: profile.id, userRole: profile.role }
+      );
+
       const useCase = new TransferMaterial(requestRepo);
-      await useCase.execute(materialIds, profile.sector_id, toSectorId, req.user.id, profile.tenant_id, signature, photos, observation);
+      await useCase.execute(materialIds, profile.sector_id, toSectorId, authorizedUser.id, profile.tenant_id, cleanSignature, photos, observation);
       
+      NotificationService.notifyTransferRequested(profile.tenant_id, profile.sector_id, toSectorId, materialIds.length).catch((err) =>
+        console.error('[RequestController.transferMaterial] Erro ao notificar transferencia:', err)
+      );
+
       return ApiResponse.success(res, { message: 'Transferência iniciada com sucesso!' });
     } catch (error: any) {
       console.error("[RequestController.transferMaterial] Erro:", error);
@@ -355,12 +444,19 @@ export class RequestController {
 
   static async acceptTransfer(req: AuthRequest, res: Response) {
     try {
-      const { materialIds, signature } = req.body;
+      const { materialIds, signature, photos, observation } = req.body;
       const profile = await userService.findProfileById(req.user.id);
       if (!profile || !profile.tenant_id || !profile.sector_id) return ApiResponse.error(res, 'Perfil ou Setor não encontrado.', 403);
 
+      const cleanSignature = (signature || '').trim().toUpperCase();
+      const authorizedUser = await RequestController.validateRegistrationNumber(
+        profile.tenant_id, 
+        cleanSignature, 
+        { expectedUserId: profile.id, userRole: profile.role }
+      );
+
       const useCase = new AcceptMaterialTransfer(requestRepo);
-      await useCase.execute(materialIds, profile.sector_id, req.user.id, profile.tenant_id, signature);
+      await useCase.execute(materialIds, profile.sector_id, authorizedUser.id, profile.tenant_id, cleanSignature, photos, observation);
       
       return ApiResponse.success(res, { message: 'Materiais aceitos com sucesso!' });
     } catch (error: any) {
@@ -391,12 +487,151 @@ export class RequestController {
       const profile = await userService.findProfileById(req.user.id);
       if (!profile || !profile.tenant_id || !profile.sector_id) return ApiResponse.error(res, 'Perfil ou Setor não encontrado.', 403);
 
+      // Buscar os materiais antes de cancelar para identificar os setores de destino e nomes dos equipamentos
+      const materialsToCancel = await Promise.all(
+        materialIds.map(async (id: string) => {
+          return await requestRepo.findMaterialById(id);
+        })
+      );
+
+      const validMaterials = materialsToCancel.filter(Boolean);
+      const destinationSectorIds = [...new Set(validMaterials.map(m => m?.pending_sector_id).filter(Boolean))];
+
       const useCase = new CancelMaterialTransfer(requestRepo);
       await useCase.execute(materialIds, req.user.id, profile.tenant_id);
+
+      // Notificar cada setor destinatário sobre o cancelamento
+      for (const destSectorId of destinationSectorIds) {
+        if (!destSectorId) continue;
+        const itemsForThisSector = validMaterials.filter(m => m?.pending_sector_id === destSectorId);
+        const itemNames = itemsForThisSector.map(m => m?.name).filter(Boolean).join(', ');
+        NotificationService.notifyTransferCancelled(
+          profile.tenant_id,
+          profile.sector_id,
+          destSectorId,
+          itemNames || `${itemsForThisSector.length} equipamento(s)`
+        ).catch((err) =>
+          console.error('[RequestController.cancelTransfer] Erro ao notificar cancelamento:', err)
+        );
+      }
       
       return ApiResponse.success(res, { message: 'Envio cancelado com sucesso. Material retornado ao setor.' });
     } catch (error: any) {
       console.error("[RequestController.cancelTransfer] Erro:", error);
+      return ApiResponse.error(res, error.message);
+    }
+  }
+
+  /**
+   * Atualiza o status da portaria no fluxo de entrada (WAITING_ARRIVAL -> ARRIVED -> IN_ANALYSIS)
+   */
+  static async updateGateStatus(req: AuthRequest, res: Response) {
+    try {
+      const id = req.params.id as string;
+      const { status } = req.body;
+      const profile = await userService.findProfileById(req.user.id);
+      if (!profile || !profile.tenant_id) return ApiResponse.error(res, 'Tenant não identificado.', 403);
+
+      const validStatuses = ['WAITING_ARRIVAL', 'ARRIVED', 'IN_ANALYSIS', 'WAITING_EXIT', 'EXIT_CONFERENCE'];
+      if (!validStatuses.includes(status)) {
+        return ApiResponse.error(res, `Status inválido para portaria: ${status}`, 400);
+      }
+
+      const request = await requestRepo.findById(id);
+      if (!request) return ApiResponse.error(res, 'Requisição não encontrada.', 404);
+      if (request.tenant_id !== profile.tenant_id) return ApiResponse.error(res, 'Acesso não autorizado.', 403);
+
+      await requestRepo.updateStatus(id, status as any, undefined, profile.id);
+
+      // Disparar notificações em tempo real para Líderes e Gestores
+      if (status === 'ARRIVED') {
+        NotificationService.notifyArrival(request).catch(console.error);
+      } else if (status === 'IN_ANALYSIS') {
+        NotificationService.notifyAnalysis(request).catch(console.error);
+      } else if (status === 'EXIT_CONFERENCE') {
+        await supabaseAdmin
+          .from('materials')
+          .update({ status: 'EXIT_CONFERENCE' })
+          .eq('request_id', id)
+          .eq('status', 'WAITING_EXIT');
+        NotificationService.notifyExitConference(request).catch(console.error);
+      } else if (status === 'WAITING_EXIT') {
+        await supabaseAdmin
+          .from('materials')
+          .update({ status: 'WAITING_EXIT' })
+          .eq('request_id', id)
+          .eq('status', 'EXIT_CONFERENCE');
+      }
+
+      return ApiResponse.success(res, { message: `Status alterado para ${status} com sucesso!` });
+    } catch (error: any) {
+      console.error("[RequestController.updateGateStatus] Erro:", error);
+      return ApiResponse.error(res, error.message);
+    }
+  }
+
+  /**
+   * Lista notificações para Gestores, Líderes e Portaria
+   */
+  static async listNotifications(req: AuthRequest, res: Response) {
+    try {
+      const profile = await userService.findProfileById(req.user.id);
+      if (!profile || !profile.tenant_id) return ApiResponse.error(res, 'Tenant não identificado.', 403);
+
+      const notifications = await NotificationService.listByTenant(
+        profile.tenant_id, 
+        profile.sector_id || undefined,
+        profile.role
+      );
+      return ApiResponse.success(res, notifications);
+    } catch (error: any) {
+      console.error("[RequestController.listNotifications] Erro:", error);
+      return ApiResponse.error(res, error.message);
+    }
+  }
+
+  /**
+   * Marca notificação individual como lida
+   */
+  static async markNotificationRead(req: AuthRequest, res: Response) {
+    try {
+      const id = req.params.id as string;
+      await NotificationService.markAsRead(id);
+      return ApiResponse.success(res, { message: 'Notificação marcada como lida.' });
+    } catch (error: any) {
+      console.error("[RequestController.markNotificationRead] Erro:", error);
+      return ApiResponse.error(res, error.message);
+    }
+  }
+
+  /**
+   * Marca todas as notificações como lidas
+   */
+  static async markAllNotificationsRead(req: AuthRequest, res: Response) {
+    try {
+      const profile = await userService.findProfileById(req.user.id);
+      if (!profile || !profile.tenant_id) return ApiResponse.error(res, 'Tenant não identificado.', 403);
+
+      await NotificationService.markAllAsRead(profile.tenant_id, profile.role);
+      return ApiResponse.success(res, { message: 'Todas as notificações foram marcadas como lidas.' });
+    } catch (error: any) {
+      console.error("[RequestController.markAllNotificationsRead] Erro:", error);
+      return ApiResponse.error(res, error.message);
+    }
+  }
+
+  /**
+   * Limpa todas as notificações
+   */
+  static async clearAllNotifications(req: AuthRequest, res: Response) {
+    try {
+      const profile = await userService.findProfileById(req.user.id);
+      if (!profile || !profile.tenant_id) return ApiResponse.error(res, 'Tenant não identificado.', 403);
+
+      await NotificationService.clearAll(profile.tenant_id, profile.role);
+      return ApiResponse.success(res, { message: 'Notificações limpas com sucesso.' });
+    } catch (error: any) {
+      console.error("[RequestController.clearAllNotifications] Erro:", error);
       return ApiResponse.error(res, error.message);
     }
   }

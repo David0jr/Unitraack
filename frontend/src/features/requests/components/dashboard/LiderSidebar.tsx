@@ -11,7 +11,7 @@ import { useAuth } from '../../../../contexts/AuthContext';
 const ROLE_MAP: Record<string, string> = {
   'GESTOR_SEGURANCA': 'Gestor de Segurança',
   'LIDER_SETOR': 'Líder de Setor',
-  'PORTARIA': 'Agente de Portaria',
+  'PORTARIA': 'Controle de Acesso',
   'SUPER_ADMIN': 'Administrador Geral'
 };
 

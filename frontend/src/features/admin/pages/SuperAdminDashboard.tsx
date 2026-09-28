@@ -689,7 +689,7 @@ export default function SuperAdminDashboard() {
                             <div className="flex flex-col">
                               <span className="text-xs font-bold text-navy uppercase">{log.material?.name || 'Item não identificado'}</span>
                               <div className="flex items-center gap-2 mt-1">
-                                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">De: {log.from_sector?.name || 'Origem'}</span>
+                                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">De: {log.from_sector?.name || 'ENTRADA'}</span>
                                 <div className="w-1 h-1 bg-slate-200 rounded-full"></div>
                                 <span className="text-[9px] font-bold text-primary uppercase tracking-widest">Para: {log.to_sector?.name || 'Destino'}</span>
                               </div>
