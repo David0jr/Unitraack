@@ -421,6 +421,19 @@ export class RequestController {
       const profile = await userService.findProfileById(req.user.id);
       if (!profile || !profile.tenant_id || !profile.sector_id) return ApiResponse.error(res, 'Perfil ou Setor não encontrado.', 403);
 
+      if (profile.sector_id === toSectorId) {
+        return ApiResponse.error(res, 'O setor de destino deve ser diferente do setor de origem do equipamento.', 400);
+      }
+
+      const { data: mats } = await supabaseAdmin
+        .from('materials')
+        .select('id, current_sector_id')
+        .in('id', materialIds);
+
+      if (mats && mats.some(m => m.current_sector_id === toSectorId)) {
+        return ApiResponse.error(res, 'O setor de destino não pode ser o mesmo setor onde o equipamento já se encontra.', 400);
+      }
+
       const cleanSignature = (signature || '').trim().toUpperCase();
       const authorizedUser = await RequestController.validateRegistrationNumber(
         profile.tenant_id, 

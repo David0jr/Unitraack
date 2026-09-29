@@ -792,6 +792,8 @@ export default function LiderDashboard() {
           onClose={() => setIsTransferModalOpen(false)}
           onConfirm={handleTransfer}
           isProcessing={isProcessing}
+          currentSectorId={liderInfo?.sector_id || profile?.sector_id || sectorMaterials.find(m => selectedForTransfer.includes(m.id))?.current_sector_id}
+          currentSectorName={liderInfo?.sector || profile?.sector}
         />
       )}
 

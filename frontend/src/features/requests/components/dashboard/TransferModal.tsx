@@ -11,13 +11,17 @@ interface TransferModalProps {
   onClose: () => void;
   onConfirm: (toSectorId: string, signature: string, extraData?: any, photos?: string[]) => Promise<void>;
   isProcessing: boolean;
+  currentSectorId?: string;
+  currentSectorName?: string;
 }
 
 export const TransferModal: React.FC<TransferModalProps> = ({ 
   materialIds, 
   onClose, 
   onConfirm,
-  isProcessing
+  isProcessing,
+  currentSectorId,
+  currentSectorName
 }) => {
   const { sectors } = useDashboard();
   const { profile } = useAuth();
@@ -28,8 +32,26 @@ export const TransferModal: React.FC<TransferModalProps> = ({
   const [observation, setObservation] = useState('');
   const [isWebcamOpen, setIsWebcamOpen] = useState(false);
 
-  const parentSectors = sectors.filter(s => !s.parent_id);
-  const subSectors = sectors.filter(s => s.parent_id === selectedParentSector);
+  // Identifica o setor de origem (onde o material já está alocado)
+  const originSectorId = currentSectorId || profile?.sector_id;
+  const originSectorName = (currentSectorName || profile?.sector || '').trim().toLowerCase();
+
+  const isCurrentSector = (s: any) => {
+    if (!s) return false;
+    if (originSectorId && s.id === originSectorId) return true;
+    if (originSectorName && s.name && s.name.trim().toLowerCase() === originSectorName) return true;
+    return false;
+  };
+
+  // Filtra as áreas gerais e remove o próprio setor caso seja um parent sem outros filhos
+  const parentSectors = sectors
+    .filter(s => !s.parent_id)
+    .filter(s => !isCurrentSector(s) || sectors.some(child => child.parent_id === s.id && !isCurrentSector(child)));
+
+  // Filtra os locais específicos removendo SEMPRE o próprio setor atual do líder/material
+  const subSectors = sectors
+    .filter(s => s.parent_id === selectedParentSector)
+    .filter(s => !isCurrentSector(s));
 
   const handleCapturePhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -102,6 +124,22 @@ export const TransferModal: React.FC<TransferModalProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedSubSector) return;
+
+    const chosenSector = sectors.find(s => s.id === selectedSubSector);
+    if (isCurrentSector(chosenSector) || selectedSubSector === originSectorId) {
+      Swal.fire({
+        title: 'Destino Inválido',
+        text: 'O setor de destino deve ser diferente do setor de origem onde o equipamento já está.',
+        icon: 'warning',
+        confirmButtonColor: '#0052cc',
+        customClass: {
+          popup: 'rounded-2xl font-brand',
+          confirmButton: 'rounded-xl font-bold uppercase text-xs px-6 py-3'
+        }
+      });
+      return;
+    }
+
     if (!validateSignature()) return;
     
     onConfirm(selectedSubSector, signature.trim(), { observation }, photos.length > 0 ? photos : undefined);
