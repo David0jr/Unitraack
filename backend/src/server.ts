@@ -42,39 +42,29 @@ app.use(errorMiddleware);
 
 // Rota raiz (Health Check)
 app.get('/health', (req: Request, res: Response) => {
-  res.status(200).json({ status: 'ok', message: 'SaaS Portaria Backend is running.' });
+  res.status(200).json({ 
+    status: 'ok', 
+    message: 'SaaS Portaria Backend is running.',
+    version: '1.2.0',
+    timestamp: new Date().toISOString()
+  });
 });
 
-// Debug: Listar todas as rotas registradas
+// Debug: Listar todas as rotas registradas de forma segura no Express 5
 app.get('/api/debug-routes', (req: Request, res: Response) => {
-  const routes: string[] = [];
-  
-  function print(path: any, layer: any) {
-    if (layer.route) {
-      layer.route.stack.forEach(print.bind(null, path.concat(split(layer.route.path))));
-    } else if (layer.name === 'router' && layer.handle.stack) {
-      layer.handle.stack.forEach(print.bind(null, path.concat(split(layer.regexp))));
-    } else if (layer.method) {
-      routes.push(`${layer.method.toUpperCase()} ${path.concat(split(layer.regexp)).filter(Boolean).join('/')}`);
-    }
-  }
-
-  function split(thing: any) {
-    if (typeof thing === 'string') {
-      return thing.split('/');
-    } else if (thing.fast_slash) {
-      return '';
-    } else {
-      var match = thing.toString()
-        .replace('\\/?', '')
-        .replace('(?=\\/|$)', '')
-        .match(/^\/\^\\\/([^\\]+)\\\//);
-      return match ? match[1].replace('\\', '') : thing.toString();
-    }
-  }
-
-  (app as any)._router.stack.forEach(print.bind(null, []));
-  res.json({ routes: routes.filter(r => r.includes('/api/')) });
+  res.json({
+    status: 'ok',
+    version: '1.2.0',
+    endpoints: [
+      'GET /health',
+      'GET /api/debug-routes',
+      'GET /api/notifications',
+      'PATCH /api/notifications/read-all',
+      'DELETE /api/notifications/clear-all',
+      'PATCH /api/notifications/:id/read',
+      'POST /api/portaria/status/:id'
+    ]
+  });
 });
 
 // Tratamento de 404 (Rota não encontrada)

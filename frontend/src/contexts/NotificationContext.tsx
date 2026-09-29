@@ -111,25 +111,59 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   const unreadCount = displayedNotifications.filter(n => !n.read).length;
 
+  const fetchNotificationsFromSupabase = useCallback(async () => {
+    if (!profile?.tenant_id) return;
+    try {
+      let query = supabase
+        .from('notifications')
+        .select('*')
+        .eq('tenant_id', profile.tenant_id)
+        .order('created_at', { ascending: false })
+        .limit(40);
+
+      if (profile.role === 'PORTARIA') {
+        query = query.or('type.eq.EXIT_WAITING,role.eq.PORTARIA');
+      } else if (profile.role === 'LIDER') {
+        query = query.neq('type', 'EXIT_WAITING');
+        if (profile.sector_id) {
+          query = query.or(`sector_id.is.null,sector_id.eq.${profile.sector_id}`);
+        }
+      }
+
+      const { data, error } = await query;
+      if (!error && Array.isArray(data)) {
+        setNotifications(data as NotificationItem[]);
+      }
+    } catch (err) {
+      console.warn('[NotificationContext] Falha no fallback Supabase:', err);
+    }
+  }, [profile?.tenant_id, profile?.role, profile?.sector_id]);
+
   const fetchNotifications = useCallback(async () => {
     const token = getAuthToken();
-    if (!token || !profile?.tenant_id) return;
+    if (!profile?.tenant_id) return;
 
     try {
       setLoading(true);
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/notifications`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (response.ok) {
-        const payload = await response.json();
-        setNotifications(Array.isArray(payload.data) ? payload.data : []);
+      if (token) {
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/notifications`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (response.ok) {
+          const payload = await response.json();
+          setNotifications(Array.isArray(payload.data) ? payload.data : []);
+          return;
+        }
       }
+      // Fallback resiliente: se a API retornar 404 (ex: deploy pendente no Railway), busca do Supabase
+      await fetchNotificationsFromSupabase();
     } catch (err) {
-      console.error('[NotificationContext] Erro ao buscar notificações:', err);
+      console.warn('[NotificationContext] API indisponível, acionando fallback Supabase:', err);
+      await fetchNotificationsFromSupabase();
     } finally {
       setLoading(false);
     }
-  }, [profile?.tenant_id]);
+  }, [profile?.tenant_id, fetchNotificationsFromSupabase]);
 
   // Carrega notificações iniciais ao logar
   useEffect(() => {
@@ -242,11 +276,19 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     try {
       setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
       const token = getAuthToken();
-      if (!token) return;
-      await fetch(`${import.meta.env.VITE_API_URL}/notifications/${id}/read`, {
-        method: 'PATCH',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      let apiSuccess = false;
+      if (token) {
+        try {
+          const res = await fetch(`${import.meta.env.VITE_API_URL}/notifications/${id}/read`, {
+            method: 'PATCH',
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          apiSuccess = res.ok;
+        } catch (_) {}
+      }
+      if (!apiSuccess) {
+        await supabase.from('notifications').update({ read: true }).eq('id', id);
+      }
     } catch (err) {
       console.error('[NotificationContext] Erro ao marcar como lida:', err);
     }
@@ -256,11 +298,23 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     try {
       setNotifications(prev => prev.map(n => isPortaria && n.type !== 'EXIT_WAITING' ? n : { ...n, read: true }));
       const token = getAuthToken();
-      if (!token) return;
-      await fetch(`${import.meta.env.VITE_API_URL}/notifications/read-all`, {
-        method: 'PATCH',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      let apiSuccess = false;
+      if (token) {
+        try {
+          const res = await fetch(`${import.meta.env.VITE_API_URL}/notifications/read-all`, {
+            method: 'PATCH',
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          apiSuccess = res.ok;
+        } catch (_) {}
+      }
+      if (!apiSuccess && profile?.tenant_id) {
+        let query = supabase.from('notifications').update({ read: true }).eq('tenant_id', profile.tenant_id);
+        if (isPortaria) {
+          query = query.or('type.eq.EXIT_WAITING,role.eq.PORTARIA');
+        }
+        await query;
+      }
     } catch (err) {
       console.error('[NotificationContext] Erro ao marcar todas como lidas:', err);
     }
@@ -270,11 +324,23 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     try {
       setNotifications([]);
       const token = getAuthToken();
-      if (!token) return;
-      await fetch(`${import.meta.env.VITE_API_URL}/notifications/clear-all`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      let apiSuccess = false;
+      if (token) {
+        try {
+          const res = await fetch(`${import.meta.env.VITE_API_URL}/notifications/clear-all`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          apiSuccess = res.ok;
+        } catch (_) {}
+      }
+      if (!apiSuccess && profile?.tenant_id) {
+        let query = supabase.from('notifications').delete().eq('tenant_id', profile.tenant_id);
+        if (isPortaria) {
+          query = query.or('type.eq.EXIT_WAITING,role.eq.PORTARIA');
+        }
+        await query;
+      }
     } catch (err) {
       console.error('[NotificationContext] Erro ao limpar notificações:', err);
     }
