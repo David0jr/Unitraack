@@ -151,5 +151,7 @@ export interface AppNotification {
   message: string;
   type: 'ARRIVAL' | 'ANALYSIS' | 'IN_PLANTA' | 'EXIT_WAITING' | 'EXIT_CONFERENCE' | 'EXIT_COMPLETED' | 'DISCREPANCY' | 'INFO';
   read: boolean;
+  read_by?: string[];
+  dismissed_by?: string[];
   created_at: string;
 }

@@ -594,7 +594,9 @@ export class RequestController {
       const notifications = await NotificationService.listByTenant(
         profile.tenant_id, 
         profile.sector_id || undefined,
-        profile.role
+        profile.role,
+        50,
+        profile.id
       );
       return ApiResponse.success(res, notifications);
     } catch (error: any) {
@@ -604,12 +606,12 @@ export class RequestController {
   }
 
   /**
-   * Marca notificação individual como lida
+   * Marca notificação individual como lida para o usuário atual
    */
   static async markNotificationRead(req: AuthRequest, res: Response) {
     try {
       const id = req.params.id as string;
-      await NotificationService.markAsRead(id);
+      await NotificationService.markAsRead(id, req.user.id);
       return ApiResponse.success(res, { message: 'Notificação marcada como lida.' });
     } catch (error: any) {
       console.error("[RequestController.markNotificationRead] Erro:", error);
@@ -618,14 +620,14 @@ export class RequestController {
   }
 
   /**
-   * Marca todas as notificações como lidas
+   * Marca todas as notificações como lidas exclusivamente para este usuário
    */
   static async markAllNotificationsRead(req: AuthRequest, res: Response) {
     try {
       const profile = await userService.findProfileById(req.user.id);
       if (!profile || !profile.tenant_id) return ApiResponse.error(res, 'Tenant não identificado.', 403);
 
-      await NotificationService.markAllAsRead(profile.tenant_id, profile.role);
+      await NotificationService.markAllAsRead(profile.tenant_id, profile.id, profile.sector_id || undefined, profile.role);
       return ApiResponse.success(res, { message: 'Todas as notificações foram marcadas como lidas.' });
     } catch (error: any) {
       console.error("[RequestController.markAllNotificationsRead] Erro:", error);
@@ -634,14 +636,14 @@ export class RequestController {
   }
 
   /**
-   * Limpa todas as notificações
+   * Limpa as notificações exclusivamente para este usuário
    */
   static async clearAllNotifications(req: AuthRequest, res: Response) {
     try {
       const profile = await userService.findProfileById(req.user.id);
       if (!profile || !profile.tenant_id) return ApiResponse.error(res, 'Tenant não identificado.', 403);
 
-      await NotificationService.clearAll(profile.tenant_id, profile.role);
+      await NotificationService.clearAll(profile.tenant_id, profile.id, profile.sector_id || undefined, profile.role);
       return ApiResponse.success(res, { message: 'Notificações limpas com sucesso.' });
     } catch (error: any) {
       console.error("[RequestController.clearAllNotifications] Erro:", error);

@@ -16,6 +16,9 @@ export interface NotificationItem {
   role?: string | null;
   sector_id?: string | null;
   request_id?: string | null;
+  user_id?: string | null;
+  read_by?: string[];
+  dismissed_by?: string[];
   created_at: string;
 }
 
@@ -105,6 +108,34 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     return granted;
   }, [soundEnabled]);
 
+  const currentUserId = user?.id || profile?.id;
+
+  // Função auxiliar para mapear cada notificação com o estado exclusivo deste usuário
+  const mapUserNotification = useCallback((item: any): NotificationItem | null => {
+    if (!item) return null;
+    const uid = currentUserId;
+
+    // Se foi dispensada/limpa por este usuário, oculta apenas para ele
+    if (uid && Array.isArray(item.dismissed_by) && item.dismissed_by.includes(uid)) {
+      return null;
+    }
+
+    // Se for exclusiva de outro usuário, oculta
+    if (uid && item.user_id && item.user_id !== uid) {
+      return null;
+    }
+
+    // O status de lida é EXCLUSIVO e individual para este usuário:
+    const isReadForThisUser = uid && Array.isArray(item.read_by)
+      ? item.read_by.includes(uid)
+      : Boolean(item.user_id === uid && item.read);
+
+    return {
+      ...item,
+      read: isReadForThisUser
+    };
+  }, [currentUserId]);
+
   const displayedNotifications = isPortaria
     ? notifications.filter(n => n.type === 'EXIT_WAITING' || n.role === 'PORTARIA')
     : notifications;
@@ -119,7 +150,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         .select('*')
         .eq('tenant_id', profile.tenant_id)
         .order('created_at', { ascending: false })
-        .limit(40);
+        .limit(50);
 
       if (profile.role === 'PORTARIA') {
         query = query.or('type.eq.EXIT_WAITING,role.eq.PORTARIA');
@@ -132,12 +163,15 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
       const { data, error } = await query;
       if (!error && Array.isArray(data)) {
-        setNotifications(data as NotificationItem[]);
+        const mapped = data
+          .map(mapUserNotification)
+          .filter((n): n is NotificationItem => n !== null);
+        setNotifications(mapped);
       }
     } catch (err) {
       console.warn('[NotificationContext] Falha no fallback Supabase:', err);
     }
-  }, [profile?.tenant_id, profile?.role, profile?.sector_id]);
+  }, [profile?.tenant_id, profile?.role, profile?.sector_id, mapUserNotification]);
 
   const fetchNotifications = useCallback(async () => {
     const token = getAuthToken();
@@ -151,7 +185,11 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         });
         if (response.ok) {
           const payload = await response.json();
-          setNotifications(Array.isArray(payload.data) ? payload.data : []);
+          const items = Array.isArray(payload.data) ? payload.data : [];
+          const mapped = items
+            .map(mapUserNotification)
+            .filter((n): n is NotificationItem => n !== null);
+          setNotifications(mapped);
           return;
         }
       }
@@ -163,7 +201,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     } finally {
       setLoading(false);
     }
-  }, [profile?.tenant_id, fetchNotificationsFromSupabase]);
+  }, [profile?.tenant_id, fetchNotificationsFromSupabase, mapUserNotification]);
 
   // Carrega notificações iniciais ao logar
   useEffect(() => {
@@ -192,7 +230,10 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
           filter: `tenant_id=eq.${profile.tenant_id}`
         },
         async (payload) => {
-          const newNotif = payload.new as NotificationItem;
+          const rawItem = payload.new as any;
+          const newNotif = mapUserNotification(rawItem);
+          if (!newNotif) return;
+
           console.log('[NotificationContext] Nova notificação recebida em tempo real:', newNotif);
 
           // Filtro de relevância de perfil
@@ -261,7 +302,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [profile?.tenant_id, profile?.role, profile?.sector_id, soundEnabled, fetchNotifications]);
+  }, [profile?.tenant_id, profile?.role, profile?.sector_id, soundEnabled, fetchNotifications, mapUserNotification]);
 
   // Auto-fechamento do Toast em 6 segundos
   useEffect(() => {
@@ -286,8 +327,17 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
           apiSuccess = res.ok;
         } catch (_) {}
       }
-      if (!apiSuccess) {
-        await supabase.from('notifications').update({ read: true }).eq('id', id);
+      if (!apiSuccess && currentUserId) {
+        const { data: currentNotif } = await supabase
+          .from('notifications')
+          .select('read_by')
+          .eq('id', id)
+          .maybeSingle();
+        const readBy: string[] = Array.isArray(currentNotif?.read_by) ? currentNotif.read_by : [];
+        if (!readBy.includes(currentUserId)) {
+          readBy.push(currentUserId);
+          await supabase.from('notifications').update({ read_by: readBy }).eq('id', id);
+        }
       }
     } catch (err) {
       console.error('[NotificationContext] Erro ao marcar como lida:', err);
@@ -308,12 +358,14 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
           apiSuccess = res.ok;
         } catch (_) {}
       }
-      if (!apiSuccess && profile?.tenant_id) {
-        let query = supabase.from('notifications').update({ read: true }).eq('tenant_id', profile.tenant_id);
-        if (isPortaria) {
-          query = query.or('type.eq.EXIT_WAITING,role.eq.PORTARIA');
+      if (!apiSuccess && currentUserId) {
+        for (const notif of notifications) {
+          const currentReadBy: string[] = Array.isArray(notif.read_by) ? notif.read_by : [];
+          if (!currentReadBy.includes(currentUserId)) {
+            currentReadBy.push(currentUserId);
+            await supabase.from('notifications').update({ read_by: currentReadBy }).eq('id', notif.id);
+          }
         }
-        await query;
       }
     } catch (err) {
       console.error('[NotificationContext] Erro ao marcar todas como lidas:', err);
@@ -322,6 +374,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   const clearAllNotifications = async () => {
     try {
+      const itemsToDismiss = [...notifications];
       setNotifications([]);
       const token = getAuthToken();
       let apiSuccess = false;
@@ -334,12 +387,14 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
           apiSuccess = res.ok;
         } catch (_) {}
       }
-      if (!apiSuccess && profile?.tenant_id) {
-        let query = supabase.from('notifications').delete().eq('tenant_id', profile.tenant_id);
-        if (isPortaria) {
-          query = query.or('type.eq.EXIT_WAITING,role.eq.PORTARIA');
+      if (!apiSuccess && currentUserId) {
+        for (const notif of itemsToDismiss) {
+          const currentDismissedBy: string[] = Array.isArray(notif.dismissed_by) ? notif.dismissed_by : [];
+          if (!currentDismissedBy.includes(currentUserId)) {
+            currentDismissedBy.push(currentUserId);
+            await supabase.from('notifications').update({ dismissed_by: currentDismissedBy }).eq('id', notif.id);
+          }
         }
-        await query;
       }
     } catch (err) {
       console.error('[NotificationContext] Erro ao limpar notificações:', err);

@@ -220,13 +220,14 @@ export class NotificationService {
 
   /**
    * Lista as notificações mais recentes para o usuário / setor / tenant.
-   * Se for PORTARIA, retorna EXCLUSIVAMENTE notificações de equipamentos saindo de setores para baixa (EXIT_WAITING).
+   * Filtra por dismissed_by e calcula o estado de leitura individualizado por userId.
    */
   static async listByTenant(
     tenantId: string, 
     sectorId?: string, 
     userRole?: string, 
-    limit: number = 30
+    limit: number = 50,
+    userId?: string
   ): Promise<AppNotification[]> {
     try {
       let query = supabaseAdmin
@@ -238,7 +239,7 @@ export class NotificationService {
 
       if (userRole === 'PORTARIA') {
         query = query.or('type.eq.EXIT_WAITING,role.eq.PORTARIA');
-      } else if (userRole === 'LIDER_SETOR') {
+      } else if (userRole === 'LIDER' || userRole === 'LIDER_SETOR') {
         query = query.neq('type', 'EXIT_WAITING');
         if (sectorId) {
           query = query.or(`sector_id.is.null,sector_id.eq.${sectorId}`);
@@ -250,7 +251,32 @@ export class NotificationService {
         console.error('[NotificationService.listByTenant] Erro:', error);
         return [];
       }
-      return data || [];
+
+      const rawNotifications: AppNotification[] = data || [];
+
+      // Filtra por usuário (descarta as dispensadas por este usuário) e calcula o "read" individual
+      return rawNotifications
+        .filter((n: any) => {
+          if (!userId) return true;
+          // Se foi dispensada/limpa por este usuário, não exibe
+          if (Array.isArray(n.dismissed_by) && n.dismissed_by.includes(userId)) {
+            return false;
+          }
+          // Se for exclusiva de outro usuário, não exibe
+          if (n.user_id && n.user_id !== userId) {
+            return false;
+          }
+          return true;
+        })
+        .map((n: any) => {
+          if (!userId) return n;
+          // O estado "read" é individual: lido se o ID do usuário estiver em read_by
+          const isRead = Array.isArray(n.read_by) ? n.read_by.includes(userId) : false;
+          return {
+            ...n,
+            read: isRead
+          };
+        });
     } catch (err) {
       console.error('[NotificationService.listByTenant] Exceção:', err);
       return [];
@@ -258,14 +284,34 @@ export class NotificationService {
   }
 
   /**
-   * Marca uma notificação específica como lida.
+   * Marca uma notificação específica como lida para o usuário.
    */
-  static async markAsRead(notificationId: string): Promise<boolean> {
+  static async markAsRead(notificationId: string, userId?: string): Promise<boolean> {
     try {
+      if (!userId) {
+        const { error } = await supabaseAdmin
+          .from('notifications')
+          .update({ read: true })
+          .eq('id', notificationId);
+        return !error;
+      }
+
+      const { data: notif } = await supabaseAdmin
+        .from('notifications')
+        .select('read_by')
+        .eq('id', notificationId)
+        .maybeSingle();
+
+      const readBy: string[] = Array.isArray(notif?.read_by) ? notif.read_by : [];
+      if (!readBy.includes(userId)) {
+        readBy.push(userId);
+      }
+
       const { error } = await supabaseAdmin
         .from('notifications')
-        .update({ read: true })
+        .update({ read_by: readBy, read: true })
         .eq('id', notificationId);
+
       return !error;
     } catch {
       return false;
@@ -273,44 +319,46 @@ export class NotificationService {
   }
 
   /**
-   * Marca todas as notificações do tenant como lidas (filtrando por role se for portaria).
+   * Marca todas as notificações do tenant/setor como lidas para este usuário.
    */
-  static async markAllAsRead(tenantId: string, role?: string): Promise<boolean> {
+  static async markAllAsRead(tenantId: string, userId: string, sectorId?: string, role?: string): Promise<boolean> {
     try {
-      let query = supabaseAdmin
-        .from('notifications')
-        .update({ read: true })
-        .eq('tenant_id', tenantId);
+      const notifications = await this.listByTenant(tenantId, sectorId, role, 100, userId);
+      const unreadNotifs = notifications.filter(n => !n.read);
 
-      if (role === 'PORTARIA') {
-        query = query.eq('type', 'EXIT_WAITING');
+      for (const n of unreadNotifs) {
+        const currentReadBy: string[] = Array.isArray((n as any).read_by) ? (n as any).read_by : [];
+        if (!currentReadBy.includes(userId)) {
+          currentReadBy.push(userId);
+          await supabaseAdmin
+            .from('notifications')
+            .update({ read_by: currentReadBy })
+            .eq('id', n.id);
+        }
       }
-
-      const { error } = await query;
-      return !error;
+      return true;
     } catch {
       return false;
     }
   }
 
   /**
-   * Limpa/remove todas as notificações do tenant (filtrando por role se for portaria).
+   * Limpa/remove as notificações para este usuário (adiciona no dismissed_by).
+   * Não afeta outros usuários ou gestores.
    */
-  static async clearAll(tenantId: string, role?: string): Promise<boolean> {
+  static async clearAll(tenantId: string, userId: string, sectorId?: string, role?: string): Promise<boolean> {
     try {
-      let query = supabaseAdmin
-        .from('notifications')
-        .delete()
-        .eq('tenant_id', tenantId);
+      const notifications = await this.listByTenant(tenantId, sectorId, role, 100, userId);
 
-      if (role === 'PORTARIA') {
-        query = query.eq('type', 'EXIT_WAITING');
-      }
-
-      const { error } = await query;
-      if (error) {
-        console.error('[NotificationService.clearAll] Erro ao limpar:', error);
-        return false;
+      for (const n of notifications) {
+        const currentDismissedBy: string[] = Array.isArray((n as any).dismissed_by) ? (n as any).dismissed_by : [];
+        if (!currentDismissedBy.includes(userId)) {
+          currentDismissedBy.push(userId);
+          await supabaseAdmin
+            .from('notifications')
+            .update({ dismissed_by: currentDismissedBy })
+            .eq('id', n.id);
+        }
       }
       return true;
     } catch (err) {
