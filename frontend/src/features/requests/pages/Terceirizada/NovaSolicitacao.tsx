@@ -20,7 +20,19 @@ import {
   AlertCircle
 } from 'lucide-react';
 import axios from 'axios';
-// Removida importação do SignaturePad
+import { compressImage } from '../../../../utils/imageCompressor';
+
+const dataUrlToBlob = (dataUrl: string): Blob => {
+  const arr = dataUrl.split(',');
+  const mime = arr[0].match(/:(.*?);/)?.[1] || 'image/jpeg';
+  const bstr = atob(arr[1]);
+  let n = bstr.length;
+  const u8arr = new Uint8Array(n);
+  while (n--) {
+    u8arr[n] = bstr.charCodeAt(n);
+  }
+  return new Blob([u8arr], { type: mime });
+};
 
 interface MaterialItem {
   id: string;
@@ -32,12 +44,13 @@ interface MaterialItem {
   condition: string;
   code?: string;
   imageUrl: string;
+  previewUrl?: string;
   uploading: boolean;
 }
 
 export default function NovaSolicitacao() {
   const { user, profile } = useAuth();
-  const { slug: tenantSlug } = useTenant();
+  const { tenant, slug: tenantSlug } = useTenant();
   const navigate = useNavigate();
   const location = useLocation();
   const editMode = location.state?.editMode || false;
@@ -152,21 +165,33 @@ export default function NovaSolicitacao() {
     setMaterials(prev => prev.map(m => m.id === id ? { ...m, [field]: value } : m));
   };
 
+  const clearMaterialImage = (id: string) => {
+    setMaterials(prev => prev.map(m => m.id === id ? { ...m, imageUrl: '', previewUrl: '' } : m));
+  };
+
   const handleFileUpload = async (id: string, file: File) => {
     if (!file) return;
 
+    // 1. Preview local instantâneo
     const localBlobUrl = URL.createObjectURL(file);
-    updateMaterial(id, 'imageUrl', localBlobUrl);
+    updateMaterial(id, 'previewUrl', localBlobUrl);
     updateMaterial(id, 'uploading', true);
 
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${id}-${Date.now()}.${fileExt}`;
+      // 2. Comprimir e otimizar imagem para JPEG universal (evita limites de upload e converte formatos de celular como HEIC)
+      const compressedDataUrl = await compressImage(file, 1600, 0.85);
+      const compressedBlob = dataUrlToBlob(compressedDataUrl);
+
+      const fileName = `${id}-${Date.now()}.jpg`;
       const filePath = `requests/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from('material-images')
-        .upload(filePath, file, { cacheControl: '3600', upsert: false });
+        .upload(filePath, compressedBlob, { 
+          contentType: 'image/jpeg',
+          cacheControl: '3600', 
+          upsert: true 
+        });
 
       if (uploadError) throw uploadError;
 
@@ -174,11 +199,13 @@ export default function NovaSolicitacao() {
         .from('material-images')
         .getPublicUrl(filePath);
 
+      // Define a URL pública definitiva apenas após a confirmação do upload no servidor
       updateMaterial(id, 'imageUrl', publicUrl);
     } catch (err: any) {
-      console.error('Erro no upload:', err);
+      console.error('Erro no upload da imagem:', err);
       updateMaterial(id, 'imageUrl', '');
-      setErrorMessage('Falha ao subir a imagem no servidor. Verifique sua conexão.');
+      updateMaterial(id, 'previewUrl', '');
+      setErrorMessage('Falha ao subir a imagem no servidor. Verifique sua conexão e tente novamente.');
     } finally {
       updateMaterial(id, 'uploading', false);
     }
@@ -201,9 +228,15 @@ export default function NovaSolicitacao() {
       return;
     }
 
-    const itemDeFalta = materials.find((m) => !m.imageUrl);
+    const isAnyUploading = materials.some((m) => m.uploading);
+    if (isAnyUploading) {
+      setErrorMessage('Aguarde o envio das fotos para o servidor terminar antes de efetuar a solicitação.');
+      return;
+    }
+
+    const itemDeFalta = materials.find((m) => !m.imageUrl || m.imageUrl.startsWith('blob:'));
     if (itemDeFalta) {
-      setErrorMessage(`Você esqueceu de anexar a foto de um dos equipamentos.`);
+      setErrorMessage(`Uma ou mais fotos de equipamentos ainda não foram salvas no servidor. Por favor, anexe novamente.`);
       return;
     }
 
@@ -312,11 +345,17 @@ export default function NovaSolicitacao() {
                 <ArrowLeft className="w-5 h-5" />
              </button>
              <div className="h-6 w-px bg-slate-100 mx-1"></div>
-             <img 
-              src="https://linsagro.com.br/wp-content/uploads/2022/07/cropped-Lins_Logo_Horizontal_RGB_Preferencial_20250512_Keenwork_AF.png" 
-              alt="Lins" 
-              className="h-9"
-            />
+             {tenant?.logo_url || profile?.tenant?.logo_url ? (
+               <img 
+                 src={tenant?.logo_url || profile?.tenant?.logo_url} 
+                 alt={tenant?.name || profile?.tenant?.name || 'Usina'} 
+                 className="h-9 object-contain max-w-[160px]" 
+               />
+             ) : (
+               <span className="font-bold text-navy text-sm uppercase tracking-tight">
+                 {tenant?.name || profile?.tenant?.name || 'Usina'}
+               </span>
+             )}
           </div>
           <div className="hidden sm:flex items-center gap-3">
              <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest leading-none">Status Autenticado</span>
@@ -471,12 +510,30 @@ export default function NovaSolicitacao() {
                   <div className="grid grid-cols-1 md:grid-cols-12 gap-10">
                     <div className="md:col-span-3">
                        <div className="relative aspect-square bg-[#F8FAFC] border border-slate-100 rounded-2xl overflow-hidden group/img flex flex-col items-center justify-center text-center p-4">
-                          {mat.imageUrl ? (
+                          {(mat.imageUrl || mat.previewUrl) ? (
                             <>
-                              <img src={mat.imageUrl} alt="Material" className="w-full h-full object-cover" />
-                              <button type="button" onClick={() => updateMaterial(mat.id, 'imageUrl', '')} className="absolute inset-0 bg-red-500/80 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center cursor-pointer">
-                                 <Trash2 className="text-white" />
-                              </button>
+                              <img 
+                                src={mat.imageUrl || mat.previewUrl} 
+                                alt="Material" 
+                                className={`w-full h-full object-cover transition-opacity ${mat.uploading ? 'opacity-50 blur-[1px]' : 'opacity-100'}`} 
+                              />
+                              {mat.uploading ? (
+                                <div className="absolute inset-0 bg-navy/60 backdrop-blur-xs flex flex-col items-center justify-center gap-2 p-2">
+                                  <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                                  <span className="text-[9px] font-bold text-white uppercase tracking-wider text-center">
+                                    Enviando foto...
+                                  </span>
+                                </div>
+                              ) : (
+                                <button 
+                                  type="button" 
+                                  onClick={() => clearMaterialImage(mat.id)} 
+                                  className="absolute inset-0 bg-red-500/80 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center cursor-pointer"
+                                  title="Remover foto"
+                                >
+                                   <Trash2 className="text-white w-6 h-6" />
+                                </button>
+                              )}
                             </>
                           ) : (
                              <label className="cursor-pointer w-full h-full flex flex-col items-center justify-center hover:bg-slate-100 transition-colors gap-2">
@@ -525,10 +582,17 @@ export default function NovaSolicitacao() {
           <div className="pt-10 border-t border-slate-100 flex flex-col items-center">
              <button 
                 type="submit" 
-                disabled={submitting}
+                disabled={submitting || materials.some(m => m.uploading)}
                 className="w-full max-w-sm py-6 bg-[#0032A0] hover:bg-[#002880] text-white font-bold uppercase tracking-widest rounded-xl shadow-xl shadow-navy/20 flex items-center justify-center gap-4 transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer"
              >
-                {submitting ? <Loader2 className="w-6 h-6 animate-spin" /> : (
+                {submitting ? (
+                  <Loader2 className="w-6 h-6 animate-spin" />
+                ) : materials.some(m => m.uploading) ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin text-white" />
+                    <span>ENVIANDO FOTOS...</span>
+                  </>
+                ) : (
                   <>
                      {editMode ? 'SALVAR ALTERAÇÕES' : 'EFETUAR SOLICITAÇÃO'}
                      <Save className="w-5 h-5 text-primary" />

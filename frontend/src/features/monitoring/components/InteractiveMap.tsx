@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useDashboard } from '../../../contexts/DashboardContext';
 import { useAuth } from '../../../contexts/AuthContext';
+import { MaterialDetailsModal } from '../../requests/components/dashboard/MaterialDetailsModal';
 
 const COMPANY_COLORS: Record<string, string> = {
   'default': '#0032A0',
@@ -522,97 +523,11 @@ export default function InteractiveMap() {
       </div>
 
       {selectedMaterial && (
-        <div 
-          onClick={() => setSelectedMaterial(null)} 
-          className="fixed inset-0 z-[1300] flex items-center justify-center p-4 bg-navy/70 backdrop-blur-md animate-in fade-in duration-300 cursor-pointer"
-        >
-          <div 
-            onClick={(e) => e.stopPropagation()} 
-            className="bg-white w-full max-w-2xl rounded-[16px] overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.3)] animate-in zoom-in-95 duration-200 flex flex-col md:flex-row max-h-[85vh] border-0 cursor-default"
-          >
-            <div className="md:w-[40%] relative bg-slate-900 flex-shrink-0 min-h-[220px]">
-              {selectedMaterial.image_url || selectedMaterial.imageUrl ? (
-                <div className="w-full h-full p-8 flex items-center justify-center bg-slate-900/50">
-                  <img 
-                    src={selectedMaterial.image_url || selectedMaterial.imageUrl} 
-                    alt={selectedMaterial.name} 
-                    className="w-full h-full object-contain drop-shadow-2xl" 
-                  />
-                </div>
-              ) : (
-                <div className="w-full h-full flex flex-col items-center justify-center text-slate-700">
-                  <Package className="w-8 h-8 opacity-10" />
-                  <p className="text-[8px] font-bold uppercase tracking-widest mt-2">Sem imagem</p>
-                </div>
-              )}
-              <button 
-                onClick={() => selectedMaterial.request?.profile && setSelectedCompany(selectedMaterial.request.profile)}
-                className="absolute bottom-4 left-4 right-4 bg-navy/90 hover:bg-navy backdrop-blur-md p-3 rounded-xl border border-white/10 flex items-center gap-3 transition-all group shadow-xl"
-              >
-                 <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0 bg-white/10 border border-white/20 flex items-center justify-center">
-                    {selectedMaterial.request?.profile?.logo_url ? (
-                      <img src={selectedMaterial.request.profile.logo_url} className="w-full h-full object-contain p-1" />
-                    ) : (
-                      <span className="text-[12px] text-white font-bold">
-                        {selectedMaterial.request?.profile?.full_name ? selectedMaterial.request.profile.full_name[0] : '?'}
-                      </span>
-                    )}
-                 </div>
-                 <div className="flex flex-col items-start overflow-hidden text-left">
-                   <span className="text-[7px] text-slate-400 font-bold uppercase tracking-widest leading-none mb-0.5">Empresa Responsável</span>
-                   <span className="text-[10px] font-bold text-white uppercase truncate w-full group-hover:text-primary transition-colors">
-                     {selectedMaterial.request?.profile?.full_name || 'Desconhecida'}
-                   </span>
-                 </div>
-              </button>
-            </div>
-            <div className="md:w-[60%] flex flex-col overflow-hidden bg-white">
-              <div className="bg-navy px-5 py-3 flex justify-between items-center flex-shrink-0">
-                 <div className="flex items-center gap-2">
-                    <div className="p-1.5 bg-primary/20 rounded-md">
-                      <Package className="w-4 h-4 text-primary" />
-                    </div>
-                    <div>
-                      <p className="text-[7px] text-primary font-bold uppercase tracking-widest leading-none">Ativo Industrial</p>
-                      <h3 className="text-white font-bold uppercase text-[11px] mt-0.5 tracking-tight truncate max-w-[160px]">{selectedMaterial.name}</h3>
-                    </div>
-                 </div>
-                 <button onClick={() => setSelectedMaterial(null)} className="w-6 h-6 bg-white/10 hover:bg-white/20 text-white rounded-md flex items-center justify-center transition-all">
-                  <XCircle className="w-3.5 h-3.5" />
-                </button>
-              </div>
-              <div className="flex-1 overflow-y-auto">
-                <div className="p-4 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[8px] text-slate-400 font-bold uppercase tracking-widest">Especificações Técnicas</span>
-                    <span className="bg-primary/10 text-primary text-[8px] font-bold px-2 py-0.5 rounded-md uppercase border border-primary/20">
-                      Condição: {selectedMaterial.condition}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-3 gap-x-4 gap-y-4 pt-2 border-t border-slate-50">
-                    <div>
-                      <p className="text-[7px] text-slate-400 font-bold uppercase tracking-widest mb-0.5">Fabricante</p>
-                      <p className="font-bold text-navy text-[10px] truncate">{selectedMaterial.brand || '---'}</p>
-                    </div>
-                    <div>
-                      <p className="text-[7px] text-slate-400 font-bold uppercase tracking-widest mb-0.5">Modelo</p>
-                      <p className="font-bold text-navy text-[10px] truncate">{selectedMaterial.model || '---'}</p>
-                    </div>
-                    <div>
-                      <p className="text-[7px] text-slate-400 font-bold uppercase tracking-widest mb-0.5">Nº de Série</p>
-                      <p className="font-bold text-navy text-[10px] font-mono tracking-tighter truncate">{selectedMaterial.serial_number || '---'}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="px-5 pb-5 pt-2">
-                <button onClick={() => setSelectedMaterial(null)} className="w-full bg-navy text-white font-bold text-[9px] uppercase tracking-widest py-3 rounded-lg hover:bg-primary transition-all shadow-md active:scale-[0.98]">
-                  Fechar Detalhes
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <MaterialDetailsModal
+          material={selectedMaterial}
+          onClose={() => setSelectedMaterial(null)}
+          onSelectCompany={(company) => setSelectedCompany(company)}
+        />
       )}
 
       {selectedCompany && (

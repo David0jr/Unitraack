@@ -17,14 +17,22 @@ export default function Login() {
   const location = useLocation();
   const isLoggingIn = useRef(false);
 
-  // Se o usuário já possuir sessão ativa e salva, redireciona diretamente para o painel correto
+  // Se o usuário já possuir sessão ativa e salva, valida compatibilidade antes de redirecionar
   useEffect(() => {
     if (!authLoading && user && profile && !isLoggingIn.current) {
-      console.log('[Login] Sessão ativa detectada. Redirecionando automaticamente...');
       if (profile.role === 'SUPER_ADMIN') {
         navigate('/admin/painel', { replace: true });
         return;
       }
+
+      // Se a sessão salva for de outra usina e estiver acessando o portal de uma usina diferente
+      if (tenant?.id && profile.tenant_id && profile.tenant_id !== tenant.id) {
+        console.warn('[Login] Sessão ativa de outra usina detectada neste portal. Limpando sessão...');
+        signOut();
+        return;
+      }
+
+      console.log('[Login] Sessão ativa detectada. Redirecionando automaticamente...');
       const userSlug = profile.tenant?.subdomain || slug;
       const rolePath = profile.role?.toLowerCase().replace('_', '-');
       if (userSlug && rolePath) {
@@ -35,7 +43,7 @@ export default function Login() {
         navigate('/painel', { replace: true });
       }
     }
-  }, [user, profile, authLoading, slug, navigate]);
+  }, [user, profile, authLoading, slug, tenant?.id, navigate, signOut]);
 
   useEffect(() => {
     const state = location.state as { error?: string } | null;
@@ -97,7 +105,7 @@ export default function Login() {
       const profile = await Promise.race([loginPromise, timeoutPromise]) as any;
       
       // 1. Verificação de Isolamento de Portais
-      const isTenantPortal = !!tenant?.subdomain;
+      const isTenantPortal = !!tenant?.subdomain || !!slug;
       const isSuperAdmin = profile?.role === 'SUPER_ADMIN';
 
       // BLOQUEIO: Super Admin tentando entrar pelo portal da usina
@@ -118,21 +126,38 @@ export default function Login() {
         return;
       }
 
+      // BLOQUEIO ESTRITO MULTI-TENANT: Conta pertence a outra usina
+      if (isTenantPortal && !isSuperAdmin) {
+        if (!profile?.tenant_id) {
+          isLoggingIn.current = false;
+          await signOut();
+          setError('Acesso negado: Sua conta não está vinculada a nenhuma usina. Contate o administrador.');
+          setLoading(false);
+          return;
+        }
+
+        if (tenant?.id && profile.tenant_id !== tenant.id) {
+          isLoggingIn.current = false;
+          await signOut();
+          const usinaAtual = tenant.name || 'Usina Lins';
+          setError(`Você não está cadastrado na ${usinaAtual}. Acesse pelo portal correspondente à sua empresa.`);
+          setLoading(false);
+          return;
+        }
+      }
+
       // 2. Se for Super Admin, vai para o painel global (apenas se não estiver no portal da usina)
       if (isSuperAdmin) {
         navigate('/admin/painel');
         return;
       }
 
-      // 3. Redirecionamento de Usuários de Usina
-      const userTenantSlug = profile?.tenant?.subdomain;
+      // 3. Redirecionamento de Usuários de Usina (garantido no portal correto)
+      const userTenantSlug = profile?.tenant?.subdomain || tenant?.subdomain;
       
       if (userTenantSlug) {
         const rolePath = profile?.role?.toLowerCase().replace('_', '-');
         navigate(`/${userTenantSlug}/${rolePath}/painel`);
-      } else if (tenant?.subdomain) {
-        const rolePath = profile?.role?.toLowerCase().replace('_', '-');
-        navigate(`/${tenant.subdomain}/${rolePath}/painel`);
       } else {
         navigate('/painel');
       }
@@ -159,6 +184,11 @@ export default function Login() {
     }
   };
 
+  const isUsinaLins = slug === 'usina-lins' || tenant?.subdomain === 'usina-lins';
+  const resolvedLogo = (isUsinaLins && (!tenant?.logo_url || tenant.logo_url.includes('cropped-Lins_Logo')))
+    ? '/logo-lins-white.png'
+    : (tenant?.logo_url || (isUsinaLins ? '/logo-lins-white.png' : ''));
+
   return (
     <div className="min-h-screen relative flex items-center justify-center p-4 overflow-hidden font-brand selection:bg-primary selection:text-white bg-slate-50">
       
@@ -171,12 +201,20 @@ export default function Login() {
       <div className="w-full max-w-5xl z-10">
         
         {/* Logo Section (Mobile Only) */}
-        <div className="flex flex-col items-center mb-8 lg:hidden">
-          <img 
-            src="/logo-lins.png" 
-            alt={tenant?.name || "Usina Lins"} 
-            className="h-10 max-w-[220px] object-contain mb-2" 
-          />
+        <div className="flex flex-col items-center mb-8 md:hidden">
+          {resolvedLogo ? (
+            <div className="bg-navy px-5 py-2.5 rounded-2xl shadow-lg border border-white/10 flex items-center justify-center">
+              <img 
+                src={resolvedLogo} 
+                alt={tenant?.name || 'Usina Lins'} 
+                className="h-10 max-w-[200px] object-contain" 
+              />
+            </div>
+          ) : (
+            <span className="font-bold text-navy text-lg uppercase tracking-tight mb-2">
+              {tenant?.name || "Usina"}
+            </span>
+          )}
         </div>
 
         {/* Main Card */}
@@ -200,11 +238,22 @@ export default function Login() {
               {/* Logo Section */}
               <div className="mb-auto">
                 <div className="h-16 lg:h-20 flex items-center mb-4">
-                  <img 
-                    src="/logo-lins-white.png" 
-                    alt={tenant?.name || "Usina Lins"} 
-                    className="h-11 lg:h-12 w-auto max-w-[270px] object-contain drop-shadow-md transition-all" 
-                  />
+                  {resolvedLogo ? (
+                    <img 
+                      src={resolvedLogo} 
+                      alt={tenant?.name || 'Usina Lins'} 
+                      className="h-12 lg:h-14 w-auto max-w-[270px] object-contain drop-shadow-md transition-all" 
+                    />
+                  ) : (
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center text-white font-bold text-xl backdrop-blur-md">
+                        {(tenant?.name || 'U')[0]}
+                      </div>
+                      <span className="font-bold text-white text-lg tracking-tight">
+                        {tenant?.name || 'Portal Corporativo'}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
 

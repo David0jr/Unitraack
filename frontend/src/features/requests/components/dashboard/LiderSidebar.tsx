@@ -7,6 +7,7 @@ import {
   LogOut
 } from 'lucide-react';
 import { useAuth } from '../../../../contexts/AuthContext';
+import { useTenant } from '../../../../contexts/TenantContext';
 
 const ROLE_MAP: Record<string, string> = {
   'GESTOR_SEGURANCA': 'Gestor de Segurança',
@@ -30,7 +31,8 @@ export const LiderSidebar: React.FC<LiderSidebarProps> = ({
   userRole,
   sectorName
 }) => {
-  const { signOut } = useAuth();
+  const { signOut, profile } = useAuth();
+  const { tenant } = useTenant();
 
   return (
     <aside className="hidden lg:flex w-72 bg-navy flex-col shrink-0 border-r border-navy/10 shadow-xl z-50">
@@ -40,7 +42,7 @@ export const LiderSidebar: React.FC<LiderSidebarProps> = ({
         </div>
         <div className="flex flex-col">
           <span className="text-white font-bold uppercase text-sm tracking-tighter leading-none">
-            {sectorName ? `Setor ${sectorName}` : 'Lins Agro'}
+            {sectorName ? `Setor ${sectorName}` : (tenant?.name || profile?.tenant?.name || 'Usina')}
           </span>
           <span className="text-[9px] text-primary font-bold uppercase tracking-widest mt-1">Líder Dashboard</span>
         </div>

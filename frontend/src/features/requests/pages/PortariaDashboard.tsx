@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
+import { useTenant } from '../../../contexts/TenantContext';
 import { getAuthToken } from '../../../utils/subdomain';
 import { Truck, Search, CheckCircle, Loader2, Package, Hash, Info, LogOut, Eye, AlertTriangle, X, Camera, ShieldAlert, ChevronRight, MapPin, ShieldCheck, ClipboardList, History, Users, Calendar, Clock, XOctagon, ArrowRight, RotateCcw, Play } from 'lucide-react';
 import { MobileNav } from '../components/dashboard/MobileNav';
@@ -65,6 +66,7 @@ const portariaNavItems = [
 
 export default function PortariaDashboard() {
   const { signOut, profile: userProfile } = useAuth();
+  const { tenant } = useTenant();
   const [requisicoes, setRequisicoes] = useState<Requisicao[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -499,11 +501,17 @@ export default function PortariaDashboard() {
       <nav className="h-20 bg-navy border-b border-white/5 px-4 md:px-8 flex items-center justify-between sticky top-0 z-[60] shadow-2xl shadow-navy/20">
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-4">
-             <img 
-              src="https://linsagro.com.br/wp-content/uploads/2022/07/cropped-Lins_Logo_Horizontal_RGB_Preferencial_20250512_Keenwork_AF.png" 
-              alt="Lins" 
-              className="h-9 brightness-0 invert"
-            />
+            {tenant?.logo_url || userProfile?.tenant?.logo_url ? (
+              <img 
+                src={tenant?.logo_url || userProfile?.tenant?.logo_url} 
+                alt={tenant?.name || userProfile?.tenant?.name || 'Usina'} 
+                className="h-9 object-contain brightness-0 invert max-w-[160px]"
+              />
+            ) : (
+              <span className="font-bold text-white text-xs uppercase tracking-tight">
+                {tenant?.name || userProfile?.tenant?.name || 'Usina'}
+              </span>
+            )}
             <div className="h-6 w-px bg-white/10 mx-2"></div>
             <div className="hidden md:block">
               <h1 className="font-bold text-white text-xs uppercase tracking-tight">Controle de Portaria</h1>

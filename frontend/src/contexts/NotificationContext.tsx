@@ -16,6 +16,7 @@ export interface NotificationItem {
   role?: string | null;
   sector_id?: string | null;
   request_id?: string | null;
+  company_id?: string | null;
   user_id?: string | null;
   read_by?: string[];
   dismissed_by?: string[];
@@ -115,6 +116,19 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     if (!item) return null;
     const uid = currentUserId;
 
+    // Se o usuário logado for TERCEIRIZADA:
+    // Só deve receber notificações dos seus próprios equipamentos / solicitações
+    if (profile?.role === 'TERCEIRIZADA') {
+      const isOwnCompany = item.company_id && item.company_id === profile.id;
+      const isOwnUser = (item.user_id && item.user_id === profile.id) || (uid && item.user_id === uid);
+      if (!isOwnCompany && !isOwnUser) {
+        return null;
+      }
+      if (item.role === 'PORTARIA' || item.type === 'EXIT_WAITING') {
+        return null;
+      }
+    }
+
     // Se foi dispensada/limpa por este usuário, oculta apenas para ele
     if (uid && Array.isArray(item.dismissed_by) && item.dismissed_by.includes(uid)) {
       return null;
@@ -134,10 +148,16 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       ...item,
       read: isReadForThisUser
     };
-  }, [currentUserId]);
+  }, [currentUserId, profile?.role, profile?.id]);
 
   const displayedNotifications = isPortaria
     ? notifications.filter(n => n.type === 'EXIT_WAITING' || n.role === 'PORTARIA')
+    : profile?.role === 'TERCEIRIZADA'
+    ? notifications.filter(n => {
+        const isOwnCompany = n.company_id && n.company_id === profile.id;
+        const isOwnUser = (n.user_id && n.user_id === profile.id) || (currentUserId && n.user_id === currentUserId);
+        return (isOwnCompany || isOwnUser) && n.role !== 'PORTARIA' && n.type !== 'EXIT_WAITING';
+      })
     : notifications;
 
   const unreadCount = displayedNotifications.filter(n => !n.read).length;
@@ -159,19 +179,22 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         if (profile.sector_id) {
           query = query.or(`sector_id.is.null,sector_id.eq.${profile.sector_id}`);
         }
+      } else if (profile.role === 'TERCEIRIZADA') {
+        query = query.or(`company_id.eq.${profile.id},user_id.eq.${profile.id}`);
+        query = query.neq('role', 'PORTARIA').neq('type', 'EXIT_WAITING');
       }
 
       const { data, error } = await query;
       if (!error && Array.isArray(data)) {
         const mapped = data
           .map(mapUserNotification)
-          .filter((n): n is NotificationItem => n !== null);
+          .filter((n: any): n is NotificationItem => n !== null);
         setNotifications(mapped);
       }
     } catch (err) {
       console.warn('[NotificationContext] Falha no fallback Supabase:', err);
     }
-  }, [profile?.tenant_id, profile?.role, profile?.sector_id, mapUserNotification]);
+  }, [profile?.tenant_id, profile?.role, profile?.id, profile?.sector_id, mapUserNotification]);
 
   const fetchNotifications = useCallback(async () => {
     const token = getAuthToken();
@@ -185,10 +208,10 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         });
         if (response.ok) {
           const payload = await response.json();
-          const items = Array.isArray(payload.data) ? payload.data : [];
+          const items: any[] = Array.isArray(payload.data) ? payload.data : [];
           const mapped = items
             .map(mapUserNotification)
-            .filter((n): n is NotificationItem => n !== null);
+            .filter((n: any): n is NotificationItem => n !== null);
           setNotifications(mapped);
           return;
         }
@@ -242,6 +265,18 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
             isRelevant = newNotif.type === 'EXIT_WAITING' || newNotif.type === 'ARRIVAL' || newNotif.role === 'PORTARIA';
           } else if (profile.role === 'LIDER') {
             if (newNotif.sector_id && profile.sector_id && newNotif.sector_id !== profile.sector_id) {
+              isRelevant = false;
+            }
+            if (newNotif.type === 'EXIT_WAITING') {
+              isRelevant = false;
+            }
+          } else if (profile.role === 'TERCEIRIZADA') {
+            const isOwnCompany = newNotif.company_id && newNotif.company_id === profile.id;
+            const isOwnUser = (newNotif.user_id && newNotif.user_id === profile.id) || (currentUserId && newNotif.user_id === currentUserId);
+            if (!isOwnCompany && !isOwnUser) {
+              isRelevant = false;
+            }
+            if (newNotif.role === 'PORTARIA' || newNotif.type === 'EXIT_WAITING') {
               isRelevant = false;
             }
           }

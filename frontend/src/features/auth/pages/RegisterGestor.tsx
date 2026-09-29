@@ -201,11 +201,22 @@ export default function RegisterGestor() {
             <div className="relative z-10 flex flex-col h-full">
               <div className="mb-auto">
                 <div className="h-16 lg:h-20 flex items-center mb-4">
-                  <img 
-                    src="/logo-lins-white.png" 
-                    alt={invitation?.tenant?.name || "Usina Lins"} 
-                    className="h-11 lg:h-12 w-auto max-w-[270px] object-contain drop-shadow-md" 
-                  />
+                  {(invitation?.tenant?.logo_url || invitation?.tenant?.subdomain === 'usina-lins') ? (
+                    <img 
+                      src={invitation?.tenant?.subdomain === 'usina-lins' && (!invitation?.tenant?.logo_url || invitation.tenant.logo_url.includes('cropped-Lins_Logo')) ? '/logo-lins-white.png' : (invitation?.tenant?.logo_url || '/logo-lins-white.png')} 
+                      alt={invitation?.tenant?.name || 'Usina Lins'} 
+                      className="h-12 lg:h-14 w-auto max-w-[270px] object-contain drop-shadow-md" 
+                    />
+                  ) : (
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center text-white font-bold text-xl backdrop-blur-md">
+                        {(invitation?.tenant?.name || 'U')[0]}
+                      </div>
+                      <span className="font-bold text-white text-lg tracking-tight">
+                        {invitation?.tenant?.name || 'Portal do Gestor'}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
 

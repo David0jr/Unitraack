@@ -14,6 +14,7 @@ export class NotificationService {
     sector_id?: string | null;
     role?: string | null;
     user_id?: string | null;
+    company_id?: string | null;
   }): Promise<AppNotification | null> {
     try {
       const { data: inserted, error } = await supabaseAdmin
@@ -27,6 +28,7 @@ export class NotificationService {
           sector_id: data.sector_id || null,
           role: data.role || null,
           user_id: data.user_id || null,
+          company_id: data.company_id || null,
           read: false
         })
         .select()
@@ -55,6 +57,7 @@ export class NotificationService {
     await this.create({
       tenant_id: request.tenant_id,
       request_id: request.id,
+      company_id: request.profile_id || request.profile?.id || null,
       sector_id: request.sector_id,
       type: 'ARRIVAL',
       title: 'Chegada na Portaria',
@@ -72,6 +75,7 @@ export class NotificationService {
     await this.create({
       tenant_id: request.tenant_id,
       request_id: request.id,
+      company_id: request.profile_id || request.profile?.id || null,
       sector_id: request.sector_id,
       type: 'ANALYSIS',
       title: 'Em Análise na Portaria',
@@ -89,6 +93,7 @@ export class NotificationService {
     await this.create({
       tenant_id: request.tenant_id,
       request_id: request.id,
+      company_id: request.profile_id || request.profile?.id || null,
       sector_id: request.sector_id,
       type: 'IN_PLANTA',
       title: 'Entrada Liberada - Em Planta',
@@ -106,6 +111,7 @@ export class NotificationService {
     await this.create({
       tenant_id: request.tenant_id,
       request_id: request.id,
+      company_id: request.profile_id || request.profile?.id || null,
       sector_id: request.sector_id,
       type: 'DISCREPANCY',
       title: 'Divergência na Portaria',
@@ -123,6 +129,7 @@ export class NotificationService {
     await this.create({
       tenant_id: request.tenant_id,
       request_id: request.id,
+      company_id: request.profile_id || request.profile?.id || null,
       sector_id: request.sector_id,
       role: 'PORTARIA',
       type: 'EXIT_WAITING',
@@ -141,6 +148,7 @@ export class NotificationService {
     await this.create({
       tenant_id: request.tenant_id,
       request_id: request.id,
+      company_id: request.profile_id || request.profile?.id || null,
       sector_id: request.sector_id,
       type: 'EXIT_CONFERENCE',
       title: 'Conferência de Saída na Portaria',
@@ -158,6 +166,7 @@ export class NotificationService {
     await this.create({
       tenant_id: request.tenant_id,
       request_id: request.id,
+      company_id: request.profile_id || request.profile?.id || null,
       sector_id: request.sector_id,
       type: 'EXIT_COMPLETED',
       title: 'Saída da Usina Concluída',
@@ -244,6 +253,14 @@ export class NotificationService {
         if (sectorId) {
           query = query.or(`sector_id.is.null,sector_id.eq.${sectorId}`);
         }
+      } else if (userRole === 'TERCEIRIZADA') {
+        // Terceirizadas NUNCA veem transferências internas de setores nem notificações da Portaria
+        // e SÓ veem notificações dos seus próprios equipamentos/solicitações
+        if (userId) {
+          query = query.or(`company_id.eq.${userId},user_id.eq.${userId}`);
+        } else {
+          return [];
+        }
       }
 
       const { data, error } = await query;
@@ -258,6 +275,13 @@ export class NotificationService {
       return rawNotifications
         .filter((n: any) => {
           if (!userId) return true;
+          // Se for terceirizada, valida que pertence estritamente à sua empresa e não é da Portaria nem transferência interna
+          if (userRole === 'TERCEIRIZADA') {
+            const isOwnCompany = n.company_id && n.company_id === userId;
+            const isOwnUser = n.user_id && n.user_id === userId;
+            if (!isOwnCompany && !isOwnUser) return false;
+            if (n.role === 'PORTARIA' || n.type === 'EXIT_WAITING') return false;
+          }
           // Se foi dispensada/limpa por este usuário, não exibe
           if (Array.isArray(n.dismissed_by) && n.dismissed_by.includes(userId)) {
             return false;

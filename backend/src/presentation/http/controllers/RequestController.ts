@@ -80,6 +80,14 @@ export class RequestController {
         return ApiResponse.error(res, 'Perfil ou Unidade não identificada.', 403);
       }
 
+      if (Array.isArray(materials)) {
+        for (const mat of materials) {
+          if (mat.image_url && typeof mat.image_url === 'string' && mat.image_url.startsWith('blob:')) {
+            return ApiResponse.error(res, 'Uma ou mais fotos estão em formato temporário local (blob). Aguarde a conclusão do upload antes de enviar.', 400);
+          }
+        }
+      }
+
       const useCase = new CreateEntryRequest(requestRepo);
       const id = await useCase.execute(
         { 
@@ -232,6 +240,14 @@ export class RequestController {
       const { sector, sector_id, entry_date, materials, driver_name, plate } = req.body;
       const profile = await userService.findProfileById(req.user.id);
       if (!profile || !profile.tenant_id) return ApiResponse.error(res, 'Tenant não identificado.', 403);
+
+      if (Array.isArray(materials)) {
+        for (const mat of materials) {
+          if (mat.image_url && typeof mat.image_url === 'string' && mat.image_url.startsWith('blob:')) {
+            return ApiResponse.error(res, 'Uma ou mais fotos estão em formato temporário local (blob). Aguarde a conclusão do upload antes de enviar.', 400);
+          }
+        }
+      }
 
       const useCase = new UpdateEntryRequest(requestRepo);
       await useCase.execute(id, { sector, sector_id, entry_date, driver_name, plate }, materials, profile.tenant_id, profile.role, profile.id);

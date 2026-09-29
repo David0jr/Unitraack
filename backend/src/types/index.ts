@@ -147,6 +147,7 @@ export interface AppNotification {
   role?: string | null;
   sector_id?: string | null;
   request_id?: string | null;
+  company_id?: string | null;
   title: string;
   message: string;
   type: 'ARRIVAL' | 'ANALYSIS' | 'IN_PLANTA' | 'EXIT_WAITING' | 'EXIT_CONFERENCE' | 'EXIT_COMPLETED' | 'DISCREPANCY' | 'INFO';

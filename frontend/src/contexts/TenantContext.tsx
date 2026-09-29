@@ -62,6 +62,10 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const cached = sessionStorage.getItem(`tenant_cache_${slug}`);
       if (cached) {
         const parsed = JSON.parse(cached);
+        if (slug === 'usina-lins' && parsed.logo_url?.includes('cropped-Lins_Logo')) {
+          parsed.logo_url = 'https://olcezecosvfibgzpawnw.supabase.co/storage/v1/object/public/material-images/tenants/logo-lins-white.png';
+          sessionStorage.setItem(`tenant_cache_${slug}`, JSON.stringify(parsed));
+        }
         applyTenantColors(parsed);
         return parsed;
       }

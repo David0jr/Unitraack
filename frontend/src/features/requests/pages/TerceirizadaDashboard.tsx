@@ -26,7 +26,7 @@ import { NotificationDropdown } from '../components/dashboard/NotificationDropdo
 
 export default function TerceirizadaDashboard() {
   const { signOut, user, profile: authProfile } = useAuth();
-  const { slug: tenantSlug } = useTenant();
+  const { tenant, slug: tenantSlug } = useTenant();
   const navigate = useNavigate();
   const [requests, setRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -166,11 +166,22 @@ export default function TerceirizadaDashboard() {
       <nav className="bg-white/80 backdrop-blur-md border-b border-slate-100 sticky top-0 z-50 shadow-sm relative">
         <div className="max-w-7xl mx-auto px-6 h-20 flex justify-between items-center">
           <div className="flex items-center gap-4">
-             <img 
-              src="https://linsagro.com.br/wp-content/uploads/2022/07/cropped-Lins_Logo_Horizontal_RGB_Preferencial_20250512_Keenwork_AF.png" 
-              alt="Lins" 
-              className="h-10 hover:opacity-80 transition-opacity"
-            />
+            {tenant?.logo_url || authProfile?.tenant?.logo_url ? (
+              <img 
+                src={tenant?.logo_url || authProfile?.tenant?.logo_url} 
+                alt={tenant?.name || authProfile?.tenant?.name || 'Usina'} 
+                className="h-10 object-contain hover:opacity-80 transition-opacity max-w-[180px]"
+              />
+            ) : (
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold text-lg shadow-sm">
+                  {(tenant?.name || authProfile?.tenant?.name || 'U')[0]}
+                </div>
+                <span className="font-bold text-navy text-sm uppercase tracking-tight hidden sm:block">
+                  {tenant?.name || authProfile?.tenant?.name || 'Usina'}
+                </span>
+              </div>
+            )}
             <div className="h-6 w-px bg-slate-200 mx-2 hidden md:block"></div>
             <div className="hidden md:block">
               <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-none">Canal do Parceiro</span>
@@ -553,13 +564,17 @@ export default function TerceirizadaDashboard() {
                   src={selectedMaterial.image_url || selectedMaterial.imageUrl} 
                   alt={selectedMaterial.name} 
                   className="w-full h-full object-cover" 
+                  onError={(e: any) => {
+                    e.currentTarget.style.display = 'none';
+                    const fallback = e.currentTarget.parentElement?.querySelector('.fallback-no-img');
+                    if (fallback) fallback.classList.remove('hidden');
+                  }}
                 />
-              ) : (
-                <div className="w-full h-full flex flex-col items-center justify-center text-slate-700">
-                  <Package className="w-8 h-8 opacity-10" />
-                  <p className="text-[8px] font-bold uppercase tracking-widest mt-2">Sem imagem</p>
-                </div>
-              )}
+              ) : null}
+              <div className={`fallback-no-img w-full h-full flex flex-col items-center justify-center text-slate-500 ${selectedMaterial.image_url || selectedMaterial.imageUrl ? 'hidden' : ''}`}>
+                <Package className="w-8 h-8 opacity-20" />
+                <p className="text-[8px] font-bold uppercase tracking-widest mt-2">Sem imagem</p>
+              </div>
             </div>
             <div className="md:w-[60%] flex flex-col overflow-hidden bg-white">
               <div className="bg-navy px-5 py-3 flex justify-between items-center flex-shrink-0">

@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../../../contexts/AuthContext';
 import { useDashboard } from '../../../../contexts/DashboardContext';
+import { useTenant } from '../../../../contexts/TenantContext';
 
 const ROLE_MAP: Record<string, string> = {
   'GESTOR_SEGURANCA': 'Gestor de Segurança',
@@ -36,7 +37,8 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
   userName, 
   userRole 
 }) => {
-  const { signOut } = useAuth();
+  const { signOut, profile } = useAuth();
+  const { tenant } = useTenant();
   const { sectors } = useDashboard();
   const [monitoringExpanded, setMonitoringExpanded] = React.useState(activeSection === 'monitoring');
 
@@ -49,7 +51,9 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
            <ShieldCheck className="w-6 h-6 text-primary shadow-xl" />
         </div>
         <div className="flex flex-col">
-          <span className="text-white font-bold uppercase text-sm tracking-tighter leading-none">Lins Agro</span>
+          <span className="text-white font-bold uppercase text-sm tracking-tighter leading-none">
+            {tenant?.name || profile?.tenant?.name || 'Usina'}
+          </span>
           <span className="text-[9px] text-primary font-bold uppercase tracking-widest mt-1">Security Dashboard</span>
         </div>
       </div>
