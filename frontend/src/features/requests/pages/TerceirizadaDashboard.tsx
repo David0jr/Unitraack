@@ -1,21 +1,22 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getAuthToken } from '../../../utils/subdomain';
+import { getAuthToken, getTenantLogoUrl } from '../../../utils/subdomain';
 import { 
   Plus, 
   Clock, 
   CheckCircle2, 
   XCircle, 
   Calendar, 
-  MapPin,
-  LogOut,
-  Package,
-  Loader2,
-  Trash2,
-  Edit2,
-  XOctagon,
-  AlertTriangle,
-  Truck
+  MapPin, 
+  LogOut, 
+  Package, 
+  Loader2, 
+  Trash2, 
+  Edit2, 
+  XOctagon, 
+  AlertTriangle, 
+  Truck,
+  X
 } from 'lucide-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useTenant } from '../../../contexts/TenantContext';
@@ -43,13 +44,11 @@ export default function TerceirizadaDashboard() {
     if (!user) return;
     setLoading(true);
     try {
-      // Busca perfil via Backend API
       const profileRes = await api.get('/terceirizada/profile', {
         headers: { Authorization: `Bearer ${getAuthToken()}` }
       });
       setProfile(profileRes.data.data || profileRes.data);
 
-      // Busca requisições via Backend API
       const requestsRes = await api.get('/terceirizada/requisicoes', {
         headers: { Authorization: `Bearer ${getAuthToken()}` }
       });
@@ -64,20 +63,20 @@ export default function TerceirizadaDashboard() {
   };
 
   const statusMap: any = {
-    'PENDING': { label: 'Análise (Líder)', color: 'text-amber-600', bg: 'bg-amber-50', icon: Clock },
-    'APPROVED_LIDER': { label: 'Autorizado', color: 'text-emerald-600', bg: 'bg-emerald-50', icon: CheckCircle2 },
-    'REJECTED_LIDER': { label: 'Recusado (Líder)', color: 'text-red-600', bg: 'bg-red-50', icon: XCircle },
-    'APPROVED_GESTOR': { label: 'Aguardando Chegada', color: 'text-sky-600', bg: 'bg-sky-50', icon: CheckCircle2 },
-    'WAITING_ARRIVAL': { label: 'Aguardando Chegada', color: 'text-sky-600', bg: 'bg-sky-50', icon: Clock },
-    'ARRIVED': { label: 'Chegada na Portaria', color: 'text-indigo-600', bg: 'bg-indigo-50', icon: Truck },
-    'IN_ANALYSIS': { label: 'Em Análise (Portaria)', color: 'text-amber-600', bg: 'bg-amber-50', icon: Clock },
-    'REJECTED_GESTOR': { label: 'Recusado (Gestor)', color: 'text-red-600', bg: 'bg-red-50', icon: XCircle },
-    'APPROVED': { label: 'Aprovado', color: 'text-emerald-600', bg: 'bg-emerald-50', icon: CheckCircle2 },
-    'REJECTED': { label: 'Recusado', color: 'text-red-600', bg: 'bg-red-50', icon: XCircle },
-    'IN_PLANTA': { label: 'Dentro da Planta', color: 'text-purple-600', bg: 'bg-purple-50', icon: CheckCircle2 },
-    'COMPLETED': { label: 'Finalizado', color: 'text-slate-600', bg: 'bg-slate-100', icon: CheckCircle2 },
-    'CANCELED': { label: 'Cancelado', color: 'text-slate-400', bg: 'bg-slate-50', icon: XOctagon },
-    'DISCREPANCY': { label: 'Divergência', color: 'text-rose-600', bg: 'bg-rose-50', icon: XCircle },
+    'PENDING': { label: 'Em Análise (Líder)', color: 'text-amber-700', bg: 'bg-amber-50 border border-amber-200', icon: Clock },
+    'APPROVED_LIDER': { label: 'Autorizado (Líder)', color: 'text-emerald-700', bg: 'bg-emerald-50 border border-emerald-200', icon: CheckCircle2 },
+    'REJECTED_LIDER': { label: 'Recusado (Líder)', color: 'text-rose-700', bg: 'bg-rose-50 border border-rose-200', icon: XCircle },
+    'APPROVED_GESTOR': { label: 'Aguardando Chegada', color: 'text-sky-700', bg: 'bg-sky-50 border border-sky-200', icon: CheckCircle2 },
+    'WAITING_ARRIVAL': { label: 'Aguardando Chegada', color: 'text-sky-700', bg: 'bg-sky-50 border border-sky-200', icon: Clock },
+    'ARRIVED': { label: 'Chegada no Portão', color: 'text-indigo-700', bg: 'bg-indigo-50 border border-indigo-200', icon: Truck },
+    'IN_ANALYSIS': { label: 'Em Análise (Portaria)', color: 'text-amber-700', bg: 'bg-amber-50 border border-amber-200', icon: Clock },
+    'REJECTED_GESTOR': { label: 'Recusado (Gestor)', color: 'text-rose-700', bg: 'bg-rose-50 border border-rose-200', icon: XCircle },
+    'APPROVED': { label: 'Aprovado', color: 'text-emerald-700', bg: 'bg-emerald-50 border border-emerald-200', icon: CheckCircle2 },
+    'REJECTED': { label: 'Recusado', color: 'text-rose-700', bg: 'bg-rose-50 border border-rose-200', icon: XCircle },
+    'IN_PLANTA': { label: 'Dentro da Planta', color: 'text-purple-700', bg: 'bg-purple-50 border border-purple-200', icon: CheckCircle2 },
+    'COMPLETED': { label: 'Finalizado', color: 'text-slate-600', bg: 'bg-slate-100 border border-slate-200', icon: CheckCircle2 },
+    'CANCELED': { label: 'Cancelado', color: 'text-slate-500', bg: 'bg-slate-100 border border-slate-200', icon: XOctagon },
+    'DISCREPANCY': { label: 'Divergência', color: 'text-rose-700', bg: 'bg-rose-50 border border-rose-200', icon: XCircle },
   };
 
   const formatDateTime = (dateStr: string) => {
@@ -99,50 +98,49 @@ export default function TerceirizadaDashboard() {
   const handleCancel = async (id: string) => {
     const result = await Swal.fire({
       title: 'Cancelar Solicitação?',
-      text: "Esta ação invalidará a permissão de entrada.",
+      text: 'Tem certeza que deseja cancelar esta solicitação?',
       icon: 'warning',
       showCancelButton: true,
-      confirmButtonColor: '#0032A0',
-      cancelButtonColor: '#f1f5f9',
-      cancelButtonText: '<span style="color: #64748b">Não</span>',
-      confirmButtonText: 'Sim, cancelar!'
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: 'Sim, cancelar',
+      cancelButtonText: 'Voltar'
     });
 
     if (result.isConfirmed) {
       try {
-        await api.patch(`/terceirizada/requisicao/${id}/cancelar`, {}, {
+        await api.post(`/terceirizada/requisicoes/${id}/cancel`, {}, {
           headers: { Authorization: `Bearer ${getAuthToken()}` }
         });
-        Swal.fire('Cancelada!', 'A solicitação foi cancelada.', 'success');
+        Swal.fire('Cancelada!', 'A solicitação foi cancelada com sucesso.', 'success');
         fetchData();
-      } catch (err) {
-        Swal.fire('Erro', 'Não foi possível cancelar.', 'error');
+      } catch (err: any) {
+        Swal.fire('Erro', err.response?.data?.message || 'Erro ao cancelar.', 'error');
       }
     }
   };
 
   const handleDelete = async (id: string) => {
     const result = await Swal.fire({
-      title: 'Excluir Solicitação?',
-      text: "Isso removerá todo o histórico e fotos permanentemente.",
-      icon: 'error',
+      title: 'Excluir do Histórico?',
+      text: 'Essa ação removerá o registro do seu painel definitivamente.',
+      icon: 'warning',
       showCancelButton: true,
-      confirmButtonColor: '#ef4444',
-      cancelButtonColor: '#f1f5f9',
-      cancelButtonText: '<span style="color: #64748b">Manter</span>',
-      confirmButtonText: 'Sim, excluir!'
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: 'Sim, excluir',
+      cancelButtonText: 'Voltar'
     });
 
     if (result.isConfirmed) {
       try {
-        await api.delete(`/terceirizada/requisicao/${id}`, {
+        await api.delete(`/terceirizada/requisicoes/${id}`, {
           headers: { Authorization: `Bearer ${getAuthToken()}` }
         });
-        Swal.fire('Excluída!', 'Registro removido.', 'success');
+        Swal.fire('Excluído!', 'O registro foi removido com sucesso.', 'success');
         fetchData();
       } catch (err: any) {
-        const errorMsg = err.response?.data?.error || 'Não foi possível excluir.';
-        Swal.fire('Erro', errorMsg, 'error');
+        Swal.fire('Erro', err.response?.data?.message || 'Erro ao excluir.', 'error');
       }
     }
   };
@@ -159,61 +157,64 @@ export default function TerceirizadaDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] bg-industrial-grid text-navy font-brand antialiased relative">
+    <div className="min-h-screen bg-[#F8FAFC] bg-industrial-grid text-slate-800 font-brand antialiased relative">
       <div className="absolute inset-0 bg-gradient-to-b from-white/50 to-transparent pointer-events-none"></div>
       
       {/* Navbar Superior */}
-      <nav className="bg-white/80 backdrop-blur-md border-b border-slate-100 sticky top-0 z-50 shadow-sm relative">
-        <div className="max-w-7xl mx-auto px-6 h-20 flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            {tenant?.logo_url || authProfile?.tenant?.logo_url ? (
+      <nav className="bg-white/95 backdrop-blur-md border-b border-slate-200/80 sticky top-0 z-50 shadow-xs relative">
+        <div className="max-w-7xl mx-auto px-6 h-16 flex justify-between items-center">
+          <div className="flex items-center gap-3.5">
+            {tenant || authProfile?.tenant ? (
               <img 
-                src={tenant?.logo_url || authProfile?.tenant?.logo_url} 
-                alt={tenant?.name || authProfile?.tenant?.name || 'Usina'} 
-                className="h-10 object-contain hover:opacity-80 transition-opacity max-w-[180px]"
+                src={getTenantLogoUrl(tenant || authProfile?.tenant, false)} 
+                alt={tenant?.name || authProfile?.tenant?.name || 'Usina Lins'} 
+                className="h-8 object-contain hover:opacity-80 transition-opacity max-w-[170px]"
+                onError={(e) => {
+                  e.currentTarget.src = '/logo-lins.png';
+                }}
               />
             ) : (
-              <div className="flex items-center gap-2.5">
-                <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold text-lg shadow-sm">
-                  {(tenant?.name || authProfile?.tenant?.name || 'U')[0]}
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold text-sm shadow-xs">
+                  U
                 </div>
-                <span className="font-bold text-navy text-sm uppercase tracking-tight hidden sm:block">
-                  {tenant?.name || authProfile?.tenant?.name || 'Usina'}
+                <span className="font-bold text-slate-900 text-sm tracking-tight hidden sm:block">
+                  Usina Lins
                 </span>
               </div>
             )}
-            <div className="h-6 w-px bg-slate-200 mx-2 hidden md:block"></div>
+            <div className="h-5 w-px bg-slate-200 mx-1 hidden md:block"></div>
             <div className="hidden md:block">
-              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-none">Canal do Parceiro</span>
-              <h1 className="font-bold text-navy text-sm uppercase">Painel de Logística</h1>
+              <span className="text-[10px] text-slate-400 font-medium leading-none block">Canal do Parceiro</span>
+              <h1 className="font-semibold text-slate-800 text-xs">Painel de Logística</h1>
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <div className="hidden sm:flex flex-col items-end">
-              <p className="text-xs font-bold text-navy uppercase leading-none">{profile?.full_name || 'Carregando...'}</p>
-              <p className="text-[10px] text-primary font-bold uppercase tracking-widest mt-1">Fornecedor Ativo</p>
+              <p className="text-xs font-semibold text-slate-800 leading-none">{profile?.full_name || 'Carregando...'}</p>
+              <p className="text-[10px] text-primary font-medium mt-0.5">Fornecedor Ativo</p>
             </div>
             <NotificationDropdown />
             <button 
               onClick={signOut}
-              className="p-2.5 bg-slate-50 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+              className="p-2 bg-slate-50 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all cursor-pointer"
               title="Sair do Sistema"
             >
-              <LogOut className="w-5 h-5" />
+              <LogOut className="w-4 h-4" />
             </button>
           </div>
         </div>
       </nav>
 
-      <main className="max-w-7xl mx-auto px-6 py-10 relative z-10">
+      <main className="max-w-7xl mx-auto px-6 py-8 relative z-10">
         {/* Welcome Section */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
           <div>
-            <h2 className="text-3xl font-bold text-navy uppercase tracking-tighter">
-              Olá, <span className="text-primary italic">{profile?.full_name || 'Empresa'}</span>
+            <h2 className="text-2xl font-bold text-slate-900 tracking-tight">
+              Olá, <span className="text-primary">{profile?.full_name || 'Empresa'}</span>
             </h2>
-            <p className="text-slate-400 font-medium mt-1">Gerencie suas solicitações de entrada e remessas de materiais.</p>
+            <p className="text-slate-500 text-xs mt-0.5 font-normal">Gerencie suas solicitações de entrada e remessas de materiais.</p>
           </div>
 
           <button 
@@ -226,55 +227,55 @@ export default function TerceirizadaDashboard() {
                 navigate('/painel/nova-solicitacao');
               }
             }}
-            className="flex items-center gap-3 bg-navy hover:bg-[#002880] text-white px-8 py-4 rounded-xl font-bold text-xs uppercase tracking-widest shadow-xl shadow-navy/20 transition-all active:scale-[0.98]"
+            className="flex items-center gap-2 bg-primary hover:bg-primary-hover text-white px-4 py-2.5 rounded-xl font-semibold text-xs shadow-xs transition-all active:scale-[0.99] cursor-pointer"
           >
-            <Plus className="w-5 h-5" />
+            <Plus className="w-4 h-4" />
             Nova Solicitação
           </button>
         </div>
 
         {/* Status Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
           <StatCard 
             label="Total de Remessas" 
             value={requests.length.toString()} 
-            icon={<Package className="w-6 h-6" />}
-            color="bg-slate-50 text-navy"
+            icon={<Package className="w-5 h-5" />}
+            color="bg-primary/10 text-primary"
           />
           <StatCard 
             label="Em Análise" 
             value={requests.filter(r => r.status === 'PENDING').length.toString()} 
-            icon={<Clock className="w-6 h-6" />}
-            color="bg-amber-50 text-amber-600"
+            icon={<Clock className="w-5 h-5" />}
+            color="bg-amber-50 text-amber-700 border border-amber-200"
           />
           <StatCard 
             label="Aprovados" 
             value={requests.filter(r => ['APPROVED_LIDER', 'APPROVED', 'APPROVED_GESTOR', 'WAITING_ARRIVAL', 'ARRIVED', 'IN_ANALYSIS', 'IN_PLANTA', 'COMPLETED'].includes(r.status)).length.toString()} 
-            icon={<CheckCircle2 className="w-6 h-6" />}
-            color="bg-emerald-50 text-emerald-600"
+            icon={<CheckCircle2 className="w-5 h-5" />}
+            color="bg-emerald-50 text-emerald-700 border border-emerald-200"
           />
         </div>
 
         {/* Requests Table/List */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-          <div className="p-6 border-b border-slate-50 flex items-center justify-between">
-            <div className="flex items-center gap-2 bg-slate-50 p-1 rounded-xl">
+        <div className="bg-white rounded-2xl shadow-xs border border-slate-200/80 overflow-hidden">
+          <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between">
+            <div className="flex items-center gap-1.5 bg-slate-100/70 p-1 rounded-xl border border-slate-200/80">
                <button 
                   onClick={() => setActiveTab('historico')}
-                  className={`px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all ${
+                  className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                      activeTab === 'historico'
-                       ? 'bg-white text-navy shadow-sm' 
-                       : 'bg-transparent text-slate-400 hover:text-navy'
+                       ? 'bg-white text-slate-800 shadow-xs' 
+                       : 'bg-transparent text-slate-500 hover:text-slate-800'
                   }`}
                >
                   Histórico Recente
                </button>
                <button 
                   onClick={() => setActiveTab('equipamentos')}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all ${
+                  className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                      activeTab === 'equipamentos'
-                       ? 'bg-white text-navy shadow-sm' 
-                       : 'bg-transparent text-slate-400 hover:text-navy'
+                       ? 'bg-white text-slate-800 shadow-xs' 
+                       : 'bg-transparent text-slate-500 hover:text-slate-800'
                   }`}
                >
                   <Package className="w-3.5 h-3.5" />
@@ -282,120 +283,120 @@ export default function TerceirizadaDashboard() {
                </button>
             </div>
             {activeTab === 'historico' && (
-              <span className="bg-slate-50 text-slate-400 text-[10px] font-bold px-3 py-1 rounded-full uppercase hidden sm:block">Últimos 30 dias</span>
+              <span className="bg-slate-50 text-slate-500 text-xs font-medium px-2.5 py-1 rounded-full border border-slate-200 hidden sm:block">Últimos 30 dias</span>
             )}
           </div>
 
           {activeTab === 'equipamentos' && (
-            <div className="p-6 bg-slate-50/50 animate-in fade-in slide-in-from-top-4 duration-300">
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                 {/* Dentro da Planta */}
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden flex flex-col">
-            <div className="p-4 border-b border-slate-50 bg-purple-50/50 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                 <div className="w-2 h-2 rounded-full bg-purple-500 animate-pulse"></div>
-                 <h3 className="font-bold text-navy uppercase tracking-widest text-[10px]">Dentro da Planta</h3>
-              </div>
-              <span className="bg-white text-purple-600 border border-purple-100 text-[10px] font-bold px-2 py-0.5 rounded-md shadow-sm">
-                {(() => {
-                   return requests.flatMap(r => r.materials || []).filter((m: any) => m.status === 'IN_PLANTA' || m.status === 'WAITING_EXIT').length;
-                })()}
-              </span>
-            </div>
-            <div className="p-4 flex-1 max-h-[260px] overflow-y-auto space-y-3">
-              {(() => {
-                 const inPlantaMaterials = requests
-                   .flatMap(r => (r.materials || []).map((m: any) => ({ ...m, reqId: r.id, driver: r.driver_name })))
-                   .filter(m => m.status === 'IN_PLANTA' || m.status === 'WAITING_EXIT');
-                 
-                 if (inPlantaMaterials.length === 0) {
-                   return <p className="text-xs text-slate-400 font-medium text-center py-4">Nenhum equipamento na planta.</p>;
-                 }
-                 return inPlantaMaterials.map((mat, i) => (
-                   <div key={i} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100 hover:border-purple-200 transition-colors">
-                      <div className="w-8 h-8 rounded-lg bg-white shadow-sm flex items-center justify-center shrink-0">
-                         <Package className="w-4 h-4 text-purple-500" />
+            <div className="p-5 bg-slate-50/50 animate-in fade-in slide-in-from-top-2 duration-200">
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  {/* Dentro da Planta */}
+                  <div className="bg-white rounded-xl shadow-xs border border-slate-200/80 overflow-hidden flex flex-col">
+                    <div className="p-3.5 border-b border-slate-100 bg-purple-50/40 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                         <div className="w-2 h-2 rounded-full bg-purple-500"></div>
+                         <h3 className="font-semibold text-slate-800 text-xs">Dentro da Planta</h3>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold text-navy truncate">{mat.name}</p>
-                        <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest truncate">SN: {mat.serial_number || 'N/A'}</p>
-                      </div>
-                      <div className="text-right shrink-0">
-                         <span className="text-[8px] font-bold text-slate-400 uppercase">Resp:</span>
-                         <p className="text-[9px] font-bold text-navy truncate max-w-[80px]">{mat.driver?.split(' ')[0]}</p>
-                      </div>
-                   </div>
-                 ));
-              })()}
-            </div>
-          </div>
+                      <span className="bg-white text-purple-700 border border-purple-200 text-xs font-semibold px-2 py-0.5 rounded-full shadow-xs">
+                        {(() => {
+                           return requests.flatMap(r => r.materials || []).filter((m: any) => m.status === 'IN_PLANTA' || m.status === 'WAITING_EXIT').length;
+                        })()}
+                      </span>
+                    </div>
+                    <div className="p-3.5 flex-1 max-h-[280px] overflow-y-auto space-y-2 custom-scrollbar">
+                      {(() => {
+                         const inPlantaMaterials = requests
+                           .flatMap(r => (r.materials || []).map((m: any) => ({ ...m, reqId: r.id, driver: r.driver_name })))
+                           .filter(m => m.status === 'IN_PLANTA' || m.status === 'WAITING_EXIT');
+                         
+                         if (inPlantaMaterials.length === 0) {
+                           return <p className="text-xs text-slate-400 font-normal text-center py-6">Nenhum equipamento na planta.</p>;
+                         }
+                         return inPlantaMaterials.map((mat, i) => (
+                           <div key={i} className="flex items-center gap-3 p-2.5 bg-slate-50/60 rounded-xl border border-slate-200/80 hover:border-purple-300 transition-colors">
+                              <div className="w-8 h-8 rounded-lg bg-white shadow-xs flex items-center justify-center shrink-0 text-purple-600 border border-slate-100">
+                                 <Package className="w-4 h-4" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-semibold text-slate-800 truncate">{mat.name}</p>
+                                <p className="text-[11px] text-slate-400 font-mono truncate">SN: {mat.serial_number || 'N/A'}</p>
+                              </div>
+                              <div className="text-right shrink-0">
+                                 <span className="text-[10px] text-slate-400 block">Resp:</span>
+                                 <p className="text-xs font-medium text-slate-700 truncate max-w-[90px]">{mat.driver?.split(' ')[0]}</p>
+                              </div>
+                           </div>
+                         ));
+                      })()}
+                    </div>
+                  </div>
 
-          {/* Já Deu Saída */}
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden flex flex-col">
-            <div className="p-4 border-b border-slate-50 bg-slate-50/80 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                 <div className="w-2 h-2 rounded-full bg-slate-300"></div>
-                 <h3 className="font-bold text-navy uppercase tracking-widest text-[10px]">Já Deu Saída (Finalizado)</h3>
-              </div>
-              <span className="bg-white text-slate-500 border border-slate-200 text-[10px] font-bold px-2 py-0.5 rounded-md shadow-sm">
-                {(() => {
-                   return requests.flatMap(r => r.materials || []).filter((m: any) => m.status === 'OUT_PLANTA').length;
-                })()}
-              </span>
-            </div>
-            <div className="p-4 flex-1 max-h-[260px] overflow-y-auto space-y-3">
-              {(() => {
-                 const completedMaterials = requests
-                   .flatMap(r => (r.materials || []).map((m: any) => ({ ...m, reqId: r.id, driver: r.driver_name })))
-                   .filter(m => m.status === 'OUT_PLANTA');
-                 
-                 if (completedMaterials.length === 0) {
-                   return <p className="text-xs text-slate-400 font-medium text-center py-4">Nenhum equipamento finalizado.</p>;
-                 }
-                 return completedMaterials.map((mat, i) => (
-                   <div key={i} className="flex items-center gap-3 p-3 bg-white rounded-xl border border-slate-100 opacity-70 hover:opacity-100 transition-opacity">
-                      <div className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center shrink-0">
-                         <Package className="w-4 h-4 text-slate-400" />
+                  {/* Já Deu Saída */}
+                  <div className="bg-white rounded-xl shadow-xs border border-slate-200/80 overflow-hidden flex flex-col">
+                    <div className="p-3.5 border-b border-slate-100 bg-slate-50/60 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                         <div className="w-2 h-2 rounded-full bg-slate-400"></div>
+                         <h3 className="font-semibold text-slate-800 text-xs">Já Deu Saída (Finalizado)</h3>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold text-slate-600 truncate">{mat.name}</p>
-                        <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest truncate">SN: {mat.serial_number || 'N/A'}</p>
-                      </div>
-                      <div className="text-right shrink-0">
-                         <span className="text-[8px] font-bold text-slate-400 uppercase">Protocolo:</span>
-                         <p className="text-[9px] font-bold text-slate-500 truncate max-w-[80px]">#{mat.reqId?.slice(0, 8)}</p>
-                      </div>
-                   </div>
-                 ));
-              })()}
-            </div>
-          </div>
+                      <span className="bg-white text-slate-600 border border-slate-200 text-xs font-semibold px-2 py-0.5 rounded-full shadow-xs">
+                        {(() => {
+                           return requests.flatMap(r => r.materials || []).filter((m: any) => m.status === 'OUT_PLANTA').length;
+                        })()}
+                      </span>
+                    </div>
+                    <div className="p-3.5 flex-1 max-h-[280px] overflow-y-auto space-y-2 custom-scrollbar">
+                      {(() => {
+                         const completedMaterials = requests
+                           .flatMap(r => (r.materials || []).map((m: any) => ({ ...m, reqId: r.id, driver: r.driver_name })))
+                           .filter(m => m.status === 'OUT_PLANTA');
+                         
+                         if (completedMaterials.length === 0) {
+                           return <p className="text-xs text-slate-400 font-normal text-center py-6">Nenhum equipamento finalizado.</p>;
+                         }
+                         return completedMaterials.map((mat, i) => (
+                           <div key={i} className="flex items-center gap-3 p-2.5 bg-slate-50/40 rounded-xl border border-slate-100 hover:border-slate-300 transition-colors">
+                              <div className="w-8 h-8 rounded-lg bg-white border border-slate-100 flex items-center justify-center shrink-0 text-slate-400 shadow-xs">
+                                 <Package className="w-4 h-4" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-semibold text-slate-600 truncate">{mat.name}</p>
+                                <p className="text-[11px] text-slate-400 font-mono truncate">SN: {mat.serial_number || 'N/A'}</p>
+                              </div>
+                              <div className="text-right shrink-0">
+                                 <span className="text-[10px] text-slate-400 block">Protocolo:</span>
+                                 <p className="text-xs font-medium text-slate-600 truncate max-w-[90px]">#{mat.reqId?.slice(0, 8)}</p>
+                              </div>
+                           </div>
+                         ));
+                      })()}
+                    </div>
+                  </div>
                </div>
             </div>
           )}
 
           {activeTab === 'historico' && (
-          <div className="overflow-x-auto animate-in fade-in slide-in-from-top-4 duration-300">
+          <div className="overflow-x-auto animate-in fade-in slide-in-from-top-2 duration-200">
             <table className="w-full text-left">
               <thead>
-                <tr className="bg-slate-50/50">
-                  <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Equipamento/Nota</th>
-                  <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Setor Destino</th>
-                  <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Data Solicitação</th>
-                  <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Status</th>
-                  <th className="px-6 py-4"></th>
+                <tr className="bg-slate-50/70 border-b border-slate-100">
+                  <th className="px-5 py-3 text-xs font-semibold text-slate-500">Motorista / Placa</th>
+                  <th className="px-5 py-3 text-xs font-semibold text-slate-500">Setor Destino</th>
+                  <th className="px-5 py-3 text-xs font-semibold text-slate-500">Data Solicitação</th>
+                  <th className="px-5 py-3 text-xs font-semibold text-slate-500">Status</th>
+                  <th className="px-5 py-3 text-right"></th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-50">
+              <tbody className="divide-y divide-slate-100">
                 {loading ? (
                   <tr>
                     <td colSpan={5} className="px-6 py-12 text-center">
-                      <Loader2 className="w-8 h-8 animate-spin mx-auto text-primary opacity-20" />
+                      <Loader2 className="w-6 h-6 animate-spin mx-auto text-primary opacity-40" />
                     </td>
                   </tr>
                 ) : requests.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-6 py-12 text-center text-slate-400 font-medium">
+                    <td colSpan={5} className="px-6 py-12 text-center text-slate-400 text-xs font-normal">
                       Nenhuma solicitação encontrada.
                     </td>
                   </tr>
@@ -403,40 +404,40 @@ export default function TerceirizadaDashboard() {
                   const status = (req?.status && statusMap[req.status]) ? statusMap[req.status] : statusMap['PENDING'];
                   return (
                     <tr key={req.id} className="hover:bg-slate-50/80 transition-colors group">
-                      <td className="px-6 py-5">
+                      <td className="px-5 py-3.5">
                         <div className="flex items-center gap-3">
-                          <div className={`p-2.5 rounded-xl ${status?.bg || 'bg-slate-50'} ${status?.color || 'text-slate-400'}`}>
-                            {status?.icon && <status.icon className="w-5 h-5" />}
+                          <div className={`p-2 rounded-lg ${status?.bg || 'bg-slate-50'} ${status?.color || 'text-slate-500'}`}>
+                            {status?.icon && <status.icon className="w-4 h-4" />}
                           </div>
                           <div>
-                            <p className="font-bold text-navy text-sm">{req.driver_name || 'N/A'}</p>
-                            <p className="text-[10px] text-slate-400 font-medium uppercase">{req.plate || 'SEM PLACA'}</p>
+                            <p className="font-semibold text-slate-800 text-xs">{req.driver_name || 'N/A'}</p>
+                            <p className="text-[11px] text-slate-400 font-mono">{req.plate || 'SEM PLACA'}</p>
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-5">
-                         <div className="flex items-center gap-2 text-slate-500 font-bold text-xs uppercase">
+                      <td className="px-5 py-3.5">
+                         <div className="flex items-center gap-1.5 text-slate-600 text-xs font-medium">
                             <MapPin className="w-3.5 h-3.5 text-primary" />
                             {req.sector || 'Geral'}
                          </div>
                       </td>
-                      <td className="px-6 py-5">
-                         <div className="flex items-center gap-2 text-slate-500 font-bold text-xs uppercase">
-                            <Calendar className="w-3.5 h-3.5" />
+                      <td className="px-5 py-3.5">
+                         <div className="flex items-center gap-1.5 text-slate-600 text-xs">
+                            <Calendar className="w-3.5 h-3.5 text-slate-400" />
                             {new Date(req.created_at).toLocaleDateString()}
                          </div>
                       </td>
-                      <td className="px-6 py-5">
-                        <span className={`px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest ${status.bg} ${status.color}`}>
+                      <td className="px-5 py-3.5">
+                        <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${status.bg} ${status.color}`}>
                           {status.label}
                         </span>
                       </td>
-                      <td className="px-6 py-5 text-right">
-                        <div className="flex items-center justify-end gap-2">
+                      <td className="px-5 py-3.5 text-right">
+                        <div className="flex items-center justify-end gap-1">
                            {/* Botão de Detalhes sempre visível */}
                            <button 
                               onClick={() => setSelectedRequest(req)}
-                              className="p-2 text-slate-400 hover:text-navy hover:bg-slate-100 rounded-lg transition-all"
+                              className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-all cursor-pointer"
                               title="Ver Detalhes"
                            >
                              <Package className="w-4 h-4" />
@@ -446,7 +447,7 @@ export default function TerceirizadaDashboard() {
                            {['PENDING', 'APPROVED_LIDER', 'APPROVED_GESTOR', 'APPROVED', 'REJECTED_LIDER', 'REJECTED_GESTOR', 'REJECTED'].includes(req.status) && (
                              <button 
                                 onClick={() => handleEdit(req)}
-                                className="p-2 text-slate-400 hover:text-primary hover:bg-slate-100 rounded-lg transition-all"
+                                className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-all cursor-pointer"
                                 title="Editar Pedido"
                              >
                                <Edit2 className="w-4 h-4" />
@@ -457,7 +458,7 @@ export default function TerceirizadaDashboard() {
                            {req.status === 'PENDING' && (
                              <button 
                                 onClick={() => handleCancel(req.id)}
-                                className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-all"
+                                className="p-1.5 text-slate-400 hover:text-amber-700 hover:bg-amber-50 rounded-lg transition-all cursor-pointer"
                                 title="Cancelar Pedido"
                              >
                                <XOctagon className="w-4 h-4" />
@@ -468,7 +469,7 @@ export default function TerceirizadaDashboard() {
                            {['REJECTED_LIDER', 'REJECTED_GESTOR', 'REJECTED', 'CANCELED'].includes(req.status) && (
                              <button 
                                 onClick={() => handleDelete(req.id)}
-                                className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                                className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all cursor-pointer"
                                 title="Excluir do Histórico"
                              >
                                <Trash2 className="w-4 h-4" />
@@ -488,20 +489,20 @@ export default function TerceirizadaDashboard() {
 
       {/* Request Details Modal */}
       {selectedRequest && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-navy/70 backdrop-blur-md animate-in fade-in duration-300" onClick={() => setSelectedRequest(null)}>
-          <div className="bg-white w-full max-w-2xl rounded-2xl overflow-hidden shadow-xl animate-in zoom-in-95 duration-200 border border-slate-200 flex flex-col max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
-            <div className="p-8 border-b border-slate-50 flex justify-between items-center">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200" onClick={() => setSelectedRequest(null)}>
+          <div className="bg-white w-full max-w-xl rounded-2xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-150 border border-slate-200 flex flex-col max-h-[85vh]" onClick={(e) => e.stopPropagation()}>
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center">
                <div>
-                  <span className="text-[10px] font-bold text-primary uppercase tracking-widest">Protocolo #{selectedRequest.id.slice(0, 8)}</span>
-                  <h3 className="text-2xl font-bold text-navy uppercase tracking-tighter">Detalhes da Solicitação</h3>
+                  <span className="text-xs font-semibold text-primary">Protocolo #{selectedRequest.id.slice(0, 8)}</span>
+                  <h3 className="text-lg font-bold text-slate-900 leading-snug">Detalhes da Solicitação</h3>
                </div>
-               <button onClick={() => setSelectedRequest(null)} className="p-2 bg-slate-50 text-slate-400 hover:text-navy hover:bg-slate-100 rounded-xl transition-all">
-                  <XOctagon className="w-6 h-6" />
+               <button onClick={() => setSelectedRequest(null)} className="p-2 bg-slate-100 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-lg transition-all cursor-pointer">
+                  <X className="w-5 h-5" />
                </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-8">
-               <div className="grid grid-cols-2 gap-8 mb-10">
+            <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
+               <div className="grid grid-cols-2 gap-4">
                   <DetailItem label="Motorista" value={selectedRequest.driver_name} />
                   <DetailItem label="Placa" value={selectedRequest.plate} />
                   <DetailItem label="Setor" value={selectedRequest.sector} />
@@ -509,35 +510,35 @@ export default function TerceirizadaDashboard() {
                </div>
 
                {selectedRequest.rejection_reason && (
-                  <div className="mb-10 p-4 bg-rose-50 border border-rose-100 rounded-xl flex items-start gap-3">
-                     <AlertTriangle className="w-5 h-5 text-rose-500 shrink-0 mt-0.5" />
+                  <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl flex items-start gap-2.5">
+                     <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
                      <div>
-                        <p className="text-[10px] font-bold text-rose-500 uppercase tracking-widest mb-1">Motivo do Cancelamento / Recusa</p>
-                        <p className="text-sm font-medium text-rose-900">{selectedRequest.rejection_reason}</p>
+                        <p className="text-xs font-semibold text-rose-700">Motivo do Cancelamento / Recusa</p>
+                        <p className="text-xs font-normal text-rose-900 mt-0.5">{selectedRequest.rejection_reason}</p>
                      </div>
                   </div>
                )}
 
-               <div className="space-y-4">
-                  <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Materiais na Remessa ({selectedRequest.materials?.length || 0})</h4>
-                  <div className="grid grid-cols-1 gap-3">
+               <div>
+                  <h4 className="text-xs font-semibold text-slate-700 mb-3">Materiais na Remessa ({selectedRequest.materials?.length || 0})</h4>
+                  <div className="grid grid-cols-1 gap-2.5">
                      {selectedRequest.materials?.map((mat: any) => (
                        <button 
                         key={mat.id}
                         onClick={() => setSelectedMaterial(mat)}
-                        className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100 hover:border-primary/30 transition-all group"
+                        className="flex items-center justify-between p-3 bg-slate-50/60 rounded-xl border border-slate-200/80 hover:border-primary/40 transition-all group text-left cursor-pointer"
                        >
-                          <div className="flex items-center gap-4">
-                             <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow-sm">
-                                <Package className="w-5 h-5 text-primary" />
+                          <div className="flex items-center gap-3">
+                             <div className="w-9 h-9 rounded-lg bg-white flex items-center justify-center shadow-xs border border-slate-100 text-primary">
+                                <Package className="w-4 h-4" />
                              </div>
-                             <div className="text-left">
-                                <p className="text-xs font-bold text-navy uppercase leading-none mb-1">{mat.name}</p>
-                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">SN: {mat.serial_number || 'REGISTRO ÚNICO'}</p>
+                             <div>
+                                <p className="text-xs font-semibold text-slate-800 leading-none mb-1 group-hover:text-primary transition-colors">{mat.name}</p>
+                                <p className="text-[11px] text-slate-400 font-mono">SN: {mat.serial_number || 'REGISTRO ÚNICO'}</p>
                              </div>
                           </div>
-                          <div className="text-[9px] font-bold text-primary uppercase tracking-widest bg-primary/5 px-3 py-1 rounded-full group-hover:bg-primary group-hover:text-white transition-all">
-                             Ver Foto/Specs
+                          <div className="text-xs font-medium text-primary bg-primary/10 px-2.5 py-1 rounded-lg group-hover:bg-primary group-hover:text-white transition-all">
+                             Ver Specs
                           </div>
                        </button>
                      ))}
@@ -545,8 +546,8 @@ export default function TerceirizadaDashboard() {
                </div>
             </div>
 
-            <div className="p-8 border-t border-slate-50">
-               <button onClick={() => setSelectedRequest(null)} className="w-full py-4 bg-navy text-white font-bold uppercase text-xs tracking-widest rounded-xl hover:bg-primary transition-all">
+            <div className="p-4 sm:p-6 border-t border-slate-100">
+               <button onClick={() => setSelectedRequest(null)} className="w-full py-2.5 bg-slate-900 text-white font-medium text-xs rounded-xl hover:bg-slate-800 transition-all cursor-pointer">
                   Fechar
                </button>
             </div>
@@ -554,11 +555,11 @@ export default function TerceirizadaDashboard() {
         </div>
       )}
 
-      {/* Material Detail Modal (Same as Lider/Portaria) */}
+      {/* Material Detail Modal */}
       {selectedMaterial && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-navy/70 backdrop-blur-md animate-in fade-in duration-300" onClick={() => setSelectedMaterial(null)}>
-          <div className="bg-white w-full max-w-2xl rounded-[16px] overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.3)] animate-in zoom-in-95 duration-200 flex flex-col md:flex-row max-h-[85vh]" onClick={(e) => e.stopPropagation()}>
-            <div className="md:w-[40%] relative bg-slate-900 flex-shrink-0 min-h-[220px]">
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200" onClick={() => setSelectedMaterial(null)}>
+          <div className="bg-white w-full max-w-xl rounded-2xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-150 flex flex-col md:flex-row max-h-[85vh] border border-slate-200" onClick={(e) => e.stopPropagation()}>
+            <div className="md:w-[45%] relative bg-slate-100 shrink-0 min-h-[200px]">
               {selectedMaterial.image_url || selectedMaterial.imageUrl ? (
                 <img 
                   src={selectedMaterial.image_url || selectedMaterial.imageUrl} 
@@ -571,62 +572,58 @@ export default function TerceirizadaDashboard() {
                   }}
                 />
               ) : null}
-              <div className={`fallback-no-img w-full h-full flex flex-col items-center justify-center text-slate-500 ${selectedMaterial.image_url || selectedMaterial.imageUrl ? 'hidden' : ''}`}>
-                <Package className="w-8 h-8 opacity-20" />
-                <p className="text-[8px] font-bold uppercase tracking-widest mt-2">Sem imagem</p>
+              <div className={`fallback-no-img w-full h-full flex flex-col items-center justify-center text-slate-400 ${selectedMaterial.image_url || selectedMaterial.imageUrl ? 'hidden' : ''}`}>
+                <Package className="w-10 h-10 opacity-30 mb-1" />
+                <p className="text-xs font-normal text-slate-400">Sem imagem</p>
               </div>
             </div>
-            <div className="md:w-[60%] flex flex-col overflow-hidden bg-white">
-              <div className="bg-navy px-5 py-3 flex justify-between items-center flex-shrink-0">
+            <div className="md:w-[55%] flex flex-col overflow-hidden bg-white">
+              <div className="p-4 border-b border-slate-100 flex justify-between items-center shrink-0">
                  <div className="flex items-center gap-2">
-                    <div className="p-1.5 bg-primary/20 rounded-md">
-                      <Package className="w-4 h-4 text-primary" />
+                    <div className="p-1.5 bg-primary/10 rounded-md text-primary">
+                      <Package className="w-4 h-4" />
                     </div>
                     <div>
-                      <p className="text-[7px] text-primary font-bold uppercase tracking-widest leading-none">Ativo Industrial</p>
-                      <h3 className="text-white font-bold uppercase text-[11px] mt-0.5 tracking-tight truncate max-w-[160px]">{selectedMaterial.name}</h3>
+                      <p className="text-[10px] text-primary font-semibold leading-none">Equipamento</p>
+                      <h3 className="text-slate-900 font-bold text-xs mt-0.5 truncate max-w-[170px]">{selectedMaterial.name}</h3>
                     </div>
                  </div>
-                 <button onClick={() => setSelectedMaterial(null)} className="w-6 h-6 bg-white/10 hover:bg-white/20 text-white rounded-md flex items-center justify-center transition-all">
-                  <XOctagon className="w-3.5 h-3.5" />
+                 <button onClick={() => setSelectedMaterial(null)} className="p-1 text-slate-400 hover:text-slate-700 rounded-md transition-all cursor-pointer">
+                  <X className="w-4 h-4" />
                 </button>
               </div>
-              <div className="flex-1 overflow-y-auto">
-                <div className="p-4 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[8px] text-slate-400 font-bold uppercase tracking-widest">Especificações Técnicas</span>
-                    <span className="bg-primary/10 text-primary text-[8px] font-bold px-2 py-0.5 rounded-md uppercase border border-primary/20">
-                      Condição: {selectedMaterial.condition}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-3 gap-x-4 gap-y-4 pt-2 border-t border-slate-50">
-                    <div>
-                      <p className="text-[7px] text-slate-400 font-bold uppercase tracking-widest mb-0.5">Fabricante</p>
-                      <p className="font-bold text-navy text-[10px] truncate">{selectedMaterial.brand || '---'}</p>
-                    </div>
-                    <div>
-                      <p className="text-[7px] text-slate-400 font-bold uppercase tracking-widest mb-0.5">Modelo</p>
-                      <p className="font-bold text-navy text-[10px] truncate">{selectedMaterial.model || '---'}</p>
-                    </div>
-                    <div>
-                      <p className="text-[7px] text-slate-400 font-bold uppercase tracking-widest mb-0.5">Nº de Série</p>
-                      <p className="font-bold text-navy text-[10px] font-mono tracking-tighter truncate">{selectedMaterial.serial_number || '---'}</p>
-                    </div>
-                  </div>
-                  {selectedMaterial.description && (
-                    <div className="pt-3 border-t border-slate-50">
-                       <p className="text-[7px] text-slate-400 font-bold uppercase tracking-widest mb-1.5">Notas de Campo</p>
-                       <div className="bg-slate-50/50 p-3 rounded-lg border border-slate-100/50">
-                          <p className="text-[10px] text-slate-500 leading-relaxed font-medium italic">
-                            "{selectedMaterial.description}"
-                          </p>
-                       </div>
-                    </div>
-                  )}
+              <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] text-slate-400 font-medium">Condição:</span>
+                  <span className="bg-primary/10 text-primary text-xs font-semibold px-2 py-0.5 rounded-md">
+                    {selectedMaterial.condition || 'USADO'}
+                  </span>
                 </div>
+                <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-100">
+                  <div>
+                    <p className="text-[10px] text-slate-400 font-medium mb-0.5">Fabricante</p>
+                    <p className="font-semibold text-slate-800 text-xs truncate">{selectedMaterial.brand || '---'}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-slate-400 font-medium mb-0.5">Modelo</p>
+                    <p className="font-semibold text-slate-800 text-xs truncate">{selectedMaterial.model || '---'}</p>
+                  </div>
+                  <div className="col-span-2">
+                    <p className="text-[10px] text-slate-400 font-medium mb-0.5">Nº de Série</p>
+                    <p className="font-mono text-xs font-medium text-slate-700 truncate">{selectedMaterial.serial_number || '---'}</p>
+                  </div>
+                </div>
+                {selectedMaterial.description && (
+                  <div className="pt-2 border-t border-slate-100">
+                     <p className="text-[10px] text-slate-400 font-medium mb-1">Notas Adicionais</p>
+                     <p className="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-lg border border-slate-100 leading-relaxed font-normal">
+                       "{selectedMaterial.description}"
+                     </p>
+                  </div>
+                )}
               </div>
-              <div className="px-5 pb-5 pt-2">
-                <button onClick={() => setSelectedMaterial(null)} className="w-full bg-navy text-white font-bold text-[9px] uppercase tracking-widest py-3 rounded-lg hover:bg-primary transition-all shadow-md active:scale-[0.98]">
+              <div className="p-4 pt-2 border-t border-slate-100">
+                <button onClick={() => setSelectedMaterial(null)} className="w-full bg-slate-900 text-white font-medium text-xs py-2 rounded-lg hover:bg-slate-800 transition-all cursor-pointer">
                   Fechar Detalhes
                 </button>
               </div>
@@ -641,23 +638,22 @@ export default function TerceirizadaDashboard() {
 function DetailItem({ label, value }: { label: string, value: string }) {
   return (
     <div className="flex flex-col">
-       <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1.5">{label}</p>
-       <p className="font-bold text-navy text-sm uppercase">{value}</p>
+       <p className="text-[11px] font-medium text-slate-500 mb-0.5 leading-none">{label}</p>
+       <p className="font-semibold text-slate-800 text-xs">{value || '---'}</p>
     </div>
   );
 }
 
 function StatCard({ label, value, icon, color }: { label: string, value: string, icon: any, color: string }) {
   return (
-    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
+    <div className="bg-white p-5 rounded-xl border border-slate-200/80 shadow-xs flex items-center justify-between">
       <div>
-        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{label}</p>
-        <p className="text-3xl font-bold text-navy">{value}</p>
+        <p className="text-xs font-medium text-slate-500 mb-1">{label}</p>
+        <p className="text-2xl font-bold text-slate-900 tracking-tight leading-none">{value}</p>
       </div>
-      <div className={`p-4 rounded-xl ${color}`}>
+      <div className={`p-3 rounded-xl ${color}`}>
         {icon}
       </div>
     </div>
   );
 }
-

@@ -151,7 +151,7 @@ export default function MonitoringDashboard({ parentSectorId }: { parentSectorId
                           <Building className="w-4 h-4" />
                         </div>
                         <div>
-                          <span className="font-bold text-navy text-[11px] uppercase tracking-tight group-hover:text-primary transition-colors">{parent.name}</span>
+                          <span className="font-semibold text-navy text-sm capitalize group-hover:text-primary transition-colors">{parent.name.toLowerCase()}</span>
                         </div>
                       </div>
                       

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   ShieldCheck, 
   Users, 
@@ -6,10 +6,15 @@ import {
   MapPin, 
   Map as MapIcon, 
   BarChart3, 
-  PieChart,
-  LogOut,
-  ChevronDown,
-  Building
+  PieChart, 
+  LogOut, 
+  ChevronDown, 
+  ChevronLeft, 
+  ChevronRight, 
+  Building,
+  UserPlus,
+  Link as LinkIcon,
+  LayoutGrid
 } from 'lucide-react';
 import { useAuth } from '../../../../contexts/AuthContext';
 import { useDashboard } from '../../../../contexts/DashboardContext';
@@ -21,6 +26,15 @@ const ROLE_MAP: Record<string, string> = {
   'PORTARIA': 'Controle de Acesso',
   'SUPER_ADMIN': 'Administrador Geral'
 };
+
+function formatSectorName(name: string): string {
+  if (!name) return '';
+  return name
+    .toLowerCase()
+    .split(' ')
+    .map(word => word ? word.charAt(0).toUpperCase() + word.slice(1) : '')
+    .join(' ');
+}
 
 interface DashboardSidebarProps {
   activeSection: string;
@@ -40,107 +54,214 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
   const { signOut, profile } = useAuth();
   const { tenant } = useTenant();
   const { sectors } = useDashboard();
-  const [monitoringExpanded, setMonitoringExpanded] = React.useState(activeSection === 'monitoring');
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [monitoringExpanded, setMonitoringExpanded] = useState(activeSection === 'monitoring');
+  const [teamExpanded, setTeamExpanded] = useState(
+    activeSection === 'team' || activeSection.startsWith('team-')
+  );
+
+  React.useEffect(() => {
+    if (activeSection === 'team' || activeSection.startsWith('team-')) {
+      setTeamExpanded(true);
+    }
+  }, [activeSection]);
 
   const parentSectors = sectors.filter(s => !s.parent_id);
+  const isTeamActive = activeSection === 'team' || activeSection.startsWith('team-');
 
   return (
-    <aside className="hidden lg:flex w-72 bg-navy flex flex-col shrink-0 border-r border-navy/10 shadow-xl z-50">
-      <div className="p-8 h-24 flex items-center gap-4 border-b border-white/5">
-        <div className="w-10 h-10 bg-primary/20 rounded-xl flex items-center justify-center border border-primary/20">
-           <ShieldCheck className="w-6 h-6 text-primary shadow-xl" />
-        </div>
-        <div className="flex flex-col">
-          <span className="text-white font-bold uppercase text-sm tracking-tighter leading-none">
-            {tenant?.name || profile?.tenant?.name || 'Usina'}
-          </span>
-          <span className="text-[9px] text-primary font-bold uppercase tracking-widest mt-1">Security Dashboard</span>
-        </div>
+    <aside className={`hidden lg:flex ${isCollapsed ? 'w-20' : 'w-60'} bg-navy flex-col shrink-0 border-r border-white/10 shadow-2xl z-50 select-none relative transition-all duration-300 ease-in-out`}>
+      {/* Botão de Recolher / Expandir Menu */}
+      <button
+        onClick={() => setIsCollapsed(!isCollapsed)}
+        className="absolute -right-3.5 top-5 w-7 h-7 bg-white border border-slate-200/80 rounded-full shadow-md flex items-center justify-center text-slate-600 hover:text-navy hover:scale-105 transition-all z-50 cursor-pointer"
+        title={isCollapsed ? "Expandir menu" : "Recolher menu"}
+      >
+        {isCollapsed ? (
+          <ChevronRight className="w-3.5 h-3.5 stroke-[2.5]" />
+        ) : (
+          <ChevronLeft className="w-3.5 h-3.5 stroke-[2.5]" />
+        )}
+      </button>
+
+      {/* Topo / Logo */}
+      <div className={`px-4 h-16 flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'} border-b border-white/10 shrink-0 overflow-hidden`}>
+        {isCollapsed ? (
+          <img 
+            src="/logo-lins-symbol.png" 
+            alt="Usina Lins" 
+            className="w-8 h-8 object-contain shrink-0 animate-in fade-in zoom-in-95 duration-200"
+          />
+        ) : (
+          <img 
+            src={tenant?.logo_url || profile?.tenant?.logo_url || '/logo-lins-white.png'} 
+            alt={tenant?.name || profile?.tenant?.name || 'Usina Lins'} 
+            className="h-7 w-auto max-w-[150px] object-contain transition-all"
+            onError={(e: any) => {
+              e.currentTarget.src = '/logo-lins-white.png';
+            }}
+          />
+        )}
       </div>
 
-      <nav className="flex-1 p-6 pr-2 space-y-3 overflow-y-auto">
+      {/* Navegação */}
+      <nav className="flex-1 p-3 space-y-1.5 overflow-y-auto overflow-x-hidden">
         <NavButton 
           active={activeSection === 'approvals'} 
           onClick={() => setActiveSection('approvals')}
-          icon={<LayoutDashboard className="w-5 h-5" />}
+          icon={<LayoutDashboard className="w-[18px] h-[18px] shrink-0" />}
           label="Início / Painel"
+          isCollapsed={isCollapsed}
         />
-        <NavButton 
-          active={activeSection === 'team'} 
-          onClick={() => setActiveSection('team')}
-          icon={<Users className="w-5 h-5" />}
-          label="Minha Equipe"
-        />
+
+        {/* Minha Equipe engavetada */}
+        <div className="space-y-1">
+          <NavButton 
+            active={isTeamActive} 
+            onClick={() => {
+              if (isCollapsed) {
+                setIsCollapsed(false);
+                setTeamExpanded(true);
+                if (!activeSection.startsWith('team')) {
+                  setActiveSection('team-register');
+                }
+              } else {
+                setTeamExpanded(!teamExpanded);
+                if (!activeSection.startsWith('team')) {
+                  setActiveSection('team-register');
+                }
+              }
+            }}
+            icon={<Users className="w-[18px] h-[18px] shrink-0" />}
+            label="Minha Equipe"
+            hasSubmenu
+            expanded={teamExpanded}
+            isCollapsed={isCollapsed}
+          />
+
+          {!isCollapsed && (
+            <div className={`pl-4 space-y-1 overflow-hidden transition-all duration-300 ${teamExpanded ? 'max-h-64 opacity-100 pt-1' : 'max-h-0 opacity-0'}`}>
+              <button
+                onClick={() => setActiveSection('team-register')}
+                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium transition-all ${
+                  activeSection === 'team-register' || activeSection === 'team'
+                    ? 'bg-primary/20 text-white font-semibold border border-primary/30' 
+                    : 'text-white/60 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                <UserPlus className="w-3.5 h-3.5 opacity-70 shrink-0" />
+                <span className="truncate">Registro Manual</span>
+              </button>
+
+              <button
+                onClick={() => setActiveSection('team-invite')}
+                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium transition-all ${
+                  activeSection === 'team-invite'
+                    ? 'bg-primary/20 text-white font-semibold border border-primary/30' 
+                    : 'text-white/60 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                <LinkIcon className="w-3.5 h-3.5 opacity-70 shrink-0" />
+                <span className="truncate">Link de Convite</span>
+              </button>
+
+              <button
+                onClick={() => setActiveSection('team-members')}
+                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium transition-all ${
+                  activeSection === 'team-members'
+                    ? 'bg-primary/20 text-white font-semibold border border-primary/30' 
+                    : 'text-white/60 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                <Users className="w-3.5 h-3.5 opacity-70 shrink-0" />
+                <span className="truncate">Membros da Equipe</span>
+              </button>
+
+              <button
+                onClick={() => setActiveSection('team-sectors')}
+                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium transition-all ${
+                  activeSection === 'team-sectors'
+                    ? 'bg-primary/20 text-white font-semibold border border-primary/30' 
+                    : 'text-white/60 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                <LayoutGrid className="w-3.5 h-3.5 opacity-70 shrink-0" />
+                <span className="truncate">Setores</span>
+              </button>
+            </div>
+          )}
+        </div>
         
         <div className="space-y-1">
           <NavButton 
             active={activeSection === 'monitoring'} 
-            onClick={() => setMonitoringExpanded(!monitoringExpanded)}
-            icon={<MapPin className="w-5 h-5" />}
+            onClick={() => {
+              if (isCollapsed) {
+                setIsCollapsed(false);
+                setMonitoringExpanded(true);
+              } else {
+                setMonitoringExpanded(!monitoringExpanded);
+              }
+            }}
+            icon={<MapPin className="w-[18px] h-[18px] shrink-0" />}
             label="Monitoramento"
             hasSubmenu
             expanded={monitoringExpanded}
+            isCollapsed={isCollapsed}
           />
           
-          <div className={`pl-6 space-y-1 overflow-hidden transition-all duration-300 ${monitoringExpanded ? 'max-h-64 opacity-100' : 'max-h-0 opacity-0'}`}>
-            {parentSectors.map(parent => (
-              <button
-                key={parent.id}
-                onClick={() => setActiveSection('monitoring', parent.id)}
-                className={`w-full flex items-center gap-3 p-3 rounded-lg text-[9px] font-bold uppercase tracking-widest transition-all ${
-                  selectedParentId === parent.id 
-                    ? 'bg-primary/20 text-primary border border-primary/20' 
-                    : 'text-white/40 hover:text-white hover:bg-white/5'
-                }`}
-              >
-                <Building className="w-3.5 h-3.5" />
-                {parent.name}
-              </button>
-            ))}
-          </div>
+          {!isCollapsed && (
+            <div className={`pl-4 space-y-1 overflow-hidden transition-all duration-300 ${monitoringExpanded ? 'max-h-64 opacity-100 pt-1' : 'max-h-0 opacity-0'}`}>
+              {parentSectors.map(parent => (
+                <button
+                  key={parent.id}
+                  onClick={() => setActiveSection('monitoring', parent.id)}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium transition-all ${
+                    selectedParentId === parent.id 
+                      ? 'bg-primary/20 text-white font-semibold border border-primary/30' 
+                      : 'text-white/60 hover:text-white hover:bg-white/5'
+                  }`}
+                >
+                  <Building className="w-3.5 h-3.5 opacity-70 shrink-0" />
+                  <span className="truncate">{formatSectorName(parent.name)}</span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         <NavButton 
           active={activeSection === 'map'} 
           onClick={() => setActiveSection('map')}
-          icon={<MapIcon className="w-5 h-5" />}
+          icon={<MapIcon className="w-[18px] h-[18px] shrink-0" />}
           label="Mapa Industrial"
+          isCollapsed={isCollapsed}
         />
         <NavButton 
           active={activeSection === 'audit'} 
           onClick={() => setActiveSection('audit')}
-          icon={<BarChart3 className="w-5 h-5" />}
+          icon={<BarChart3 className="w-[18px] h-[18px] shrink-0" />}
           label="Auditoria & Rastro"
+          isCollapsed={isCollapsed}
         />
         <NavButton 
           active={activeSection === 'reports'} 
           onClick={() => setActiveSection('reports')}
-          icon={<PieChart className="w-5 h-5" />}
+          icon={<PieChart className="w-[18px] h-[18px] shrink-0" />}
           label="Relatórios"
+          isCollapsed={isCollapsed}
         />
       </nav>
 
-      <div className="p-4 border-t border-white/5">
-        <div className="flex items-center gap-3 px-4 py-2 hover:bg-white/5 rounded-xl transition-all cursor-default group/profile mb-2">
-           <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center text-primary font-bold text-[10px] border border-primary/10 shrink-0">
-             {userName ? userName[0] : 'G'}
-           </div>
-           <div className="flex flex-col overflow-hidden">
-             <p className="text-white/80 font-bold text-[10px] uppercase truncate leading-tight group-hover/profile:text-white transition-colors">
-               {userName || 'Gestor'}
-             </p>
-             <p className="text-[8px] text-primary font-bold uppercase tracking-widest opacity-50 group-hover/profile:opacity-100 transition-opacity truncate">
-               {userRole ? (ROLE_MAP[userRole] || userRole) : 'Gestor de Segurança'}
-             </p>
-           </div>
-        </div>
-        
+      {/* Rodapé: Encerramento de Sessão */}
+      <div className="p-3 border-t border-white/10 shrink-0">
         <button 
           onClick={signOut} 
-          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-white/30 hover:text-red-400 hover:bg-red-400/10 transition-all group"
+          title={isCollapsed ? "Encerrar Sessão" : undefined}
+          className={`w-full flex items-center ${isCollapsed ? 'justify-center p-2.5' : 'gap-2.5 px-3.5 py-2.5'} rounded-xl text-white/60 hover:text-rose-400 hover:bg-rose-500/10 transition-all text-xs font-medium`}
         >
-          <LogOut className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
-          <span className="text-[9px] font-bold uppercase tracking-widest">Encerrar Sessão</span>
+          <LogOut className="w-4 h-4 shrink-0" />
+          {!isCollapsed && <span>Encerrar Sessão</span>}
         </button>
       </div>
     </aside>
@@ -153,29 +274,33 @@ function NavButton({
   icon, 
   label, 
   hasSubmenu, 
-  expanded 
+  expanded,
+  isCollapsed 
 }: { 
   active: boolean, 
   onClick: () => void, 
   icon: any, 
   label: string, 
   hasSubmenu?: boolean, 
-  expanded?: boolean 
+  expanded?: boolean,
+  isCollapsed?: boolean 
 }) {
   return (
     <button 
       onClick={onClick}
-      className={`w-full flex items-center justify-between p-4 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all ${
-        active && !hasSubmenu
-          ? 'bg-primary text-white shadow-lg shadow-primary/20 scale-[1.02]' 
-          : 'text-white/40 hover:text-white hover:bg-white/5'
+      title={isCollapsed ? label : undefined}
+      className={`w-full flex items-center ${isCollapsed ? 'justify-center p-3' : 'justify-between px-3.5 py-3'} rounded-2xl text-xs font-medium transition-all ${
+        active && (!hasSubmenu || isCollapsed)
+          ? 'bg-primary text-white font-semibold shadow-md shadow-primary/20' 
+          : 'text-white/70 hover:text-white hover:bg-white/5'
       }`}
     >
-      <div className="flex items-center gap-4">
-        {icon} {label}
+      <div className={`flex items-center ${isCollapsed ? '' : 'gap-3 min-w-0'}`}>
+        {icon}
+        {!isCollapsed && <span className="truncate">{label}</span>}
       </div>
-      {hasSubmenu && (
-        <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${expanded ? 'rotate-180 text-primary' : ''}`} />
+      {!isCollapsed && hasSubmenu && (
+        <ChevronDown className={`w-4 h-4 transition-transform duration-300 opacity-60 ${expanded ? 'rotate-180 opacity-100 text-primary' : ''}`} />
       )}
     </button>
   );

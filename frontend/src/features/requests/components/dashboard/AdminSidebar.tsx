@@ -69,9 +69,7 @@ function UserRoleItem({ name, role, online }: { name: string, role: string, onli
   return (
     <div className="flex items-center justify-between p-3 bg-slate-50/50 rounded-xl border border-transparent hover:border-slate-100 transition-all">
       <div className="flex items-center gap-3">
-        <div className="w-1.5 h-1.5 rounded-full bg-slate-300">
-           {online && <div className="w-full h-full bg-emerald-500 rounded-full animate-ping"></div>}
-        </div>
+        <div className={`w-2 h-2 rounded-full ${online ? 'bg-emerald-500' : 'bg-slate-300'}`}></div>
         <div>
            <p className="text-[11px] font-bold text-navy uppercase leading-none">{name}</p>
            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-1">{role}</p>

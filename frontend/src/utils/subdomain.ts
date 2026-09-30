@@ -59,3 +59,32 @@ export const getTokenKey = (): string => {
 export const getAuthToken = (): string | null => {
   return localStorage.getItem(getTokenKey()) || sessionStorage.getItem(getTokenKey());
 };
+
+/**
+ * Retorna a logo correta do tenant dependendo do fundo (claro ou escuro).
+ * Para a Usina Lins:
+ * - Fundo escuro (ex: menu lateral navy): /logo-lins-white.png
+ * - Fundo claro (ex: navbar branca das terceirizadas): /logo-lins.png
+ */
+export const getTenantLogoUrl = (
+  tenant?: { logo_url?: string; subdomain?: string; name?: string } | null,
+  isDarkBackground: boolean = false
+): string => {
+  const logoUrl = tenant?.logo_url || '';
+  const subdomain = (tenant?.subdomain || '').toLowerCase();
+  const name = (tenant?.name || '').toLowerCase();
+  const isUsinaLins = subdomain === 'usina-lins' || name.includes('lins') || logoUrl.includes('logo-lins');
+
+  if (isUsinaLins) {
+    return isDarkBackground ? '/logo-lins-white.png' : '/logo-lins.png';
+  }
+
+  if (logoUrl) {
+    if (!isDarkBackground && logoUrl.includes('logo-lins-white')) {
+      return '/logo-lins.png';
+    }
+    return logoUrl;
+  }
+
+  return isDarkBackground ? '/logo-lins-white.png' : '/logo-lins.png';
+};

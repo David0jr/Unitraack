@@ -1,8 +1,14 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { 
   Copy, 
   Check, 
+  ExternalLink,
+  Link as LinkIcon,
+  Shield,
+  MapPin,
+  Share2,
+  AlertCircle
 } from 'lucide-react';
 import { useDashboard } from '../../../../../contexts/DashboardContext';
 import { useTenant } from '../../../../../contexts/TenantContext';
@@ -82,7 +88,7 @@ export function InviteGenerator({ tenantId, usinaCnpj }: InviteGeneratorProps) {
 
   const generateInviteLink = () => {
     if (isPendingSectorSelection) {
-      return 'Selecione um setor para gerar o link...';
+      return '';
     }
 
     const baseUrl = window.location.origin;
@@ -94,7 +100,6 @@ export function InviteGenerator({ tenantId, usinaCnpj }: InviteGeneratorProps) {
       tenant_id: tenantId || ''
     });
     
-    // Remove parâmetros vazios para manter a URL mais amigável
     const cleanParams = new URLSearchParams();
     for (const [key, value] of params.entries()) {
       if (value) cleanParams.append(key, value);
@@ -104,23 +109,38 @@ export function InviteGenerator({ tenantId, usinaCnpj }: InviteGeneratorProps) {
     return `${baseUrl}${path}?${cleanParams.toString()}`;
   };
 
+  const inviteUrl = generateInviteLink();
+
   const copyLink = () => {
-    if (isPendingSectorSelection) return;
-    navigator.clipboard.writeText(generateInviteLink());
+    if (!inviteUrl) return;
+    navigator.clipboard.writeText(inviteUrl);
     setCopying(true);
     setTimeout(() => setCopying(false), 2000);
   };
 
+  const shareWhatsApp = () => {
+    if (!inviteUrl) return;
+    const text = encodeURIComponent(
+      `Olá! Segue o link para seu cadastro oficial na Usina Lins:\n${inviteUrl}`
+    );
+    window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
+  };
+
+  const roleLabel = inviteConfig.role === 'LIDER_SETOR' ? 'Líder de Setor' : 'Controle de Acesso';
+
   return (
-    <div className="max-w-xl space-y-8">
+    <div className="max-w-3xl space-y-6">
       <div className="space-y-1">
-        <h4 className="font-bold text-navy text-sm uppercase italic">Gerador de Acessos Autorizados</h4>
-        <p className="text-xs text-slate-400 font-medium">Gere links pré-configurados para que seus colaboradores se cadastrem com segurança.</p>
+        <h3 className="font-semibold text-navy text-base">Gerador de Links de Convite</h3>
+        <p className="text-xs text-slate-500 font-normal">
+          Crie links de convite pré-configurados e seguros para que os colaboradores façam seu autocadastro.
+        </p>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      {/* Parâmetros do Link */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-2">
         <div className="space-y-1.5">
-          <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Função Permitida</label>
+          <label className="text-xs font-medium text-slate-700 ml-0.5 block">Função Permitida</label>
           <CustomSelect
             value={inviteConfig.role}
             onChange={(val: string) => setInviteConfig({...inviteConfig, role: val})}
@@ -134,42 +154,111 @@ export function InviteGenerator({ tenantId, usinaCnpj }: InviteGeneratorProps) {
         
         {inviteConfig.role === 'LIDER_SETOR' && (
           <div className="space-y-1.5">
-            <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Lugar de Atuação</label>
+            <label className="text-xs font-medium text-slate-700 ml-0.5 block">Setor de Atuação</label>
             <CustomSelect
               value={inviteConfig.sector_id}
               onChange={(val: string) => {
                 const selected = sectors.find((s: any) => s.id === val);
-                setInviteConfig({...inviteConfig, sector_id: val, sector: selected?.name || ''})
+                setInviteConfig({...inviteConfig, sector_id: val, sector: selected?.name || ''});
               }}
               placeholder="Selecione o setor..."
               options={[
                 { type: 'option', value: '', label: 'Selecione o setor...' },
                 ...sectorOptions
               ]}
-              direction="up"
+              direction="down"
             />
           </div>
         )}
       </div>
 
-      <div className="p-6 bg-[#0032A0] rounded-2xl text-white relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full -mr-16 -mt-16"></div>
-        <p className="text-[10px] font-bold text-blue-200 uppercase tracking-widest mb-4">Link de Confiança Lins</p>
-        <div className="flex items-center gap-3 bg-white/5 p-4 rounded-xl border border-white/10 break-all">
-          <code className="text-[10px] flex-1 font-mono leading-relaxed truncate">{generateInviteLink()}</code>
-          <button 
-            onClick={copyLink}
-            disabled={inviteConfig.role === 'LIDER_SETOR' && !inviteConfig.sector_id}
-            className={`p-3 rounded-xl transition-all ${copying ? 'bg-emerald-500 text-white' : 'bg-white/10 hover:bg-white/20 text-white'} disabled:opacity-50 disabled:cursor-not-allowed`}
-          >
-            {copying ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-          </button>
+      {/* Caixa do Link Gerado */}
+      <div className="bg-slate-50/70 border border-slate-200/80 rounded-2xl p-5 sm:p-6 space-y-4 shadow-xs">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/60 pb-3">
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
+            <span className="text-xs font-semibold text-navy">Link Seguro Usina Lins</span>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <span className="px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-[11px] font-medium text-slate-700 flex items-center gap-1.5 shadow-xs">
+              <Shield className="w-3 h-3 text-primary" />
+              {roleLabel}
+            </span>
+            {inviteConfig.sector && (
+              <span className="px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-[11px] font-medium text-slate-700 flex items-center gap-1.5 shadow-xs">
+                <MapPin className="w-3 h-3 text-amber-500" />
+                {inviteConfig.sector}
+              </span>
+            )}
+          </div>
         </div>
-        <p className="text-[9px] text-blue-200/50 mt-4 leading-relaxed uppercase font-bold tracking-widest">
-           Nota: Este link preencherá e travará o cargo e setor para o usuário.
+
+        {isPendingSectorSelection ? (
+          <div className="py-6 px-4 text-center bg-amber-50/60 border border-dashed border-amber-200 rounded-xl">
+            <AlertCircle className="w-5 h-5 text-amber-500 mx-auto mb-1.5" />
+            <p className="text-xs font-medium text-amber-800">Selecione o setor acima para gerar o link de convite.</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 bg-white p-2 sm:p-2.5 rounded-xl border border-slate-200 shadow-xs">
+              <div className="p-2 text-slate-400 shrink-0">
+                <LinkIcon className="w-4 h-4 text-primary" />
+              </div>
+              <input 
+                type="text" 
+                readOnly 
+                value={inviteUrl}
+                className="w-full bg-transparent text-xs text-slate-700 font-mono focus:outline-none select-all truncate"
+              />
+              <button 
+                onClick={copyLink}
+                className={`px-4 py-2 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
+                  copying 
+                    ? 'bg-emerald-500 text-white shadow-xs' 
+                    : 'bg-primary hover:bg-[#00928a] text-white shadow-xs'
+                }`}
+              >
+                {copying ? (
+                  <>
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Copiado!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3.5 h-3.5" />
+                    <span>Copiar Link</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <button
+                onClick={shareWhatsApp}
+                className="px-3.5 py-2 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-700 hover:text-emerald-600 transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
+              >
+                <Share2 className="w-3.5 h-3.5 text-emerald-500" />
+                <span>Enviar pelo WhatsApp</span>
+              </button>
+
+              <a
+                href={inviteUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="px-3.5 py-2 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-700 hover:text-navy transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
+              >
+                <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
+                <span>Testar Link</span>
+              </a>
+            </div>
+          </div>
+        )}
+
+        <p className="text-[11px] text-slate-500 leading-relaxed font-normal pt-1">
+          * Os colaboradores que acessarem este link terão a função e o setor preenchidos e travados para evitar inconsistências no sistema de monitoramento.
         </p>
       </div>
     </div>
   );
 }
-

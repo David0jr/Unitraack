@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { getAuthToken } from '../../../../utils/subdomain';
+import { getAuthToken, getTenantLogoUrl } from '../../../../utils/subdomain';
 import { supabase } from '../../../../lib/supabase';
 import { useAuth } from '../../../../contexts/AuthContext';
 import { useTenant } from '../../../../contexts/TenantContext';
@@ -345,15 +345,16 @@ export default function NovaSolicitacao() {
                 <ArrowLeft className="w-5 h-5" />
              </button>
              <div className="h-6 w-px bg-slate-100 mx-1"></div>
-             {tenant?.logo_url || profile?.tenant?.logo_url ? (
+             {tenant || profile?.tenant ? (
                <img 
-                 src={tenant?.logo_url || profile?.tenant?.logo_url} 
-                 alt={tenant?.name || profile?.tenant?.name || 'Usina'} 
-                 className="h-9 object-contain max-w-[160px]" 
+                 src={getTenantLogoUrl(tenant || profile?.tenant, false)} 
+                 alt={tenant?.name || profile?.tenant?.name || 'Usina Lins'} 
+                 className="h-9 object-contain max-w-[170px]" 
+                 onError={(e) => { e.currentTarget.src = '/logo-lins.png'; }} 
                />
              ) : (
                <span className="font-bold text-navy text-sm uppercase tracking-tight">
-                 {tenant?.name || profile?.tenant?.name || 'Usina'}
+                 Usina Lins
                </span>
              )}
           </div>

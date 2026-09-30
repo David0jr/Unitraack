@@ -280,6 +280,7 @@ export class SupabaseRequestRepository implements IRequestRepository {
           model,
           serial_number,
           description,
+          status,
           request:entry_requests!inner(
             id,
             tenant_id,

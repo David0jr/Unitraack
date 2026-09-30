@@ -12,5 +12,6 @@ router.post('/aceitar-transferencia', requireAuth, RequestController.acceptTrans
 router.post('/recusar-transferencia', requireAuth, RequestController.rejectTransfer);
 router.post('/cancelar-transferencia', requireAuth, RequestController.cancelTransfer);
 router.post('/marcar-saida', requireAuth, RequestController.markMaterialForExit);
+router.get('/movimentacoes', requireAuth, RequestController.getAuditHistory);
 
 export default router;

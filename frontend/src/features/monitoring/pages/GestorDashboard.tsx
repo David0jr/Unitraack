@@ -34,6 +34,25 @@ export default function GestorDashboard() {
     }
   };
 
+  const getTeamTab = (section: string): 'register' | 'invite' | 'list' | 'sectors' => {
+    if (section === 'team-invite') return 'invite';
+    if (section === 'team-members') return 'list';
+    if (section === 'team-sectors') return 'sectors';
+    return 'register';
+  };
+
+  const handleTeamTabChange = (tab: 'register' | 'invite' | 'list' | 'sectors') => {
+    const map: Record<string, string> = {
+      register: 'team-register',
+      invite: 'team-invite',
+      list: 'team-members',
+      sectors: 'team-sectors'
+    };
+    setActiveSection(map[tab] || 'team-register');
+  };
+
+  const isTeamSection = activeSection === 'team' || activeSection.startsWith('team-');
+
   const navItems = [
     { id: 'approvals', label: 'Painel', icon: <LayoutDashboard /> },
     { id: 'team', label: 'Equipe', icon: <Users /> },
@@ -57,22 +76,8 @@ export default function GestorDashboard() {
         {activeSection !== 'map' && <DashboardHeader section={activeSection} />}
         
         <main className={`flex-1 overflow-y-auto custom-scrollbar ${
-          activeSection === 'map' ? 'p-0 lg:p-6 overflow-hidden h-full' : 'p-4 lg:px-10 lg:py-12'
+          activeSection === 'map' ? 'p-0 lg:p-6 overflow-hidden h-full' : 'p-6 lg:p-10'
         } pb-24 lg:pb-12`}>
-          {activeSection !== 'map' && (
-            <div className="mb-8 lg:mb-12 animate-in fade-in slide-in-from-top-4 duration-700">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h1 className="text-2xl lg:text-3xl font-black text-navy uppercase tracking-tighter italic">
-                    Painel de <span className="text-primary italic">Gestão</span>
-                  </h1>
-                  <p className="text-slate-400 font-bold uppercase tracking-widest text-[9px] lg:text-[10px] mt-1">
-                    Controle operacional e auditoria de parceiros
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
 
           {activeSection === 'approvals' ? (
             <div className="space-y-8 lg:space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -80,10 +85,12 @@ export default function GestorDashboard() {
               <DiscrepanciesTracker />
               <PendingApprovals />
             </div>
-          ) : activeSection === 'team' ? (
+          ) : isTeamSection ? (
             <TeamManagement 
               tenantId={managerProfile?.tenant_id || ''} 
               usinaCnpj={managerProfile?.cnpj || ''} 
+              activeTab={getTeamTab(activeSection)}
+              onTabChange={handleTeamTabChange}
             />
           ) : activeSection === 'monitoring' ? (
             <MonitoringDashboard parentSectorId={selectedParentId} />

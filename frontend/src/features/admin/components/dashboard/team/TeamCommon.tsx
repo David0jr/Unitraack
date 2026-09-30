@@ -1,18 +1,18 @@
 import { useState, useRef, useEffect } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, X } from 'lucide-react';
 
 export function TabButton({ active, onClick, icon, label }: any) {
   return (
     <button 
       onClick={onClick}
-      className={`flex items-center gap-2.5 px-6 py-3.5 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all ${
+      className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-medium transition-all cursor-pointer ${
         active 
-          ? 'bg-white text-navy shadow-sm border border-slate-100' 
-          : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100/50'
+          ? 'bg-white text-navy font-semibold shadow-xs border border-slate-200/80' 
+          : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50'
       }`}
     >
-      {icon}
-      {label}
+      <span className={active ? 'text-primary' : 'text-slate-400'}>{icon}</span>
+      <span>{label}</span>
     </button>
   );
 }
@@ -45,26 +45,26 @@ export function CustomSelect({ value, onChange, options, placeholder, direction 
     <div className="relative w-full" ref={dropdownRef}>
       <div 
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-xl text-navy font-bold text-xs cursor-pointer flex items-center justify-between hover:border-primary/30 transition-all select-none"
+        className="w-full px-4 py-2.5 bg-slate-50/70 hover:bg-white border border-slate-200 rounded-xl text-slate-800 font-medium text-xs cursor-pointer flex items-center justify-between hover:border-primary/50 transition-all select-none shadow-xs"
       >
         <span className="truncate">{selectedLabel}</span>
-        <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform flex-shrink-0 ${isOpen ? 'rotate-180' : ''}`} />
+        <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-200 flex-shrink-0 ${isOpen ? 'rotate-180 text-primary' : ''}`} />
       </div>
 
       {isOpen && (
-        <div className={`absolute ${direction === 'up' ? 'bottom-[calc(100%+8px)]' : 'top-[calc(100%+8px)]'} left-0 right-0 bg-white border border-slate-100 rounded-xl shadow-xl z-50 animate-in fade-in zoom-in-95 duration-100 max-h-60 overflow-y-auto`}>
+        <div className={`absolute ${direction === 'up' ? 'bottom-[calc(100%+6px)]' : 'top-[calc(100%+6px)]'} left-0 right-0 bg-white border border-slate-200 rounded-xl shadow-xl z-50 animate-in fade-in zoom-in-95 duration-150 max-h-60 overflow-y-auto custom-scrollbar`}>
           {options.map((opt: any, i: number) => {
             if (opt.type === 'group') {
               return (
                 <div key={i} className="py-1">
-                  <div className="px-5 pt-3 pb-1.5 text-[9px] font-bold uppercase tracking-widest text-slate-400 bg-slate-50/50">
+                  <div className="px-4 pt-2.5 pb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400 bg-slate-50/80">
                     {opt.label}
                   </div>
                   {opt.items.map((item: any) => (
                     <div 
                       key={item.value}
                       onClick={() => { onChange(item.value); setIsOpen(false); }}
-                      className={`px-5 py-2.5 text-xs font-bold cursor-pointer hover:bg-slate-50 transition-all ${value === item.value ? 'text-primary bg-primary/5' : 'text-slate-600'}`}
+                      className={`px-4 py-2 text-xs cursor-pointer hover:bg-slate-50 transition-colors ${value === item.value ? 'text-primary font-semibold bg-primary/5' : 'text-slate-700'}`}
                     >
                       {item.label}
                     </div>
@@ -76,7 +76,7 @@ export function CustomSelect({ value, onChange, options, placeholder, direction 
               <div 
                 key={opt.value || i}
                 onClick={() => { onChange(opt.value); setIsOpen(false); }}
-                className={`px-5 py-3 text-xs font-bold cursor-pointer hover:bg-slate-50 transition-all ${value === opt.value ? 'text-primary bg-primary/5' : 'text-slate-600'} ${i === 0 ? 'rounded-t-2xl' : ''} ${i === options.length - 1 ? 'rounded-b-2xl' : ''}`}
+                className={`px-4 py-2.5 text-xs cursor-pointer hover:bg-slate-50 transition-colors ${value === opt.value ? 'text-primary font-semibold bg-primary/5' : 'text-slate-700'}`}
               >
                 {opt.label}
               </div>
@@ -91,7 +91,7 @@ export function CustomSelect({ value, onChange, options, placeholder, direction 
 export function InputGroup({ id, label, placeholder, value, onChange, type = 'text', required = true }: any) {
   return (
     <div className="space-y-1.5 w-full">
-      <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 tracking-widest">{label}</label>
+      <label htmlFor={id} className="text-xs font-medium text-slate-700 ml-0.5 block">{label}</label>
       <input 
         id={id}
         type={type}
@@ -99,7 +99,7 @@ export function InputGroup({ id, label, placeholder, value, onChange, type = 'te
         value={value}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-xl text-navy placeholder:text-slate-300 focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all font-bold text-xs"
+        className="w-full px-4 py-2.5 bg-slate-50/70 focus:bg-white border border-slate-200 rounded-xl text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-normal text-xs shadow-xs"
       />
     </div>
   );
@@ -111,21 +111,23 @@ export function Modal({ isOpen, onClose, title, children }: any) {
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
       <div 
-        className="absolute inset-0 bg-navy/40 backdrop-blur-sm animate-in fade-in duration-300"
+        className="absolute inset-0 bg-navy/40 backdrop-blur-xs animate-in fade-in duration-200"
         onClick={onClose}
       ></div>
-      <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl relative z-10 animate-in zoom-in-95 slide-in-from-bottom-8 duration-500 overflow-hidden border border-white/20">
-        <div className="px-8 py-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-          <h3 className="text-sm font-black text-navy uppercase tracking-tighter italic">{title}</h3>
-          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full transition-all text-slate-400 hover:text-navy">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+      <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl relative z-10 animate-in zoom-in-95 slide-in-from-bottom-4 duration-300 overflow-hidden border border-slate-200/80">
+        <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/70">
+          <h3 className="text-sm font-semibold text-navy">{title}</h3>
+          <button 
+            onClick={onClose} 
+            className="p-1.5 hover:bg-slate-200/70 rounded-lg transition-colors text-slate-400 hover:text-slate-700 cursor-pointer"
+          >
+            <X className="w-4 h-4" />
           </button>
         </div>
-        <div className="p-8">
+        <div className="p-6">
           {children}
         </div>
       </div>
     </div>
   );
 }
-

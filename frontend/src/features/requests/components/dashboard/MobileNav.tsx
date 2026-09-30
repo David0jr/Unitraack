@@ -28,7 +28,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({
     <nav className="lg:hidden fixed bottom-6 left-4 right-4 bg-white/80 backdrop-blur-xl border border-slate-200/50 z-[100] px-4 rounded-3xl shadow-2xl shadow-navy/20">
       <div className="flex items-center justify-around h-16">
         {items.map((item) => {
-          const isActive = activeSection === item.id;
+          const isActive = activeSection === item.id || (item.id === 'team' && activeSection.startsWith('team'));
           return (
             <button
               key={item.id}

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { getAuthToken } from '../../../utils/subdomain';
 import { api } from '../../../lib/axios';
@@ -16,6 +16,8 @@ import {
   Camera,
   Filter,
   ArrowRight,
+  ArrowDownLeft,
+  ArrowUpRight,
   History,
   Eye,
   ChevronLeft,
@@ -24,7 +26,10 @@ import {
   AlertTriangle,
   Clock,
   User,
-  FileText
+  FileText,
+  Calendar,
+  RotateCcw,
+  Layers
 } from 'lucide-react';
 import { LiderSidebar } from '../components/dashboard/LiderSidebar';
 import { DashboardHeader } from '../components/dashboard/DashboardHeader';
@@ -117,6 +122,9 @@ export default function LiderDashboard() {
   const [selectedForTransfer, setSelectedForTransfer] = useState<string[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [movementSearch, setMovementSearch] = useState('');
+  const [movementDate, setMovementDate] = useState('');
+  const [movementFilterType, setMovementFilterType] = useState<'ALL' | 'IN' | 'OUT'>('ALL');
   const [isAcceptModalOpen, setIsAcceptModalOpen] = useState(false);
   const [itemToAccept, setItemToAccept] = useState<{ id: string; name: string } | null>(null);
   const [selectedPhotos, setSelectedPhotos] = useState<string[] | null>(null);
@@ -149,8 +157,9 @@ export default function LiderDashboard() {
 
   const fetchMovements = async () => {
     try {
-      if (!profile?.tenant_id) return;
-      const response = await api.get(`/portaria/audit/${profile.tenant_id}`, {
+      const targetSectorId = liderInfo?.sector_id || profile?.sector_id;
+      const url = targetSectorId ? `/lider/movimentacoes?sectorId=${targetSectorId}` : '/lider/movimentacoes';
+      const response = await api.get(url, {
         headers: { Authorization: `Bearer ${getAuthToken()}` }
       });
       setMovements(response.data.data || []);
@@ -429,6 +438,34 @@ export default function LiderDashboard() {
 
   const [movementPage, setMovementPage] = useState(1);
   const MOVEMENTS_PER_PAGE = 10;
+
+  const currentSectorId = liderInfo?.sector_id || profile?.sector_id;
+  const currentSectorName = (liderInfo?.sector || profile?.sector || '').trim().toLowerCase();
+
+  const getLocalDateStr = (dateStr: string) => {
+    if (!dateStr) return '';
+    try {
+      const safeDateStr = (!dateStr.includes('Z') && !dateStr.includes('+') && !dateStr.match(/-\d{2}:\d{2}$/)) 
+        ? `${dateStr}Z` 
+        : dateStr;
+      const d = new Date(safeDateStr);
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    } catch {
+      return '';
+    }
+  };
+
+  const getTodayStr = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   const getDestinationSectorName = (move: any) => {
     if (!move.to_sector?.name) return 'SAÍDA';
     const name = (move.to_sector.name || '').toUpperCase();
@@ -440,8 +477,97 @@ export default function LiderDashboard() {
     return move.to_sector.name;
   };
 
-  const currentMovements = movements.slice((movementPage - 1) * MOVEMENTS_PER_PAGE, movementPage * MOVEMENTS_PER_PAGE);
-  const totalMovementPages = Math.max(1, Math.ceil(movements.length / MOVEMENTS_PER_PAGE));
+  const isIncomingToSector = (move: any) => {
+    if (currentSectorId && move.to_sector_id === currentSectorId) return true;
+    const destName = (move.to_sector?.name || '').trim().toLowerCase();
+    if (currentSectorName && destName && (destName === currentSectorName || destName.includes(currentSectorName) || currentSectorName.includes(destName))) return true;
+    const origName = (move.from_sector?.name || '').trim().toLowerCase();
+    const reqSector = (move.material?.request?.sector || '').trim().toLowerCase();
+    if ((!origName || origName === 'entrada' || origName === 'portaria') && currentSectorName && reqSector && (reqSector === currentSectorName || reqSector.includes(currentSectorName) || currentSectorName.includes(reqSector))) {
+      return true;
+    }
+    return false;
+  };
+
+  const isOutgoingFromSector = (move: any) => {
+    if (currentSectorId && move.from_sector_id === currentSectorId) return true;
+    const origName = (move.from_sector?.name || '').trim().toLowerCase();
+    if (currentSectorName && origName && (origName === currentSectorName || origName.includes(currentSectorName) || currentSectorName.includes(origName))) return true;
+    return false;
+  };
+
+  const isRelatedToSector = (move: any) => {
+    if (!currentSectorId && !currentSectorName) return true;
+    return isIncomingToSector(move) || isOutgoingFromSector(move);
+  };
+
+  // 1. Filtragem estrita pelo setor do líder
+  const sectorMovements = useMemo(() => {
+    return movements.filter(move => isRelatedToSector(move));
+  }, [movements, currentSectorId, currentSectorName]);
+
+  // 2. Filtragem por data
+  const dateFilteredMovements = useMemo(() => {
+    if (!movementDate) return sectorMovements;
+    return sectorMovements.filter(move => {
+      const dStr = getLocalDateStr(move.moved_at);
+      return dStr === movementDate;
+    });
+  }, [sectorMovements, movementDate]);
+
+  // 3. Contadores para as abas/botões
+  const inCount = useMemo(() => {
+    return dateFilteredMovements.filter(m => isIncomingToSector(m)).length;
+  }, [dateFilteredMovements, currentSectorId, currentSectorName]);
+
+  const outCount = useMemo(() => {
+    return dateFilteredMovements.filter(m => isOutgoingFromSector(m)).length;
+  }, [dateFilteredMovements, currentSectorId, currentSectorName]);
+
+  // 4. Filtragem por tipo ('ALL' | 'IN' | 'OUT') e busca textual
+  const filteredMovements = useMemo(() => {
+    let list = dateFilteredMovements;
+
+    if (movementFilterType === 'IN') {
+      list = list.filter(m => isIncomingToSector(m));
+    } else if (movementFilterType === 'OUT') {
+      list = list.filter(m => isOutgoingFromSector(m));
+    }
+
+    if (movementSearch.trim()) {
+      const q = movementSearch.toLowerCase().trim();
+      list = list.filter(m => {
+        const matName = (m.material?.name || '').toLowerCase();
+        const matSerial = (m.material?.serial_number || m.material?.code || '').toLowerCase();
+        const compName = (m.material?.request?.profile?.full_name || '').toLowerCase();
+        const actorName = (m.actor?.full_name || '').toLowerCase();
+        const actorReg = (m.actor?.registration_number || '').toLowerCase();
+        const fromName = (m.from_sector?.name || 'entrada').toLowerCase();
+        const toName = (getDestinationSectorName(m) || '').toLowerCase();
+        const obs = (m.observation || m.material?.request?.rejection_reason || '').toLowerCase();
+        const dateFormatted = new Date(m.moved_at).toLocaleDateString('pt-BR');
+
+        return matName.includes(q) ||
+               matSerial.includes(q) ||
+               compName.includes(q) ||
+               actorName.includes(q) ||
+               actorReg.includes(q) ||
+               fromName.includes(q) ||
+               toName.includes(q) ||
+               obs.includes(q) ||
+               dateFormatted.includes(q);
+      });
+    }
+
+    return list;
+  }, [dateFilteredMovements, movementFilterType, movementSearch, currentSectorId, currentSectorName]);
+
+  useEffect(() => {
+    setMovementPage(1);
+  }, [movementSearch, movementDate, movementFilterType]);
+
+  const currentMovements = filteredMovements.slice((movementPage - 1) * MOVEMENTS_PER_PAGE, movementPage * MOVEMENTS_PER_PAGE);
+  const totalMovementPages = Math.max(1, Math.ceil(filteredMovements.length / MOVEMENTS_PER_PAGE));
 
   const navItems = [
     { id: 'approvals', label: 'Aprovações', icon: <LayoutDashboard /> },
@@ -467,25 +593,25 @@ export default function LiderDashboard() {
             <div className="max-w-5xl mx-auto space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div>
-                    <h2 className="text-2xl md:text-3xl font-black text-navy uppercase tracking-tighter italic leading-none">
-                      Aprovações <span className="text-primary not-italic">Pendentes</span>
+                    <h2 className="text-xl font-bold text-navy tracking-tight">
+                      Aprovações Pendentes
                     </h2>
-                    <p className="text-[10px] md:text-xs text-slate-400 font-black uppercase tracking-widest mt-2">Valide as solicitações para seu setor.</p>
+                    <p className="text-xs text-slate-500 font-normal mt-0.5">Valide as solicitações destinadas ao seu setor.</p>
                   </div>
-                  <div className="bg-white px-5 py-4 rounded-3xl border border-slate-100 shadow-sm flex items-center justify-between md:justify-start gap-4">
+                  <div className="bg-white px-4 py-2.5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between md:justify-start gap-4">
                     <div className="flex items-center gap-3">
-                      <div className="p-2.5 bg-primary/10 rounded-xl">
-                        <ClipboardList className="w-5 h-5 text-primary" />
+                      <div className="p-2 bg-primary/10 rounded-xl">
+                        <ClipboardList className="w-4 h-4 text-primary" />
                       </div>
                       <div>
-                        <p className="text-[8px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Pendências</p>
-                        <p className="text-lg md:text-xl font-black text-navy leading-none">{requisicoes.length}</p>
+                        <p className="text-[10px] font-medium text-slate-400 mb-0.5">Pendências</p>
+                        <p className="text-base font-bold text-navy leading-none">{requisicoes.length}</p>
                       </div>
                     </div>
-                    <div className="h-8 w-px bg-slate-100 hidden md:block"></div>
-                    <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-full md:bg-transparent md:p-0">
-                       <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>
-                       <span className="text-[8px] font-black text-navy uppercase tracking-widest">Sincronizado</span>
+                    <div className="h-6 w-px bg-slate-100 hidden md:block"></div>
+                    <div className="flex items-center gap-2 bg-slate-50 px-2.5 py-1 rounded-full">
+                       <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></div>
+                       <span className="text-[10px] font-medium text-slate-500">Sincronizado</span>
                     </div>
                   </div>
                </div>
@@ -515,53 +641,54 @@ export default function LiderDashboard() {
             <div className="max-w-[1400px] mx-auto space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-12">
                <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
                   <div className="flex-1">
-                    <h2 className="text-2xl md:text-3xl font-black text-navy uppercase tracking-tighter italic leading-none">
-                      Equipamentos no <span className="text-primary not-italic">Setor</span>
+                    <h2 className="text-xl font-bold text-navy tracking-tight">
+                      Equipamentos no Setor
                     </h2>
-                    <p className="text-[10px] md:text-xs text-slate-400 font-black uppercase tracking-widest mt-2">Gerencie os ativos atualmente sob sua responsabilidade.</p>
+                    <p className="text-xs text-slate-500 font-normal mt-0.5">Gerencie os ativos atualmente sob sua responsabilidade.</p>
                     
-                    <div className="mt-6 flex flex-col md:flex-row gap-3">
+                    <div className="mt-4 flex flex-col md:flex-row gap-3">
                        <div className="relative flex-1 group">
-                          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors" size={18} />
+                          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors" size={16} />
                           <input 
                             type="text" 
                             placeholder="Buscar por nome ou serial..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full bg-white border border-slate-100 py-4 pl-12 pr-4 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all shadow-sm"
+                            className="w-full bg-white border border-slate-200 py-2.5 pl-11 pr-4 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all shadow-xs"
                           />
                        </div>
-                       
                     </div>
                   </div>
 
                   {selectedForTransfer.length > 0 && (
-                    <div className="bg-navy p-2 rounded-3xl flex items-center justify-between gap-2 shadow-2xl shadow-navy/40 animate-in zoom-in slide-in-from-right-4 duration-300 w-full md:w-auto mt-4 md:mt-0 flex-wrap md:flex-nowrap">
-                       <div className="px-3 md:px-4 py-2 flex-1 md:flex-none">
-                          <p className="text-[8px] font-black text-white/40 uppercase tracking-widest leading-none mb-1">Selecionados</p>
-                          <p className="text-lg font-black text-white leading-none">{selectedForTransfer.length}</p>
+                    <div className="bg-navy p-1.5 rounded-2xl flex items-center justify-between gap-2 shadow-lg shadow-navy/20 animate-in zoom-in slide-in-from-right-4 duration-200 w-full md:w-auto mt-4 md:mt-0 flex-wrap md:flex-nowrap">
+                       <div className="px-3 py-1 flex-1 md:flex-none">
+                          <p className="text-[9px] font-medium text-white/50 leading-none mb-1">Selecionados</p>
+                          <p className="text-base font-bold text-white leading-none">{selectedForTransfer.length}</p>
                        </div>
-                       <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                       <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
                          <button 
                            onClick={() => setIsTransferModalOpen(true)}
-                           className="bg-primary hover:bg-[#009e96] text-white px-4 md:px-5 h-[44px] rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-2"
+                           className="bg-primary hover:bg-[#00928a] text-white px-3.5 py-2 rounded-xl font-medium text-xs transition-all active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
                            title="Transferir para outro setor interno"
                          >
-                           Transferir Setor <ArrowRight size={14} />
+                           <span>Transferir Setor</span>
+                           <ArrowRight size={13} />
                          </button>
                          <button 
                            onClick={() => setIsExitModalOpen(true)}
-                           className="bg-rose-500 hover:bg-rose-600 text-white px-4 md:px-5 h-[44px] rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-2 shadow-lg shadow-rose-500/20"
+                           className="bg-rose-500 hover:bg-rose-600 text-white px-3.5 py-2 rounded-xl font-medium text-xs transition-all active:scale-95 flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
                            title="Dar baixa e enviar para saída na portaria"
                          >
-                           <LogOut size={14} /> Dar Saída na Usina
+                           <LogOut size={13} />
+                           <span>Dar Saída</span>
                          </button>
                          <button 
                            onClick={() => setSelectedForTransfer([])}
-                           className="h-[44px] w-[44px] flex items-center justify-center rounded-2xl text-white/60 hover:bg-white/10 hover:text-white transition-colors"
+                           className="h-8 w-8 flex items-center justify-center rounded-xl text-white/60 hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
                            title="Limpar seleção"
                          >
-                           <X size={18} />
+                           <X size={15} />
                          </button>
                        </div>
                     </div>
@@ -593,26 +720,162 @@ export default function LiderDashboard() {
           )}
 
           {activeSection === 'movements' && (
-            <div className="max-w-[1400px] mx-auto space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-12">
-               <div>
-                  <h2 className="text-2xl md:text-3xl font-black text-navy uppercase tracking-tighter italic leading-none">
-                    Histórico de <span className="text-primary not-italic">Movimentações</span>
-                  </h2>
-                  <p className="text-[10px] md:text-xs text-slate-400 font-black uppercase tracking-widest mt-2">Rastro completo de ativos que passaram pelo setor.</p>
+            <div className="max-w-[1400px] mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-12">
+               {/* Topo do Histórico */}
+               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                     <h2 className="text-xl font-bold text-navy tracking-tight">
+                       Histórico de Movimentações
+                     </h2>
+                     <p className="text-xs text-slate-500 font-normal mt-0.5">
+                       Rastro completo de ativos do setor {liderInfo?.sector || profile?.sector ? `(${toTitleCase(liderInfo?.sector || profile?.sector)})` : ''}.
+                     </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                     <button
+                       onClick={fetchMovements}
+                       className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl font-medium text-xs transition-all shadow-xs cursor-pointer active:scale-95"
+                       title="Atualizar lista de movimentações"
+                     >
+                       <RotateCcw className="w-3.5 h-3.5 text-primary" />
+                       <span>Atualizar</span>
+                     </button>
+                  </div>
                </div>
 
-               <div className="bg-white rounded-[2rem] border border-slate-100 shadow-xl overflow-hidden">
+               {/* Barra de Filtros e Busca (Estilo Portaria) */}
+               <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+                 {/* Input de Busca Textual */}
+                 <div className="relative flex-1">
+                   <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                   <input
+                     type="text"
+                     placeholder="Buscar por equipamento, empresa, responsável, setor, visto ou observação..."
+                     value={movementSearch}
+                     onChange={(e) => setMovementSearch(e.target.value)}
+                     className="w-full pl-10 pr-9 py-2.5 bg-slate-50 border border-slate-200/80 rounded-xl text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/10 focus:border-primary focus:bg-white transition-all"
+                   />
+                   {movementSearch && (
+                     <button
+                       onClick={() => setMovementSearch('')}
+                       className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 rounded-md transition-all cursor-pointer"
+                       title="Limpar busca"
+                     >
+                       <X className="w-3.5 h-3.5" />
+                     </button>
+                   )}
+                 </div>
+
+                 {/* Filtro por Data Específica */}
+                 <div className="flex items-center gap-2 self-start md:self-auto">
+                   <div className="relative flex items-center">
+                     <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                     <input
+                       type="date"
+                       value={movementDate}
+                       onChange={(e) => setMovementDate(e.target.value)}
+                       className="pl-9 pr-8 py-2 bg-slate-50 hover:bg-slate-100/70 border border-slate-200/80 rounded-xl text-xs text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-primary/10 focus:border-primary focus:bg-white transition-all cursor-pointer"
+                       title="Filtrar por data específica"
+                     />
+                     {movementDate && (
+                       <button
+                         onClick={() => setMovementDate('')}
+                         className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-slate-400 hover:text-slate-600 rounded-md transition-colors cursor-pointer"
+                         title="Limpar data"
+                       >
+                         <X className="w-3.5 h-3.5" />
+                       </button>
+                     )}
+                   </div>
+                   <button
+                     onClick={() => setMovementDate(prev => prev === getTodayStr() ? '' : getTodayStr())}
+                     className={`px-3 py-2 border rounded-xl text-xs font-medium transition-all cursor-pointer ${
+                       movementDate === getTodayStr()
+                         ? 'bg-navy text-white border-navy font-semibold shadow-xs'
+                         : 'bg-slate-50 hover:bg-slate-100 border-slate-200/80 text-slate-700'
+                     }`}
+                     title={movementDate === getTodayStr() ? 'Remover filtro de hoje' : 'Filtrar registros de hoje'}
+                   >
+                     Hoje
+                   </button>
+                 </div>
+
+                 {/* Segmented Control de Filtro: Todas / Entradas / Saídas */}
+                 <div className="flex items-center gap-1 bg-slate-100/80 p-1 rounded-xl border border-slate-200/60 self-start md:self-auto overflow-x-auto w-full md:w-auto">
+                   <button
+                     onClick={() => setMovementFilterType('ALL')}
+                     className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap cursor-pointer ${
+                       movementFilterType === 'ALL'
+                         ? 'bg-white text-navy font-semibold shadow-xs'
+                         : 'text-slate-600 hover:text-slate-900'
+                     }`}
+                   >
+                     Todas ({dateFilteredMovements.length})
+                   </button>
+                   <button
+                     onClick={() => setMovementFilterType('IN')}
+                     className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap cursor-pointer flex items-center gap-1 ${
+                       movementFilterType === 'IN'
+                         ? 'bg-emerald-600 text-white font-semibold shadow-xs'
+                         : 'text-slate-600 hover:text-emerald-700'
+                     }`}
+                   >
+                     <ArrowDownLeft className="w-3 h-3" />
+                     <span>Entradas ({inCount})</span>
+                   </button>
+                   <button
+                     onClick={() => setMovementFilterType('OUT')}
+                     className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap cursor-pointer flex items-center gap-1 ${
+                       movementFilterType === 'OUT'
+                         ? 'bg-blue-600 text-white font-semibold shadow-xs'
+                         : 'text-slate-600 hover:text-blue-700'
+                     }`}
+                   >
+                     <ArrowUpRight className="w-3 h-3" />
+                     <span>Saídas ({outCount})</span>
+                   </button>
+                 </div>
+               </div>
+
+               {loading ? (
+                 <LoadingState />
+               ) : filteredMovements.length === 0 ? (
+                 <div className="bg-white rounded-2xl border border-slate-200/80 p-12 text-center flex flex-col items-center shadow-xs">
+                    <div className="w-12 h-12 rounded-2xl bg-slate-50 text-slate-400 flex items-center justify-center mb-3">
+                      <Filter className="w-6 h-6" />
+                    </div>
+                    <h3 className="text-sm font-bold text-navy uppercase tracking-tight">Nenhuma movimentação encontrada</h3>
+                    <p className="text-xs text-slate-400 mt-1 max-w-sm">
+                      {movementSearch || movementDate || movementFilterType !== 'ALL'
+                        ? 'Nenhum registro corresponde aos filtros selecionados. Tente ajustar os parâmetros de busca.'
+                        : 'Não há registros de movimentações vinculadas ao seu setor até o momento.'}
+                    </p>
+                    {(movementSearch || movementDate || movementFilterType !== 'ALL') && (
+                      <button
+                        onClick={() => {
+                          setMovementSearch('');
+                          setMovementDate('');
+                          setMovementFilterType('ALL');
+                        }}
+                        className="mt-4 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-all cursor-pointer active:scale-95"
+                      >
+                        Limpar Filtros
+                      </button>
+                    )}
+                 </div>
+               ) : (
+               <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
                    {/* Desktop Table */}
                    <div className="hidden md:block overflow-x-auto">
                      <table className="w-full text-left">
-                       <thead className="bg-slate-50/50 border-b border-slate-100">
+                       <thead className="bg-slate-50/70 border-b border-slate-100">
                          <tr>
-                           <th className="px-4 py-4 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">Data/Hora</th>
-                           <th className="px-4 py-4 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">Equipamento</th>
-                           <th className="px-4 py-4 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">Origem → Destino</th>
-                           <th className="px-4 py-4 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">Responsável</th>
-                           <th className="px-4 py-4 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] text-center">Evidência</th>
-                           <th className="px-4 py-4 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] text-center">Visto</th>
+                           <th className="px-4 py-3.5 text-xs font-semibold text-slate-500">Data / Hora</th>
+                           <th className="px-4 py-3.5 text-xs font-semibold text-slate-500">Equipamento</th>
+                           <th className="px-4 py-3.5 text-xs font-semibold text-slate-500">Origem → Destino</th>
+                           <th className="px-4 py-3.5 text-xs font-semibold text-slate-500">Responsável</th>
+                           <th className="px-4 py-3.5 text-xs font-semibold text-slate-500 text-center">Evidência</th>
+                           <th className="px-4 py-3.5 text-xs font-semibold text-slate-500 text-center">Visto</th>
                          </tr>
                        </thead>
                         <tbody className="divide-y divide-slate-50">
@@ -780,6 +1043,7 @@ export default function LiderDashboard() {
                      </div>
                    )}
                </div>
+               )}
             </div>
           )}
         </main>
@@ -877,18 +1141,15 @@ export default function LiderDashboard() {
 // Subcomponents
 function RequestCard({ req, onApprove, onReject, onSelectCompany, onSelectMaterial }: any) {
   return (
-    <div className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-100 hover:border-primary/20 transition-all group relative overflow-hidden">
-      <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16 group-hover:bg-primary/10 transition-colors"></div>
-      
-      <div className="relative flex flex-col lg:flex-row gap-6 md:gap-10">
+    <div className="bg-white rounded-2xl p-5 md:p-6 shadow-xs border border-slate-200/80 hover:border-slate-300 hover:shadow-sm transition-all group relative overflow-hidden">
+      <div className="relative flex flex-col lg:flex-row gap-6 md:gap-8">
          <div className="flex-1">
-           <div className="flex items-center gap-4 mb-6">
+           <div className="flex items-center gap-3.5 mb-5">
               <button 
                onClick={() => onSelectCompany(req.profile)}
-               className="w-14 h-14 md:w-16 md:h-16 rounded-2xl flex items-center justify-center text-white font-bold text-xl md:text-2xl shadow-xl transition-all hover:scale-110 active:scale-95 overflow-hidden group/logo shrink-0"
+               className="w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-xs transition-all hover:scale-105 active:scale-95 overflow-hidden shrink-0 cursor-pointer"
                style={{ 
-                 backgroundColor: req.profile?.theme_color || '#0032A0',
-                 boxShadow: `0 10px 20px ${(req.profile?.theme_color || '#0032A0')}40`
+                 backgroundColor: req.profile?.theme_color || '#0032A0'
                }}
               >
                  {req.profile?.logo_url ? (
@@ -900,28 +1161,28 @@ function RequestCard({ req, onApprove, onReject, onSelectCompany, onSelectMateri
               <div className="flex-1 min-w-0">
                  <button 
                    onClick={() => onSelectCompany(req.profile)}
-                   className="text-lg md:text-xl font-black text-navy uppercase leading-none hover:text-primary transition-colors text-left truncate block w-full"
+                   className="text-base font-semibold text-navy hover:text-primary transition-colors text-left truncate block w-full cursor-pointer"
                  >
                    {req.profile?.full_name}
                  </button>
-                 <div className="flex items-center gap-2 mt-1.5 overflow-hidden">
-                    <span className="text-[9px] text-primary font-black uppercase tracking-widest whitespace-nowrap bg-primary/5 px-2 py-0.5 rounded-md">Terceirizada</span>
-                    <span className="text-slate-200">•</span>
-                    <span className="text-[9px] text-slate-400 font-bold uppercase whitespace-nowrap">
+                 <div className="flex items-center gap-2 mt-0.5 overflow-hidden">
+                    <span className="text-[10px] text-primary font-medium bg-primary/10 px-2 py-0.5 rounded-md">Terceirizada</span>
+                    <span className="text-slate-300">•</span>
+                    <span className="text-xs text-slate-400 font-normal">
                       {new Date(!req.entry_date.includes('Z') && !req.entry_date.includes('+') && !req.entry_date.match(/-\d{2}:\d{2}$/) ? `${req.entry_date}Z` : req.entry_date).toLocaleDateString('pt-BR')}
                     </span>
                  </div>
               </div>
            </div>
 
-           <div className="grid grid-cols-2 gap-3 md:gap-4">
-              <div className="bg-slate-50/50 p-4 rounded-2xl border border-slate-100/50 flex flex-col justify-center">
-                 <p className="text-[8px] md:text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">Setor Destino</p>
-                 <p className="font-black text-navy text-xs md:text-sm uppercase tracking-tighter truncate">{req.sector}</p>
+           <div className="grid grid-cols-2 gap-3">
+              <div className="bg-slate-50/70 p-3 rounded-xl border border-slate-100 flex flex-col justify-center">
+                 <p className="text-xs text-slate-500 font-medium mb-0.5">Setor Destino</p>
+                 <p className="font-semibold text-navy text-xs truncate">{req.sector}</p>
               </div>
-              <div className="bg-slate-50/50 p-4 rounded-2xl border border-slate-100/50 flex flex-col justify-center">
-                 <p className="text-[8px] md:text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">Horário Previsto</p>
-                 <p className="font-black text-navy text-xs md:text-sm uppercase tracking-tighter">
+              <div className="bg-slate-50/70 p-3 rounded-xl border border-slate-100 flex flex-col justify-center">
+                 <p className="text-xs text-slate-500 font-medium mb-0.5">Horário Previsto</p>
+                 <p className="font-semibold text-navy text-xs">
                    {new Date(!req.entry_date.includes('Z') && !req.entry_date.includes('+') && !req.entry_date.match(/-\d{2}:\d{2}$/) ? `${req.entry_date}Z` : req.entry_date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                  </p>
               </div>
@@ -986,6 +1247,20 @@ function RequestCard({ req, onApprove, onReject, onSelectCompany, onSelectMateri
   );
 }
 
+const toTitleCase = (str?: string) => {
+  if (!str) return '';
+  return str
+    .trim()
+    .split(/\s+/)
+    .map(word => {
+      if (word.length <= 2 && ['de', 'da', 'do', 'das', 'dos', 'em', 'e'].includes(word.toLowerCase())) {
+        return word.toLowerCase();
+      }
+      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+    })
+    .join(' ');
+};
+
 function MaterialCard({ mat, isSelected, onSelect, onAccept, onReject, onCancelTransfer, onViewDetails, onViewPhotos, currentSectorId }: any) {
   const isMoving = mat.status === 'MOVING';
   const isIncoming = isMoving && mat.pending_sector_id === currentSectorId;
@@ -1000,55 +1275,49 @@ function MaterialCard({ mat, isSelected, onSelect, onAccept, onReject, onCancelT
   const latestObs = latestMovementWithObs?.observation;
 
   return (
-    <div className={`bg-white rounded-[2rem] p-5 border transition-all relative overflow-hidden group ${
-      isSelected ? 'border-primary shadow-xl shadow-primary/10 bg-primary/5' : 'border-slate-100 shadow-sm hover:border-primary/20 hover:shadow-md'
+    <div className={`bg-white rounded-2xl p-5 border transition-all relative overflow-hidden group ${
+      isSelected ? 'border-primary ring-2 ring-primary/20 bg-primary/5 shadow-xs' : 'border-slate-200/80 shadow-xs hover:border-slate-300 hover:shadow-sm'
     }`}>
-       <div className="flex items-start justify-between mb-4">
-          <div className="flex items-center gap-3 min-w-0">
-             <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${isSelected ? 'bg-primary text-white shadow-lg shadow-primary/30' : 'bg-slate-50 text-slate-400 group-hover:bg-primary/10 group-hover:text-primary'}`}>
-                <Package size={20} />
+       <div className="flex items-start justify-between gap-3 mb-3.5">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+             <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all shrink-0 ${isSelected ? 'bg-primary text-white shadow-xs' : 'bg-slate-50 text-slate-400 group-hover:bg-primary/10 group-hover:text-primary'}`}>
+                <Package size={18} />
              </div>
-             <div className="min-w-0">
-                <h4 className="font-black text-navy uppercase text-[11px] leading-tight mb-1 group-hover:text-primary transition-colors truncate">{mat.name}</h4>
-                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest truncate">{mat.serial_number || 'S/ Serial'}</p>
+             <div className="min-w-0 flex-1">
+                <h4 className="font-semibold text-navy text-sm leading-snug group-hover:text-primary transition-colors">
+                  {toTitleCase(mat.name)}
+                </h4>
+                <p className="text-xs text-slate-400 font-mono mt-0.5">{mat.serial_number || mat.code || 'S/ Serial'}</p>
              </div>
           </div>
-          <div className="shrink-0 flex items-center gap-1.5">
-            {hasDiscrepancy && (
-              <span className="text-[8px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1 shadow-sm">
-                <AlertTriangle size={10} className="text-amber-600" /> Divergência
+          {(isMoving || mat.status === 'WAITING_EXIT') && (
+            <div className="shrink-0 flex items-center gap-1.5">
+              <span className={`text-[10px] font-medium px-2 py-0.5 rounded-md border shadow-xs ${
+                mat.status === 'MOVING' ? 'bg-amber-50 text-amber-700 border-amber-200/80' :
+                'bg-rose-50 text-rose-700 border-rose-200/80'
+              }`}>
+                {mat.status === 'MOVING' ? (isIncoming ? 'Chegando' : 'Saindo') : 'Aguardando Saída'}
               </span>
-            )}
-            <span className={`text-[8px] font-black uppercase px-2.5 py-1 rounded-full border shadow-sm ${
-              mat.status === 'IN_PLANTA' ? 'bg-emerald-50 text-emerald-500 border-emerald-100' :
-              mat.status === 'MOVING' ? 'bg-amber-50 text-amber-500 border-amber-100 animate-pulse' :
-              mat.status === 'WAITING_EXIT' ? 'bg-rose-50 text-rose-500 border-rose-100 animate-pulse' :
-              mat.status === 'OUT_PLANTA' ? 'bg-slate-100 text-slate-500 border-slate-200' :
-              'bg-slate-50 text-slate-400 border-slate-100'
-            }`}>
-              {mat.status === 'MOVING' ? (isIncoming ? 'Chegando' : 'Saindo') :
-               mat.status === 'WAITING_EXIT' ? 'Aguardando Saída' :
-               mat.status === 'OUT_PLANTA' ? 'Fora da Usina' : 'Em Planta'}
-            </span>
-          </div>
+            </div>
+          )}
        </div>
 
-       <div className="bg-slate-50/50 rounded-2xl p-4 mb-4 border border-slate-100/50 space-y-2">
-          <div className="flex justify-between items-center">
-             <span className="text-[8px] text-slate-400 font-black uppercase tracking-widest">Proprietário</span>
-             <span className="text-[10px] font-black text-navy uppercase truncate max-w-[120px]">{mat.request?.profile?.full_name}</span>
+       <div className="bg-slate-50/70 rounded-xl p-3 mb-3 border border-slate-100 space-y-1.5">
+          <div className="flex justify-between items-center text-xs">
+             <span className="text-[11px] text-slate-400 font-medium">Proprietário</span>
+             <span className="font-medium text-navy truncate max-w-[160px]">{toTitleCase(mat.request?.profile?.full_name) || '---'}</span>
           </div>
-          <div className="h-px bg-slate-100/50 w-full"></div>
-          <div className="flex justify-between items-center">
-             <span className="text-[8px] text-slate-400 font-black uppercase tracking-widest">Condição</span>
-             <span className="text-[10px] font-black text-primary uppercase">{mat.condition}</span>
+          <div className="h-px bg-slate-100 w-full"></div>
+          <div className="flex justify-between items-center text-xs">
+             <span className="text-[11px] text-slate-400 font-medium">Condição</span>
+             <span className="font-medium text-primary uppercase">{mat.condition || 'BOM'}</span>
           </div>
        </div>
 
        {/* Badges de Histórico de Passagens e Evidências Fotográficas */}
        {movementsCount > 0 && (
          <div className="flex flex-wrap items-center gap-1.5 mb-3">
-           <span className="text-[9px] font-black uppercase tracking-wider px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 flex items-center gap-1">
+           <span className="text-[10px] font-medium px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 flex items-center gap-1">
              <History size={11} className="text-primary" /> {movementsCount} {movementsCount === 1 ? 'passagem' : 'passagens'}
            </span>
            {totalPhotos > 0 && (
@@ -1063,7 +1332,7 @@ function MaterialCard({ mat, isSelected, onSelect, onAccept, onReject, onCancelT
                    onViewDetails();
                  }
                }}
-               className="text-[9px] font-black uppercase tracking-wider px-2.5 py-1 rounded-lg bg-cyan-50 text-cyan-700 border border-cyan-200/70 hover:bg-cyan-100 flex items-center gap-1 transition-all active:scale-95 cursor-pointer"
+               className="text-[10px] font-medium px-2.5 py-1 rounded-lg bg-cyan-50 text-cyan-700 border border-cyan-200/70 hover:bg-cyan-100 flex items-center gap-1 transition-all active:scale-95 cursor-pointer"
                title="Ver fotos tiradas nas passagens"
              >
                <Camera size={11} className="text-cyan-600" /> {totalPhotos} {totalPhotos === 1 ? 'foto' : 'fotos'}
@@ -1075,21 +1344,21 @@ function MaterialCard({ mat, isSelected, onSelect, onAccept, onReject, onCancelT
        {/* Preview do Último Estado/Observação Registrada */}
        {latestObs && (
          <div className="bg-slate-50/80 rounded-xl p-2.5 mb-3 border border-slate-100">
-           <p className="text-[8px] font-black text-slate-400 uppercase tracking-wider flex items-center gap-1 mb-0.5">
+           <p className="text-[10px] font-medium text-slate-400 flex items-center gap-1 mb-0.5">
              <ClipboardList size={10} className="text-primary" /> Último Estado Registrado:
            </p>
-           <p className="text-[10px] text-navy font-semibold italic line-clamp-2 leading-relaxed">
+           <p className="text-xs text-navy font-normal italic line-clamp-2 leading-relaxed">
              "{latestObs}"
            </p>
          </div>
        )}
 
         {hasDiscrepancy && (
-          <div className="bg-amber-50 rounded-2xl p-3.5 mb-4 border border-amber-200 flex items-start gap-2.5">
+          <div className="bg-amber-50/70 rounded-xl p-3 mb-3 border border-amber-200/70 flex items-start gap-2.5">
             <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
             <div className="min-w-0">
-              <p className="text-[8px] font-black text-amber-900 uppercase tracking-wider">Atenção: Remessa com Divergência</p>
-              <p className="text-[10px] text-amber-800 font-bold leading-snug mt-0.5 line-clamp-2">
+              <p className="text-[11px] font-semibold text-amber-900">Atenção: Remessa com Divergência</p>
+              <p className="text-xs text-amber-800 font-normal leading-snug mt-0.5 line-clamp-2">
                 {discrepancyNote || 'Divergência registrada na conferência da portaria.'}
               </p>
             </div>
@@ -1101,47 +1370,47 @@ function MaterialCard({ mat, isSelected, onSelect, onAccept, onReject, onCancelT
             <>
               <button 
                 onClick={onAccept}
-                className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white font-black text-[10px] uppercase tracking-widest py-3.5 rounded-xl shadow-lg shadow-emerald-500/20 transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+                className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white font-medium text-xs py-2.5 rounded-xl shadow-xs transition-all active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
               >
-                <Check className="w-4 h-4" /> Aceitar
+                <Check className="w-4 h-4" /> <span>Aceitar</span>
               </button>
               <button 
                 onClick={onReject}
-                className="flex-1 bg-white border border-rose-200 text-rose-500 hover:bg-rose-50 font-black text-[10px] uppercase tracking-widest py-3.5 rounded-xl transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+                className="flex-1 bg-white border border-rose-200 text-rose-600 hover:bg-rose-50 font-medium text-xs py-2.5 rounded-xl transition-all active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
               >
-                <X className="w-4 h-4" /> Recusar
+                <X className="w-4 h-4" /> <span>Recusar</span>
               </button>
             </>
           ) : isOutgoing ? (
             <>
               <button 
                 onClick={onCancelTransfer}
-                className="flex-1 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-600 font-black text-[10px] uppercase tracking-widest py-3.5 rounded-xl transition-all active:scale-95 flex items-center justify-center gap-2 shadow-sm cursor-pointer group/cancel"
+                className="flex-1 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-600 font-medium text-xs py-2.5 rounded-xl transition-all active:scale-95 flex items-center justify-center gap-1.5 shadow-xs cursor-pointer group/cancel"
               >
-                <X className="w-4 h-4 group-hover/cancel:scale-110 transition-transform" /> Cancelar Envio
+                <X className="w-4 h-4 group-hover/cancel:scale-110 transition-transform" /> <span>Cancelar Envio</span>
               </button>
               <button 
                 onClick={onViewDetails}
-                className="w-12 h-12 bg-white border border-slate-200 text-slate-300 hover:text-primary hover:border-primary/40 rounded-xl flex items-center justify-center transition-all active:scale-95 group/info cursor-pointer"
+                className="w-10 h-10 bg-white border border-slate-200 text-slate-400 hover:text-primary hover:border-primary/40 rounded-xl flex items-center justify-center transition-all active:scale-95 cursor-pointer"
               >
-                <Eye size={18} className="group-hover/info:scale-110 transition-transform" />
+                <Eye size={16} />
               </button>
             </>
           ) : (
             <>
               <button 
                 onClick={() => onSelect(mat.id)}
-                className={`flex-1 font-black text-[10px] uppercase tracking-widest py-3.5 rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm cursor-pointer ${
-                  isSelected ? 'bg-navy text-white shadow-navy/20' : 'bg-white border border-slate-200 text-slate-500 hover:bg-slate-50'
+                className={`flex-1 font-medium text-xs py-2.5 rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-xs cursor-pointer ${
+                  isSelected ? 'bg-navy text-white shadow-navy/20' : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
                 }`}
               >
-                {isSelected ? <><Check size={14} /> Selecionado</> : 'Selecionar'}
+                {isSelected ? <><Check size={14} /> <span>Selecionado</span></> : 'Selecionar'}
               </button>
               <button 
                 onClick={onViewDetails}
-                className="w-12 h-12 bg-white border border-slate-200 text-slate-300 hover:text-primary hover:border-primary/40 rounded-xl flex items-center justify-center transition-all active:scale-95 group/info cursor-pointer"
+                className="w-10 h-10 bg-white border border-slate-200 text-slate-400 hover:text-primary hover:border-primary/40 rounded-xl flex items-center justify-center transition-all active:scale-95 cursor-pointer"
               >
-                <Eye size={18} className="group-hover/info:scale-110 transition-transform" />
+                <Eye size={16} />
               </button>
             </>
           )}

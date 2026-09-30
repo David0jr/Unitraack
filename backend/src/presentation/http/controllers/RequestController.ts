@@ -387,20 +387,24 @@ export class RequestController {
       }
 
       let sectorId: string | undefined;
-      let actorId: string | undefined;
-      if (profile.role === 'LIDER_SETOR') {
-        actorId = profile.id;
-        sectorId = profile.sector_id || undefined;
+      const isLider = profile.role === 'LIDER_SETOR' || (req.baseUrl && req.baseUrl.includes('lider'));
+
+      if (isLider) {
+        sectorId = profile.sector_id || (req.query.sectorId as string) || undefined;
         if (!sectorId && profile.sector) {
           sectorId = await requestRepo.findSectorByName(tenantIdToAudit, profile.sector) || undefined;
         }
+      } else if (req.query.sectorId) {
+        sectorId = req.query.sectorId as string;
       }
 
-      const isPortaria = profile.role === 'PORTARIA' || (req.baseUrl && req.baseUrl.includes('portaria')) || req.query.onlyPortaria === 'true';
+      // Se for líder, NUNCA é portaria! Líder deve ver apenas as movimentações do seu setor.
+      const isPortaria = !isLider && (profile.role === 'PORTARIA' || req.query.onlyPortaria === 'true');
 
       const useCase = new GetAuditHistory(requestRepo);
-      const history = await useCase.execute(tenantIdToAudit, sectorId, actorId, isPortaria);
-      console.log(`[RequestController] Enviando ${history.length} registros para o cliente (onlyPortaria: ${isPortaria}).`);
+      // Para líder de setor, não restringimos por actorId para permitir ver entradas/transferências recebidas
+      const history = await useCase.execute(tenantIdToAudit, sectorId, undefined, isPortaria);
+      console.log(`[RequestController] Enviando ${history.length} registros para o cliente (onlyPortaria: ${isPortaria}, sectorId: ${sectorId}).`);
       return ApiResponse.success(res, history);
     } catch (error: any) {
       console.error("[RequestController.getAuditHistory] Erro:", error);

@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   ShieldCheck, 
   LayoutDashboard, 
   Package, 
   History, 
-  LogOut
+  LogOut,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { useAuth } from '../../../../contexts/AuthContext';
 import { useTenant } from '../../../../contexts/TenantContext';
@@ -33,63 +35,75 @@ export const LiderSidebar: React.FC<LiderSidebarProps> = ({
 }) => {
   const { signOut, profile } = useAuth();
   const { tenant } = useTenant();
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   return (
-    <aside className="hidden lg:flex w-72 bg-navy flex-col shrink-0 border-r border-navy/10 shadow-xl z-50">
-      <div className="p-8 h-24 flex items-center gap-4 border-b border-white/5">
-        <div className="w-10 h-10 bg-primary/20 rounded-xl flex items-center justify-center border border-primary/20">
-           <ShieldCheck className="w-6 h-6 text-primary shadow-xl" />
-        </div>
-        <div className="flex flex-col">
-          <span className="text-white font-bold uppercase text-sm tracking-tighter leading-none">
-            {sectorName ? `Setor ${sectorName}` : (tenant?.name || profile?.tenant?.name || 'Usina')}
-          </span>
-          <span className="text-[9px] text-primary font-bold uppercase tracking-widest mt-1">Líder Dashboard</span>
-        </div>
+    <aside className={`hidden lg:flex ${isCollapsed ? 'w-20' : 'w-60'} bg-navy flex-col shrink-0 border-r border-white/10 shadow-2xl z-50 select-none relative transition-all duration-300 ease-in-out`}>
+      {/* Botão de Recolher / Expandir Menu */}
+      <button
+        onClick={() => setIsCollapsed(!isCollapsed)}
+        className="absolute -right-3.5 top-5 w-7 h-7 bg-white border border-slate-200/80 rounded-full shadow-md flex items-center justify-center text-slate-600 hover:text-navy hover:scale-105 transition-all z-50 cursor-pointer"
+        title={isCollapsed ? "Expandir menu" : "Recolher menu"}
+      >
+        {isCollapsed ? (
+          <ChevronRight className="w-3.5 h-3.5 stroke-[2.5]" />
+        ) : (
+          <ChevronLeft className="w-3.5 h-3.5 stroke-[2.5]" />
+        )}
+      </button>
+
+      {/* Topo / Logo */}
+      <div className={`px-4 h-16 flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'} border-b border-white/10 shrink-0 overflow-hidden`}>
+        {isCollapsed ? (
+          <img 
+            src="/logo-lins-symbol.png" 
+            alt="Usina Lins" 
+            className="w-8 h-8 object-contain shrink-0 animate-in fade-in zoom-in-95 duration-200"
+          />
+        ) : (
+          <img 
+            src={tenant?.logo_url || profile?.tenant?.logo_url || '/logo-lins-white.png'} 
+            alt={tenant?.name || profile?.tenant?.name || 'Usina Lins'} 
+            className="h-7 w-auto max-w-[150px] object-contain transition-all"
+            onError={(e: any) => {
+              e.currentTarget.src = '/logo-lins-white.png';
+            }}
+          />
+        )}
       </div>
 
-      <nav className="flex-1 p-6 space-y-3">
+      <nav className="flex-1 p-3 space-y-1.5 overflow-y-auto overflow-x-hidden">
         <NavButton 
           active={activeSection === 'approvals'} 
           onClick={() => setActiveSection('approvals')}
-          icon={<LayoutDashboard className="w-5 h-5" />}
+          icon={<LayoutDashboard className="w-[18px] h-[18px] shrink-0" />}
           label="Aprovações"
+          isCollapsed={isCollapsed}
         />
         <NavButton 
           active={activeSection === 'my-sector'} 
           onClick={() => setActiveSection('my-sector')}
-          icon={<Package className="w-5 h-5" />}
+          icon={<Package className="w-[18px] h-[18px] shrink-0" />}
           label="Meu Setor"
+          isCollapsed={isCollapsed}
         />
         <NavButton 
           active={activeSection === 'movements'} 
           onClick={() => setActiveSection('movements')}
-          icon={<History className="w-5 h-5" />}
+          icon={<History className="w-[18px] h-[18px] shrink-0" />}
           label="Movimentações"
+          isCollapsed={isCollapsed}
         />
       </nav>
 
-      <div className="p-4 border-t border-white/5">
-        <div className="flex items-center gap-3 px-4 py-2 hover:bg-white/5 rounded-xl transition-all cursor-default group/profile mb-2">
-           <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center text-primary font-bold text-[10px] border border-primary/10 shrink-0">
-             {userName ? userName[0] : 'L'}
-           </div>
-           <div className="flex flex-col overflow-hidden">
-             <p className="text-white/80 font-bold text-[10px] uppercase truncate leading-tight group-hover/profile:text-white transition-colors">
-               {userName || 'Líder'}
-             </p>
-             <p className="text-[8px] text-primary font-bold uppercase tracking-widest opacity-50 group-hover/profile:opacity-100 transition-opacity truncate">
-               {userRole ? (ROLE_MAP[userRole] || userRole) : 'Líder de Setor'}
-             </p>
-           </div>
-        </div>
-        
+      <div className="p-3 border-t border-white/10 shrink-0">
         <button 
           onClick={signOut} 
-          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-white/30 hover:text-red-400 hover:bg-red-400/10 transition-all group"
+          title={isCollapsed ? "Encerrar Sessão" : undefined}
+          className={`w-full flex items-center ${isCollapsed ? 'justify-center p-2.5' : 'gap-2.5 px-3.5 py-2.5'} rounded-xl text-white/60 hover:text-rose-400 hover:bg-rose-500/10 transition-all text-xs font-medium`}
         >
-          <LogOut className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
-          <span className="text-[9px] font-bold uppercase tracking-widest">Encerrar Sessão</span>
+          <LogOut className="w-4 h-4 shrink-0" />
+          {!isCollapsed && <span>Encerrar Sessão</span>}
         </button>
       </div>
     </aside>
@@ -100,23 +114,27 @@ function NavButton({
   active, 
   onClick, 
   icon, 
-  label 
+  label,
+  isCollapsed 
 }: { 
   active: boolean, 
   onClick: () => void, 
   icon: any, 
-  label: string 
+  label: string,
+  isCollapsed?: boolean 
 }) {
   return (
     <button 
       onClick={onClick}
-      className={`w-full flex items-center gap-4 p-4 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all ${
+      title={isCollapsed ? label : undefined}
+      className={`w-full flex items-center ${isCollapsed ? 'justify-center p-3' : 'gap-3 px-3.5 py-3'} rounded-2xl text-xs font-medium transition-all ${
         active 
-          ? 'bg-primary text-white shadow-lg shadow-primary/20 scale-[1.02]' 
-          : 'text-white/40 hover:text-white hover:bg-white/5'
+          ? 'bg-primary text-white font-semibold shadow-md shadow-primary/20' 
+          : 'text-white/70 hover:text-white hover:bg-white/5'
       }`}
     >
-      {icon} {label}
+      {icon}
+      {!isCollapsed && <span className="truncate">{label}</span>}
     </button>
   );
 }

@@ -7,16 +7,25 @@
   --color-tertiary: var(--tertiary-color, #001D4A);
   --color-brand: var(--primary-color, #00B5AD);
   
-  --font-brand: "Noto Sans", sans-serif;
+  --font-brand: "Roboto", sans-serif;
+  --font-sans: "Roboto", sans-serif;
 }
 
 @layer base {
-  body {
-    background-color: white;
-    color: #001D4A; /* navy */
-    font-family: "Noto Sans", sans-serif;
+  *, ::before, ::after {
+    font-family: "Roboto", sans-serif !important;
+  }
+
+  html, body {
+    background-color: #F8FAFC;
+    color: var(--navy-color, #001D4A);
+    font-family: "Roboto", sans-serif !important;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+
+  button, input, optgroup, select, textarea {
+    font-family: inherit !important;
   }
 
   /* Minimalist Scrollbar Implementation */
