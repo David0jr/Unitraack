@@ -557,76 +557,98 @@ export default function TerceirizadaDashboard() {
 
       {/* Material Detail Modal */}
       {selectedMaterial && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200" onClick={() => setSelectedMaterial(null)}>
-          <div className="bg-white w-full max-w-xl rounded-2xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-150 flex flex-col md:flex-row max-h-[85vh] border border-slate-200" onClick={(e) => e.stopPropagation()}>
-            <div className="md:w-[45%] relative bg-slate-100 shrink-0 min-h-[200px]">
-              {selectedMaterial.image_url || selectedMaterial.imageUrl ? (
-                <img 
-                  src={selectedMaterial.image_url || selectedMaterial.imageUrl} 
-                  alt={selectedMaterial.name} 
-                  className="w-full h-full object-cover" 
-                  onError={(e: any) => {
-                    e.currentTarget.style.display = 'none';
-                    const fallback = e.currentTarget.parentElement?.querySelector('.fallback-no-img');
-                    if (fallback) fallback.classList.remove('hidden');
-                  }}
-                />
-              ) : null}
-              <div className={`fallback-no-img w-full h-full flex flex-col items-center justify-center text-slate-400 ${selectedMaterial.image_url || selectedMaterial.imageUrl ? 'hidden' : ''}`}>
-                <Package className="w-10 h-10 opacity-30 mb-1" />
-                <p className="text-xs font-normal text-slate-400">Sem imagem</p>
+        <div 
+          className="fixed inset-0 z-[110] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200 cursor-pointer overflow-y-auto" 
+          onClick={() => setSelectedMaterial(null)}
+        >
+          <div 
+            className="bg-white w-full max-w-xl max-h-[90vh] my-auto rounded-2xl sm:rounded-3xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-150 flex flex-col border border-slate-200 cursor-default" 
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header fixo no topo */}
+            <div className="p-4 sm:p-5 border-b border-slate-100 flex justify-between items-center shrink-0 bg-white">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="p-2 bg-primary/10 rounded-xl text-primary shrink-0">
+                  <Package className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[10px] text-primary font-bold uppercase tracking-wider leading-none">Equipamento</p>
+                  <h3 className="text-slate-900 font-bold text-sm sm:text-base mt-0.5 truncate">{selectedMaterial.name}</h3>
+                </div>
               </div>
+              <button 
+                onClick={() => setSelectedMaterial(null)} 
+                className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-all cursor-pointer shrink-0 ml-2"
+                title="Fechar"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
-            <div className="md:w-[55%] flex flex-col overflow-hidden bg-white">
-              <div className="p-4 border-b border-slate-100 flex justify-between items-center shrink-0">
-                 <div className="flex items-center gap-2">
-                    <div className="p-1.5 bg-primary/10 rounded-md text-primary">
-                      <Package className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <p className="text-[10px] text-primary font-semibold leading-none">Equipamento</p>
-                      <h3 className="text-slate-900 font-bold text-xs mt-0.5 truncate max-w-[170px]">{selectedMaterial.name}</h3>
-                    </div>
-                 </div>
-                 <button onClick={() => setSelectedMaterial(null)} className="p-1 text-slate-400 hover:text-slate-700 rounded-md transition-all cursor-pointer">
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-              <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] text-slate-400 font-medium">Condição:</span>
-                  <span className="bg-primary/10 text-primary text-xs font-semibold px-2 py-0.5 rounded-md">
-                    {selectedMaterial.condition || 'USADO'}
-                  </span>
+
+            {/* Conteúdo rolável */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 custom-scrollbar">
+              {/* Imagem do Equipamento */}
+              <div className="w-full bg-slate-50 rounded-2xl overflow-hidden border border-slate-200/80 h-48 sm:h-64 flex items-center justify-center relative">
+                {selectedMaterial.image_url || selectedMaterial.imageUrl ? (
+                  <img 
+                    src={selectedMaterial.image_url || selectedMaterial.imageUrl} 
+                    alt={selectedMaterial.name} 
+                    className="w-full h-full object-contain p-2 hover:scale-105 transition-transform duration-300" 
+                    onError={(e: any) => {
+                      e.currentTarget.style.display = 'none';
+                      const fallback = e.currentTarget.parentElement?.querySelector('.fallback-no-img');
+                      if (fallback) fallback.classList.remove('hidden');
+                    }}
+                  />
+                ) : null}
+                <div className={`fallback-no-img w-full h-full flex flex-col items-center justify-center text-slate-400 ${selectedMaterial.image_url || selectedMaterial.imageUrl ? 'hidden' : ''}`}>
+                  <Package className="w-10 h-10 opacity-30 mb-1" />
+                  <p className="text-xs font-medium text-slate-400">Sem imagem anexada</p>
                 </div>
-                <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-100">
-                  <div>
-                    <p className="text-[10px] text-slate-400 font-medium mb-0.5">Fabricante</p>
-                    <p className="font-semibold text-slate-800 text-xs truncate">{selectedMaterial.brand || '---'}</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-slate-400 font-medium mb-0.5">Modelo</p>
-                    <p className="font-semibold text-slate-800 text-xs truncate">{selectedMaterial.model || '---'}</p>
-                  </div>
-                  <div className="col-span-2">
-                    <p className="text-[10px] text-slate-400 font-medium mb-0.5">Nº de Série</p>
-                    <p className="font-mono text-xs font-medium text-slate-700 truncate">{selectedMaterial.serial_number || '---'}</p>
-                  </div>
+              </div>
+
+              {/* Condição */}
+              <div className="flex items-center justify-between bg-slate-50/80 px-4 py-2.5 rounded-xl border border-slate-100">
+                <span className="text-xs font-medium text-slate-500">Condição Física:</span>
+                <span className="bg-primary/10 text-primary text-xs font-semibold px-2.5 py-0.5 rounded-md border border-primary/20">
+                  {selectedMaterial.condition || 'USADO'}
+                </span>
+              </div>
+
+              {/* Especificações */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-slate-50/80 p-3 rounded-xl border border-slate-100">
+                  <p className="text-[10px] text-slate-400 font-medium mb-0.5 uppercase tracking-wider">Fabricante</p>
+                  <p className="font-semibold text-slate-800 text-xs sm:text-sm truncate">{selectedMaterial.brand || '---'}</p>
                 </div>
-                {selectedMaterial.description && (
-                  <div className="pt-2 border-t border-slate-100">
-                     <p className="text-[10px] text-slate-400 font-medium mb-1">Notas Adicionais</p>
-                     <p className="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-lg border border-slate-100 leading-relaxed font-normal">
-                       "{selectedMaterial.description}"
-                     </p>
-                  </div>
-                )}
+                <div className="bg-slate-50/80 p-3 rounded-xl border border-slate-100">
+                  <p className="text-[10px] text-slate-400 font-medium mb-0.5 uppercase tracking-wider">Modelo</p>
+                  <p className="font-semibold text-slate-800 text-xs sm:text-sm truncate">{selectedMaterial.model || '---'}</p>
+                </div>
+                <div className="col-span-2 bg-slate-50/80 p-3 rounded-xl border border-slate-100">
+                  <p className="text-[10px] text-slate-400 font-medium mb-0.5 uppercase tracking-wider">Nº de Série</p>
+                  <p className="font-mono text-xs sm:text-sm font-medium text-slate-700 truncate">{selectedMaterial.serial_number || '---'}</p>
+                </div>
               </div>
-              <div className="p-4 pt-2 border-t border-slate-100">
-                <button onClick={() => setSelectedMaterial(null)} className="w-full bg-slate-900 text-white font-medium text-xs py-2 rounded-lg hover:bg-slate-800 transition-all cursor-pointer">
-                  Fechar Detalhes
-                </button>
-              </div>
+
+              {selectedMaterial.description && (
+                <div className="bg-slate-50/80 p-3.5 rounded-xl border border-slate-100">
+                  <p className="text-[10px] text-slate-400 font-medium mb-1 uppercase tracking-wider">Notas Adicionais</p>
+                  <p className="text-xs text-slate-600 leading-relaxed font-normal whitespace-pre-wrap">
+                    "{selectedMaterial.description}"
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Rodapé */}
+            <div className="p-4 border-t border-slate-100 bg-slate-50/50 shrink-0">
+              <button 
+                onClick={() => setSelectedMaterial(null)} 
+                className="w-full bg-slate-900 text-white font-medium text-xs py-3 rounded-xl hover:bg-slate-800 transition-all cursor-pointer active:scale-[0.99]"
+              >
+                Fechar Detalhes
+              </button>
             </div>
           </div>
         </div>

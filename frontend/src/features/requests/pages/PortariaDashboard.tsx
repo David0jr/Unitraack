@@ -1455,58 +1455,79 @@ export default function PortariaDashboard() {
       {detailMaterial && (
         <div 
           onClick={() => setDetailMaterial(null)}
-          className="fixed inset-0 z-[120] flex items-center justify-center p-4 sm:p-6 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer overflow-y-auto"
+          className="fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-6 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200 cursor-pointer overflow-y-auto"
         >
            <div 
              onClick={(e) => e.stopPropagation()}
-             className="bg-white w-full max-w-3xl max-h-[calc(100dvh-2rem)] sm:max-h-[90vh] my-auto rounded-2xl overflow-hidden shadow-2xl flex flex-col md:flex-row animate-in zoom-in-95 duration-150 cursor-default border border-slate-200"
+             className="bg-white w-full max-w-2xl max-h-[90vh] my-auto rounded-2xl sm:rounded-3xl overflow-hidden shadow-2xl flex flex-col animate-in zoom-in-95 duration-150 cursor-default border border-slate-200"
            >
-              <div className="md:w-1/2 bg-slate-100 relative h-52 sm:h-64 md:h-auto md:min-h-[320px] shrink-0">
-                 {detailMaterial.image_url ? (
-                   <img src={detailMaterial.image_url} alt={detailMaterial.name} className="w-full h-full object-cover" />
-                 ) : (
-                   <div className="w-full h-full min-h-[180px] flex flex-col items-center justify-center text-slate-300">
-                      <Camera className="w-14 h-14 mb-2 opacity-40" />
-                      <p className="font-medium text-xs text-slate-400">Sem Foto Disponível</p>
-                   </div>
-                 )}
-                 <div className="absolute top-4 left-4">
-                    <span className="bg-slate-900/80 backdrop-blur-xs text-white text-xs font-medium px-3 py-1 rounded-full shadow-xs">Visualização Técnica</span>
-                 </div>
+              {/* Header fixo no topo com Botao de Fechar */}
+              <div className="p-4 sm:p-5 border-b border-slate-100 flex justify-between items-center shrink-0 bg-white">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="p-2 bg-primary/10 rounded-xl text-primary shrink-0">
+                    <Package className="w-5 h-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] text-primary font-bold uppercase tracking-wider leading-none">Equipamento</p>
+                    <h2 className="text-base sm:text-lg font-bold text-slate-900 truncate mt-0.5">{detailMaterial.name}</h2>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setDetailMaterial(null)} 
+                  className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-all shrink-0 cursor-pointer ml-2"
+                  title="Fechar"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
-              <div className="md:w-1/2 p-6 md:p-8 flex flex-col justify-between overflow-y-auto">
-                 <div>
-                    <div className="flex justify-between items-start mb-6 gap-3">
-                       <div>
-                          <p className="text-xs font-semibold text-primary mb-1">Equipamento</p>
-                          <h2 className="text-xl md:text-2xl font-bold text-slate-900 leading-snug">{detailMaterial.name}</h2>
-                       </div>
-                       <button onClick={() => setDetailMaterial(null)} className="p-2 bg-slate-100 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-lg transition-all shrink-0 cursor-pointer">
-                          <X className="w-5 h-5" />
-                       </button>
-                    </div>
 
-                    <div className="grid grid-cols-2 gap-4 mb-6">
-                       <DetailItem label="Marca" value={detailMaterial.brand || '---'} />
-                       <DetailItem label="Modelo" value={detailMaterial.model || '---'} />
-                       <DetailItem label="Nº de Série" value={detailMaterial.serial_number || 'REGISTRO ÚNICO'} />
-                       <DetailItem label="Condição" value={detailMaterial.condition || 'USADO'} />
+              {/* Corpo com scroll completo */}
+              <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 custom-scrollbar">
+                {/* Imagem do equipamento */}
+                <div className="w-full bg-slate-50 rounded-2xl overflow-hidden border border-slate-200/80 h-48 sm:h-64 flex items-center justify-center relative shadow-inner">
+                  {detailMaterial.image_url ? (
+                    <img 
+                      src={detailMaterial.image_url} 
+                      alt={detailMaterial.name} 
+                      className="w-full h-full object-contain p-2 hover:scale-105 transition-transform duration-300" 
+                    />
+                  ) : (
+                    <div className="w-full h-full flex flex-col items-center justify-center text-slate-300 p-4">
+                      <Camera className="w-12 h-12 mb-2 opacity-40" />
+                      <p className="font-medium text-xs text-slate-400">Sem Foto Disponivel</p>
                     </div>
+                  )}
+                  <div className="absolute top-3 left-3">
+                    <span className="bg-slate-900/80 backdrop-blur-xs text-white text-[10px] font-semibold px-2.5 py-1 rounded-full shadow-xs">Visualizacao Tecnica</span>
+                  </div>
+                </div>
 
-                    <div>
-                       <p className="text-xs font-semibold text-slate-600 mb-2">Descrição Adicional</p>
-                       <p className="text-xs text-slate-600 font-normal leading-relaxed bg-slate-50 p-3.5 rounded-xl border border-slate-100">
-                          {detailMaterial.description || 'Nenhuma descrição detalhada fornecida para este item.'}
-                       </p>
-                    </div>
-                 </div>
+                {/* Especificacoes */}
+                <div className="grid grid-cols-2 gap-3">
+                  <DetailItem label="Marca" value={detailMaterial.brand || '---'} />
+                  <DetailItem label="Modelo" value={detailMaterial.model || '---'} />
+                  <DetailItem label="Nº de Série" value={detailMaterial.serial_number || 'REGISTRO ÚNICO'} />
+                  <DetailItem label="Condição" value={detailMaterial.condition || 'USADO'} />
+                </div>
 
-                 <button 
+                {detailMaterial.description && (
+                  <div className="bg-slate-50/80 p-3.5 rounded-xl border border-slate-100">
+                    <p className="text-[10px] text-slate-400 font-medium mb-1 uppercase tracking-wider">Descricao Adicional</p>
+                    <p className="text-xs text-slate-600 font-normal leading-relaxed whitespace-pre-wrap">
+                      {detailMaterial.description}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Rodape */}
+              <div className="p-4 border-t border-slate-100 bg-slate-50/50 shrink-0">
+                <button 
                   onClick={() => setDetailMaterial(null)}
-                  className="w-full bg-slate-900 hover:bg-slate-800 text-white font-medium py-3 rounded-xl mt-6 transition-all text-xs shadow-xs active:scale-[0.99] cursor-pointer shrink-0"
-                 >
-                    Fechar Detalhes
-                 </button>
+                  className="w-full bg-slate-900 hover:bg-slate-800 text-white font-medium py-3 rounded-xl transition-all text-xs shadow-xs active:scale-[0.99] cursor-pointer"
+                >
+                  Fechar Detalhes
+                </button>
               </div>
            </div>
         </div>

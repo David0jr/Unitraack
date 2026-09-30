@@ -1483,13 +1483,13 @@ function MaterialModal({ material, onClose, onViewPhotos }: any) {
         className="bg-white w-full max-w-4xl max-h-[92vh] rounded-[2.5rem] overflow-hidden shadow-[0_50px_100px_-20px_rgba(0,0,0,0.3)] flex flex-col cursor-default animate-in zoom-in-95 duration-200 my-auto"
       >
         {/* Header */}
-        <div className="bg-navy p-6 md:p-8 relative overflow-hidden shrink-0">
+        <div className="bg-navy p-5 md:p-8 relative overflow-hidden shrink-0">
           <div className="absolute top-0 right-0 w-48 h-48 bg-primary/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
           
           <div className="relative z-10 flex justify-between items-start text-white">
             <div className="flex items-center gap-4 min-w-0">
-              <div className="w-12 h-12 md:w-14 md:h-14 bg-white/10 backdrop-blur-xl rounded-2xl flex items-center justify-center border border-white/10 shadow-inner shrink-0">
-                <Package className="w-6 h-6 md:w-7 md:h-7 text-primary" />
+              <div className="w-11 h-11 md:w-14 md:h-14 bg-white/10 backdrop-blur-xl rounded-2xl flex items-center justify-center border border-white/10 shadow-inner shrink-0">
+                <Package className="w-5 h-5 md:w-7 md:h-7 text-primary" />
               </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-2 mb-1 flex-wrap">
@@ -1504,14 +1504,15 @@ function MaterialModal({ material, onClose, onViewPhotos }: any) {
                     {material.status === 'MOVING' ? 'Em Trânsito' : material.status === 'IN_PLANTA' ? 'Em Planta' : material.status}
                   </span>
                 </div>
-                <h3 className="font-black uppercase text-lg md:text-2xl tracking-tighter leading-tight truncate text-white">
+                <h3 className="font-black uppercase text-base md:text-2xl tracking-tighter leading-tight truncate text-white">
                   {material.name}
                 </h3>
               </div>
             </div>
             <button 
               onClick={onClose} 
-              className="w-10 h-10 flex items-center justify-center hover:bg-white/10 rounded-full transition-all border border-white/10 shrink-0 text-white/60 hover:text-white"
+              className="w-9 h-9 md:w-10 md:h-10 flex items-center justify-center hover:bg-white/10 rounded-full transition-all border border-white/10 shrink-0 text-white/60 hover:text-white cursor-pointer ml-2"
+              title="Fechar"
             >
               <X className="w-5 h-5" />
             </button>
@@ -1519,16 +1520,16 @@ function MaterialModal({ material, onClose, onViewPhotos }: any) {
         </div>
 
         {/* Scrollable Content */}
-        <div className="p-6 md:p-8 space-y-6 md:space-y-8 overflow-y-auto flex-1 custom-scrollbar">
+        <div className="p-4 sm:p-6 md:p-8 space-y-6 md:space-y-8 overflow-y-auto flex-1 custom-scrollbar">
           {/* Main Info Grid */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Equipment Image or Placeholder */}
-            <div className="md:col-span-1 bg-slate-100 rounded-3xl overflow-hidden border border-slate-200 aspect-video md:aspect-square flex items-center justify-center relative group">
+            <div className="md:col-span-1 bg-slate-50 rounded-2xl md:rounded-3xl overflow-hidden border border-slate-200/80 h-52 sm:h-64 md:h-auto md:min-h-[220px] flex items-center justify-center relative group shadow-inner">
               {material.image_url ? (
-                <img src={material.image_url} alt={material.name} className="w-full h-full object-cover" />
+                <img src={material.image_url} alt={material.name} className="w-full h-full object-contain p-2 hover:scale-105 transition-transform duration-300" />
               ) : (
                 <div className="flex flex-col items-center justify-center text-slate-300 p-6 text-center">
-                  <Package size={48} className="mb-2 opacity-50" />
+                  <Package size={44} className="mb-2 opacity-50" />
                   <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Sem Foto Inicial</span>
                 </div>
               )}

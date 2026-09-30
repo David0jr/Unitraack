@@ -500,23 +500,23 @@ export default function NovaSolicitacao() {
 
             <div className="grid grid-cols-1 gap-6">
               {materials.map((mat, index) => (
-                <div key={mat.id} className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100 hover:border-primary/30 transition-all group animate-in fade-in slide-in-from-top-4">
-                  <div className="flex items-center justify-between mb-8 border-b border-slate-50 pb-6">
+                <div key={mat.id} className="bg-white rounded-2xl p-5 sm:p-8 shadow-sm border border-slate-100 hover:border-primary/30 transition-all group animate-in fade-in slide-in-from-top-4">
+                  <div className="flex items-center justify-between mb-5 sm:mb-8 border-b border-slate-50 pb-4 sm:pb-6">
                     <span className="bg-navy text-white text-[10px] font-bold px-4 py-1.5 rounded-full uppercase tracking-widest">Equipamento #{index + 1}</span>
                     <button type="button" onClick={() => removeMaterial(mat.id)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all cursor-pointer">
                       <Trash2 className="w-5 h-5" />
                     </button>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-12 gap-10">
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-6 md:gap-10">
                     <div className="md:col-span-3">
-                       <div className="relative aspect-square bg-[#F8FAFC] border border-slate-100 rounded-2xl overflow-hidden group/img flex flex-col items-center justify-center text-center p-4">
+                       <div className="relative aspect-square max-w-[260px] md:max-w-none mx-auto w-full bg-[#F8FAFC] border border-slate-100 rounded-2xl overflow-hidden group/img flex flex-col items-center justify-center text-center p-2 sm:p-3 shadow-inner">
                           {(mat.imageUrl || mat.previewUrl) ? (
                             <>
                               <img 
                                 src={mat.imageUrl || mat.previewUrl} 
                                 alt="Material" 
-                                className={`w-full h-full object-cover transition-opacity ${mat.uploading ? 'opacity-50 blur-[1px]' : 'opacity-100'}`} 
+                                className={`w-full h-full object-contain transition-opacity ${mat.uploading ? 'opacity-50 blur-[1px]' : 'opacity-100'}`} 
                               />
                               {mat.uploading ? (
                                 <div className="absolute inset-0 bg-navy/60 backdrop-blur-xs flex flex-col items-center justify-center gap-2 p-2">
@@ -529,15 +529,15 @@ export default function NovaSolicitacao() {
                                 <button 
                                   type="button" 
                                   onClick={() => clearMaterialImage(mat.id)} 
-                                  className="absolute inset-0 bg-red-500/80 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center cursor-pointer"
+                                  className="absolute top-2 right-2 md:inset-0 bg-red-500/90 md:bg-red-500/80 text-white md:opacity-0 md:group-hover/img:opacity-100 transition-opacity flex items-center justify-center rounded-xl md:rounded-none p-2 md:p-0 cursor-pointer shadow-sm"
                                   title="Remover foto"
                                 >
-                                   <Trash2 className="text-white w-6 h-6" />
+                                   <Trash2 className="text-white w-4 h-4 md:w-6 md:h-6" />
                                 </button>
                               )}
                             </>
                           ) : (
-                             <label className="cursor-pointer w-full h-full flex flex-col items-center justify-center hover:bg-slate-100 transition-colors gap-2">
+                             <label className="cursor-pointer w-full h-full flex flex-col items-center justify-center hover:bg-slate-100 transition-colors gap-2 p-3">
                                 {mat.uploading ? <Loader2 className="w-10 h-10 animate-spin text-primary opacity-20" /> : <Camera className="w-10 h-10 text-slate-200" />}
                                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Foto / Upload</p>
                                 <span className="text-[8px] text-red-500 uppercase font-bold tracking-widest mt-1 bg-red-50 px-2 py-1 rounded-full">(Foto Obrigatória)</span>

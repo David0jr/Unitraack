@@ -1,4 +1,5 @@
 import React from 'react';
+import { LogOut } from 'lucide-react';
 import { useAuth } from '../../../../contexts/AuthContext';
 import { NotificationDropdown } from './NotificationDropdown';
 
@@ -31,7 +32,7 @@ const ROLE_MAP: Record<string, string> = {
 };
 
 export const DashboardHeader: React.FC<DashboardHeaderProps> = ({ section }) => {
-  const { profile } = useAuth();
+  const { profile, signOut } = useAuth();
   const title = SECTION_TITLES[section] || 'Painel de Controle';
 
   const userInitial = profile?.full_name ? profile.full_name.charAt(0).toUpperCase() : 'U';
@@ -65,13 +66,8 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({ section }) => 
         </h1>
       </div>
       
-      <div className="flex items-center gap-4">
-        <NotificationDropdown />
-        
-        {/* Barrinha divisora */}
-        <div className="h-6 w-px bg-slate-200"></div>
-
-        {/* Perfil do Usuário no canto superior direito */}
+      <div className="flex items-center gap-3 md:gap-4">
+        {/* Perfil do Usuário à esquerda */}
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-full bg-primary/15 border border-primary/25 flex items-center justify-center text-primary font-bold text-xs shrink-0">
             {userInitial}
@@ -85,6 +81,21 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({ section }) => 
             </span>
           </div>
         </div>
+
+        {/* Barrinha divisora */}
+        <div className="h-6 w-px bg-slate-200"></div>
+
+        {/* Ícone de notificação */}
+        <NotificationDropdown />
+
+        {/* Botão de sair */}
+        <button 
+          onClick={signOut}
+          className="flex items-center justify-center h-8 w-8 bg-rose-50 text-rose-500 rounded-full border border-rose-100 hover:bg-rose-500 hover:text-white transition-all shadow-xs group cursor-pointer"
+          title="Encerrar Sessão"
+        >
+          <LogOut className="w-4 h-4 group-hover:scale-110 transition-transform" />
+        </button>
       </div>
     </header>
   );
