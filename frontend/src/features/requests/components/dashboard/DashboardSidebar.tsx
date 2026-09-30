@@ -122,14 +122,8 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
               if (isCollapsed) {
                 setIsCollapsed(false);
                 setTeamExpanded(true);
-                if (!activeSection.startsWith('team')) {
-                  setActiveSection('team-register');
-                }
               } else {
                 setTeamExpanded(!teamExpanded);
-                if (!activeSection.startsWith('team')) {
-                  setActiveSection('team-register');
-                }
               }
             }}
             icon={<Users className="w-[18px] h-[18px] shrink-0" />}
