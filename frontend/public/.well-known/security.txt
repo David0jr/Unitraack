@@ -1,0 +1,5 @@
+Contact: mailto:seguranca@unitraack.com
+Preferred-Languages: pt-BR, en
+Canonical: https://unitraack.com/.well-known/security.txt
+Policy: https://unitraack.com/politica-seguranca
+Acknowledgments: https://unitraack.com/hall-da-fama

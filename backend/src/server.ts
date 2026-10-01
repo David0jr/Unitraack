@@ -4,6 +4,14 @@ import dotenv from 'dotenv';
 // Importação do Supabase
 import { supabaseAdmin } from './config/supabase';
 
+// Middlewares de Segurança Enterprise
+import { 
+  helmetMiddleware, 
+  generalApiLimiter, 
+  corsOptions, 
+  sanitizedRequestLogger 
+} from './middlewares/securityMiddleware';
+
 import routes from './routes';
 
 dotenv.config();
@@ -11,27 +19,23 @@ dotenv.config();
 const app = express();
 const port = process.env.PORT || 3333;
 
-app.use(cors({
-  origin: '*', // Em prod, ideal restringir para seus domínios
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Tenant-Slug', 'Accept'],
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  credentials: true
-}));
+// 1. Headers de Segurança HTTP (Helmet: HSTS, Anti-Clickjacking, No-Sniff)
+app.use(helmetMiddleware);
+
+// 2. CORS com suporte a subdomínios dinâmicos e desenvolvimento
+app.use(cors(corsOptions));
+
 app.use(express.json({ limit: '50mb' }));
 
-// Multi-tenant: Identifica a usina via subdomínio
+// 3. Multi-tenant: Identifica a usina via subdomínio
 import { tenantContextMiddleware } from './middlewares/tenantMiddleware';
 app.use(tenantContextMiddleware);
 
-// Middleware de log de requisições
-app.use((req, res, next) => {
-  const start = Date.now();
-  res.on('finish', () => {
-    const duration = Date.now() - start;
-    console.log(`${req.method} ${req.originalUrl} ${res.statusCode} - ${duration}ms`);
-  });
-  next();
-});
+// 4. Middleware de log de requisições com sanitização de dados sensíveis
+app.use(sanitizedRequestLogger);
+
+// 5. Rate Limiting geral nas rotas da API (600 req / 15 min por IP)
+app.use('/api', generalApiLimiter);
 
 // Agrupador central de rotas da API
 app.use('/api', routes);
@@ -39,6 +43,29 @@ app.use('/api', routes);
 // Middleware de tratamento de erros global
 import { errorMiddleware } from './middlewares/errorMiddleware';
 app.use(errorMiddleware);
+
+// Rota padrão RFC 9116: Política de Divulgação de Vulnerabilidades (VDP)
+const securityTxtContent = `Contact: mailto:seguranca@unitraack.com
+Preferred-Languages: pt-BR, en
+Canonical: https://unitraack.com/.well-known/security.txt
+Policy: https://unitraack.com/politica-seguranca
+Acknowledgments: https://unitraack.com/hall-da-fama
+`;
+
+app.get(['/.well-known/security.txt', '/security.txt'], (req: Request, res: Response) => {
+  res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+  res.send(securityTxtContent);
+});
+
+app.get('/api/security', (req: Request, res: Response) => {
+  res.json({
+    status: 'ok',
+    system: 'Unitraack Security Center',
+    contact: 'seguranca@unitraack.com',
+    rfc: 'RFC 9116',
+    active_defenses: ['Helmet', 'CORS-Restricted', 'Rate-Limiting', 'RLS-PostgreSQL', 'Tenant-Isolation']
+  });
+});
 
 // Rota raiz (Health Check)
 app.get('/health', (req: Request, res: Response) => {
