@@ -8,7 +8,8 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "db:migrate": "ts-node src/scripts/migrate.ts",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "test:security": "tsx src/scripts/test_security_audit.ts"
   },
   "keywords": [],
   "author": "",

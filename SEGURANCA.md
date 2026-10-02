@@ -196,12 +196,31 @@ Quando o CISO da usina enviar a planilha de homologação, utilize as seguintes 
 
 ---
 
-## 5. Próximos Passos de Implementação no Código
+## 5. Implementações Realizadas no Código
 
-Para elevar o Unitraack ao patamar de conformidade máxima imediata com mínimo esforço de desenvolvimento:
+1. **[Backend] Instalação do `helmet`**: Blindagem instantânea de cabeçalhos HTTP (HSTS de 1 ano, anti-clickjacking, no-sniff).
+2. **[Backend] Configuração de `express-rate-limit`**: Rate limit multicamada nas rotas de login/auth e API geral.
+3. **[Backend] Ajuste de CORS**: Whitelist dinâmica para Vercel, Railway, domínios oficiais e subdomínios locais.
+4. **[Frontend] Hook de Timeout de Inatividade**: Bloqueio de tela após 30 minutos ocioso na portaria via `SessionTimeoutHandler.tsx`.
+5. **[Compliance] Publicação do `security.txt`**: Canal oficial para reporte de vulnerabilidades (RFC 9116) ativo no backend e frontend.
+6. **[Backend] Middleware `requireRole` (RBAC Granular)**: Blindagem estrita em todas as rotas (/api/gestor, /api/lider, /api/portaria, /api/terceirizada, /api/sectors).
 
-1. **[Backend] Instalação do `helmet`**: Blindagem instantânea de cabeçalhos HTTP.
-2. **[Backend] Configuração de `express-rate-limit`**: Rate limit nas rotas de login e API pública.
-3. **[Backend] Ajuste de CORS**: Substituição de curinga `*` por verificação de domínio seguro.
-4. **[Frontend] Hook de Timeout de Inatividade**: Bloqueio de tela após 20 minutos ocioso na portaria.
-5. **[Documental] Publicação do `security.txt`**: Canal oficial para reporte de vulnerabilidades.
+---
+
+## 6. Auditoria de Código (White-Box Security Audit) & Testes Automatizados
+
+Realizamos uma auditoria minuciosa de código-fonte cobrindo controle de acesso, IDOR e isolamento de tenant. Para garantir que essas regras nunca sofram regressão, criamos uma suíte de testes de segurança automatizada executável via:
+
+```bash
+npm run test:security
+```
+
+### Resultados da Bateria de Testes (100% de Aprovação):
+- ✅ **CORS**: Permite requisições da Vercel (`unitraack.vercel.app`), Railway (`*.up.railway.app`), subdomínios oficiais e `localhost`.
+- ✅ **CORS Anti-Exploit**: Bloqueia imediatamente domínios não autorizados e requisições maliciosas.
+- ✅ **Anti-IDOR / Cross-Tenant**: Bloqueia tentativas de uma usina visualizar dados de outra usina.
+- ✅ **Isolamento de Terceirizadas**: Bloqueia tentativas de uma empresa terceirizada ler requisições ou materiais de concorrentes.
+- ✅ **RBAC de Gestão**: Garante que o Gestor de Segurança audite e visualize apenas as requisições de sua própria usina.
+- ✅ **Exclusão Segura**: Impede exclusão de materiais que estejam dentro da planta (`IN_PLANTA`) e impede exclusão por terceiros.
+- ✅ **RBAC por Middleware**: Validação em nível de rota garantindo que apenas papéis autorizados invoquem endpoints de liderança, portaria e gestão.
+

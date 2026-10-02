@@ -3,31 +3,35 @@ import { RequestController } from '../controllers/RequestController';
 import { MonitoringController } from '../controllers/MonitoringController';
 import { AuditController } from '../controllers/AuditController';
 import { TeamController } from '../controllers/TeamController';
-import { requireAuth } from '../../../middlewares/authMiddleware';
+import { requireAuth, requireRole } from '../../../middlewares/authMiddleware';
 
 const router = Router();
 
+// Todas as rotas de Gestão exigem autenticação E papel GESTOR_SEGURANCA ou SUPER_ADMIN
+router.use(requireAuth);
+router.use(requireRole('GESTOR_SEGURANCA', 'SUPER_ADMIN'));
+
 // Gestão de Requisições
-router.get('/requisicoes', requireAuth, RequestController.listByTenant);
-router.get('/dashboard', requireAuth, RequestController.listByTenant);
-router.post('/approve/:id', requireAuth, RequestController.review);
-router.post('/mark-checkout', requireAuth, RequestController.markCheckout);
+router.get('/requisicoes', RequestController.listByTenant);
+router.get('/dashboard', RequestController.listByTenant);
+router.post('/approve/:id', RequestController.review);
+router.post('/mark-checkout', RequestController.markCheckout);
 
 // Monitoramento Operativo
-router.get('/monitoring', requireAuth, MonitoringController.getOperationalData);
-router.post('/transfer-material', requireAuth, MonitoringController.transferMaterial);
-router.post('/update-map-layout', requireAuth, MonitoringController.updateMapLayout);
-router.post('/map-layout', requireAuth, MonitoringController.updateMapLayout);
-router.post('/update-material-position', requireAuth, MonitoringController.updateMaterialPosition);
+router.get('/monitoring', MonitoringController.getOperationalData);
+router.post('/transfer-material', MonitoringController.transferMaterial);
+router.post('/update-map-layout', MonitoringController.updateMapLayout);
+router.post('/map-layout', MonitoringController.updateMapLayout);
+router.post('/update-material-position', MonitoringController.updateMaterialPosition);
 
 // Gestão de Equipe
-router.get('/team', requireAuth, TeamController.listMembers);
-router.put('/team/:id', requireAuth, TeamController.updateMember);
-router.post('/team/:id/reset-password', requireAuth, TeamController.resetPassword);
-router.delete('/team/:id', requireAuth, TeamController.deleteMember);
+router.get('/team', TeamController.listMembers);
+router.put('/team/:id', TeamController.updateMember);
+router.post('/team/:id/reset-password', TeamController.resetPassword);
+router.delete('/team/:id', TeamController.deleteMember);
 
 // Auditoria
-router.get('/audit-report', requireAuth, AuditController.getAuditReport);
-router.get('/third-parties', requireAuth, AuditController.getThirdPartyStats);
+router.get('/audit-report', AuditController.getAuditReport);
+router.get('/third-parties', AuditController.getThirdPartyStats);
 
 export default router;

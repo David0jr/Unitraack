@@ -1,15 +1,19 @@
 import { Router } from 'express';
 import { RequestController } from '../controllers/RequestController';
-import { requireAuth } from '../../../middlewares/authMiddleware';
+import { requireAuth, requireRole } from '../../../middlewares/authMiddleware';
 
 const router = Router();
 
-router.get('/approved', requireAuth, RequestController.listByTenant);
-router.post('/status/:id', requireAuth, RequestController.updateGateStatus);
-router.post('/checkin/:id', requireAuth, RequestController.confirmEntry);
-router.post('/movimentacao/:id', requireAuth, RequestController.confirmMovement);
-router.post('/divergencia/:id', requireAuth, RequestController.notifyDiscrepancy);
-router.get('/audit/:tenantId', requireAuth, RequestController.getAuditHistory);
-router.post('/cancelar/:id', requireAuth, RequestController.cancelByGatekeeper);
+// Todas as rotas de portaria exigem papel PORTARIA, GESTOR_SEGURANCA ou SUPER_ADMIN
+router.use(requireAuth);
+router.use(requireRole('PORTARIA', 'GESTOR_SEGURANCA', 'SUPER_ADMIN'));
+
+router.get('/approved', RequestController.listByTenant);
+router.post('/status/:id', RequestController.updateGateStatus);
+router.post('/checkin/:id', RequestController.confirmEntry);
+router.post('/movimentacao/:id', RequestController.confirmMovement);
+router.post('/divergencia/:id', RequestController.notifyDiscrepancy);
+router.get('/audit/:tenantId', RequestController.getAuditHistory);
+router.post('/cancelar/:id', RequestController.cancelByGatekeeper);
 
 export default router;
