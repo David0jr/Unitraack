@@ -57,6 +57,12 @@ app.get(['/.well-known/security.txt', '/security.txt'], (req: Request, res: Resp
   res.send(securityTxtContent);
 });
 
+// Verificação de Propriedade do Domínio para o Strix AI
+app.get(['/.well-known/strix-verify.txt', '/strix-verify.txt'], (req: Request, res: Response) => {
+  res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+  res.send('strix-verify-ef928f31dfbe0f4bafb51faead47080a');
+});
+
 app.get('/api/security', (req: Request, res: Response) => {
   res.json({
     status: 'ok',
