@@ -19,11 +19,11 @@ dotenv.config();
 const app = express();
 const port = process.env.PORT || 3333;
 
-// 1. Headers de Segurança HTTP (Helmet: HSTS, Anti-Clickjacking, No-Sniff)
-app.use(helmetMiddleware);
-
-// 2. CORS com suporte a subdomínios dinâmicos e desenvolvimento
+// 1. CORS com suporte a Vercel, Railway, subdomínios dinâmicos e desenvolvimento
 app.use(cors(corsOptions));
+
+// 2. Headers de Segurança HTTP (Helmet: HSTS, Anti-Clickjacking, No-Sniff)
+app.use(helmetMiddleware);
 
 app.use(express.json({ limit: '50mb' }));
 
