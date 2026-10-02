@@ -32,3 +32,8 @@ yarn-error.log*
 # Backend specific
 .cache/
 prisma/generated/
+scratch/
+
+# Temporary lint and test artifacts
+lint_errors.*
+check_chars.txt
