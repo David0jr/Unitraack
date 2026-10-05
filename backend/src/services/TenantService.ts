@@ -87,6 +87,18 @@ export class TenantService {
     return tenant as Tenant;
   }
 
+  async setStatus(id: string, active: boolean): Promise<Tenant> {
+    const { data: tenant, error } = await supabaseAdmin
+      .from('tenants')
+      .update({ active })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return tenant as Tenant;
+  }
+
   async delete(id: string): Promise<void> {
     const { error } = await supabaseAdmin
       .from('tenants')

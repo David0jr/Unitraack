@@ -141,6 +141,45 @@ export class SuperAdminController {
     }
   }
 
+  static async toggleTenantStatus(req: AuthRequest, res: Response): Promise<any> {
+    try {
+      const { id } = req.params;
+      const { active } = req.body;
+      if (typeof active !== 'boolean') {
+        res.status(400).json({ error: 'Status (active: boolean) é obrigatório.' });
+        return;
+      }
+      const tenant = await tenantService.setStatus(id as string, active);
+      res.json({ success: true, message: `Usina ${active ? 'ativada' : 'desativada'} com sucesso!`, tenant });
+    } catch (error: any) {
+      console.error('[SuperAdminController.toggleTenantStatus] Erro:', error);
+      res.status(500).json({ error: error.message || 'Erro ao alterar status da usina.' });
+    }
+  }
+
+  static async toggleUserStatus(req: AuthRequest, res: Response): Promise<any> {
+    try {
+      const { id } = req.params;
+      const { is_active } = req.body;
+      if (typeof is_active !== 'boolean') {
+        res.status(400).json({ error: 'Status (is_active: boolean) é obrigatório.' });
+        return;
+      }
+      
+      // Impede que o próprio super admin se desative
+      if (req.user?.id === id && !is_active) {
+        res.status(400).json({ error: 'Você não pode desativar seu próprio acesso de Super Admin.' });
+        return;
+      }
+
+      await userService.setUserStatus(id as string, is_active);
+      res.json({ success: true, message: `Usuário ${is_active ? 'ativado' : 'desativado'} com sucesso!` });
+    } catch (error: any) {
+      console.error('[SuperAdminController.toggleUserStatus] Erro:', error);
+      res.status(500).json({ error: error.message || 'Erro ao alterar status do usuário.' });
+    }
+  }
+
   static async getPlatformStats(req: AuthRequest, res: Response): Promise<any> {
     try {
       const stats = await userService.getCounts();
@@ -151,3 +190,4 @@ export class SuperAdminController {
     }
   }
 }
+

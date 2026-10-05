@@ -14,8 +14,10 @@ router.post('/tenants', SuperAdminController.createTenantAndGenerateInvite);
 router.post('/tenants/invite', SuperAdminController.generateInvite);
 router.post('/extract-branding', SuperAdminController.extractBranding);
 router.put('/tenants/:id', SuperAdminController.updateTenant);
+router.patch('/tenants/:id/status', SuperAdminController.toggleTenantStatus);
 router.delete('/tenants/:id', SuperAdminController.deleteTenant);
 router.get('/users', SuperAdminController.listAllUsers);
+router.patch('/users/:id/status', SuperAdminController.toggleUserStatus);
 router.get('/stats', SuperAdminController.getPlatformStats);
 router.get('/audit/:tenantId', RequestController.getAuditHistory);
 

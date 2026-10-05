@@ -28,7 +28,19 @@ import {
   Palette,
   Check,
   LayoutGrid,
-  List
+  List,
+  Power,
+  PowerOff,
+  UserCheck,
+  UserX,
+  Briefcase,
+  ShieldAlert,
+  SlidersHorizontal,
+  Mail,
+  Phone,
+  FileText,
+  BadgeCheck,
+  AlertCircle
 } from 'lucide-react';
 import { MobileNav } from '../../requests/components/dashboard/MobileNav';
 import { NotificationDropdown } from '../../requests/components/dashboard/NotificationDropdown';
@@ -42,6 +54,7 @@ interface Tenant {
   company_color?: string;
   secondary_color?: string;
   tertiary_color?: string;
+  active?: boolean;
   created_at: string;
   gestores?: { count: number }[];
 }
@@ -57,10 +70,18 @@ interface GlobalProfile {
   full_name: string;
   email: string;
   role: string;
+  sector?: string;
+  cnpj?: string;
+  representative_name?: string;
+  phone?: string;
+  registration_number?: string;
+  is_active?: boolean;
   created_at: string;
   tenant?: {
     id: string;
     name: string;
+    subdomain?: string;
+    active?: boolean;
   };
 }
 
@@ -85,6 +106,14 @@ export default function SuperAdminDashboard() {
   const [currentPage, setCurrentPage] = useState(1);
   const [tenantViewMode, setTenantViewMode] = useState<'cards' | 'table'>('cards');
   const itemsPerPage = 8;
+
+  // Filtros & Estado para Gerenciamento de Usuários
+  const [userSearchTerm, setUserSearchTerm] = useState('');
+  const [selectedUserTenantId, setSelectedUserTenantId] = useState<string>('all');
+  const [userCategoryFilter, setUserCategoryFilter] = useState<'all' | 'internal' | 'terceirizada'>('all');
+  const [userStatusFilter, setUserStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+  const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
+  const [updatingTenantId, setUpdatingTenantId] = useState<string | null>(null);
 
   const fetchAuditLogs = async (tenantId: string) => {
     if (!tenantId) {
@@ -225,9 +254,11 @@ export default function SuperAdminDashboard() {
       ]);
 
       if (tenantsRes.ok && statsRes.ok && usersRes.ok) {
-        setTenants(await tenantsRes.json());
+        const loadedTenants = await tenantsRes.json();
+        setTenants(loadedTenants);
         setStats(await statsRes.json());
         setAllUsers(await usersRes.json());
+        setExpandedTenants(prev => prev.length === 0 ? loadedTenants.map((t: any) => t.id) : prev);
       } else {
         console.error('[Dashboard] Erro ao buscar dados:', {
           tenants: tenantsRes.status,
@@ -237,6 +268,80 @@ export default function SuperAdminDashboard() {
       }
     } catch (error) {
       console.error('Erro na requisição do dashboard:', error);
+    }
+  };
+
+  const handleToggleTenantStatus = async (tenantId: string, currentActive: boolean) => {
+    const targetTenant = tenants.find(t => t.id === tenantId);
+    const nextStatus = !currentActive;
+    const confirmMessage = currentActive
+      ? `Deseja realmente desativar o acesso da "${targetTenant?.name || 'Usina'}"?\n\nNenhum dado será apagado. Colaboradores e gestores receberão o aviso "Sistema ${targetTenant?.name || 'da Usina'} temporariamente desativado" ao tentarem acessar.`
+      : `Deseja reativar o acesso da "${targetTenant?.name || 'Usina'}"? O portal voltará a ficar disponível imediatamente para todos os usuários.`;
+
+    if (!window.confirm(confirmMessage)) return;
+
+    setUpdatingTenantId(tenantId);
+    try {
+      const resp = await fetch(`${import.meta.env.VITE_API_URL}/admin/tenants/${tenantId}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${getAuthToken()}`
+        },
+        body: JSON.stringify({ active: nextStatus })
+      });
+
+      const d = await resp.json();
+      if (resp.ok) {
+        setTenants(prev => prev.map(t => t.id === tenantId ? { ...t, active: nextStatus } : t));
+      } else {
+        alert(d.error || 'Erro ao alterar status da usina.');
+      }
+    } catch (err) {
+      console.error('Erro ao alternar status da usina:', err);
+      alert('Erro de conexão ao alterar status da usina.');
+    } finally {
+      setUpdatingTenantId(null);
+    }
+  };
+
+  const handleToggleUserStatus = async (userId: string, currentActive: boolean) => {
+    const targetUser = allUsers.find(u => u.id === userId);
+    const nextStatus = !currentActive;
+
+    if (userId === user?.id && !nextStatus) {
+      alert('Você não pode desativar seu próprio acesso de Super Admin.');
+      return;
+    }
+
+    const confirmMessage = nextStatus
+      ? `Deseja reativar o acesso de "${targetUser?.full_name || 'Usuário'}"? O acesso será restabelecido imediatamente.`
+      : `Deseja realmente desativar o acesso de "${targetUser?.full_name || 'Usuário'}"? O usuário será bloqueado ao tentar realizar login.`;
+
+    if (!window.confirm(confirmMessage)) return;
+
+    setUpdatingUserId(userId);
+    try {
+      const resp = await fetch(`${import.meta.env.VITE_API_URL}/admin/users/${userId}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${getAuthToken()}`
+        },
+        body: JSON.stringify({ is_active: nextStatus })
+      });
+
+      const d = await resp.json();
+      if (resp.ok) {
+        setAllUsers(prev => prev.map(u => u.id === userId ? { ...u, is_active: nextStatus } : u));
+      } else {
+        alert(d.error || 'Erro ao alterar status do usuário.');
+      }
+    } catch (err) {
+      console.error('Erro ao alternar status do usuário:', err);
+      alert('Erro de conexão ao alterar status do usuário.');
+    } finally {
+      setUpdatingUserId(null);
     }
   };
 
@@ -383,7 +488,7 @@ export default function SuperAdminDashboard() {
       case 'tenants':
         return 'Gerenciar Usinas · Unidades Federadas';
       case 'users':
-        return 'Usuários Globais · Acessos do SaaS';
+        return 'Gerenciamento de Usuários · Acessos e Permissões';
       case 'monitoring':
         return 'Auditoria & Rastro Global';
       default:
@@ -449,7 +554,7 @@ export default function SuperAdminDashboard() {
             active={activeTab === 'users'} 
             onClick={() => setActiveTab('users')} 
             icon={<Users className="w-[18px] h-[18px] shrink-0" />} 
-            label="Usuários Globais" 
+            label="Gerenciamento de Usuários" 
             isCollapsed={!isSidebarOpen} 
           />
           <NavButton 
@@ -714,10 +819,17 @@ export default function SuperAdminDashboard() {
                               <div>
                                 <div className="flex items-center gap-2.5">
                                   <h4 className="font-bold text-navy text-sm">{t.name}</h4>
-                                  <span className="bg-emerald-50 text-emerald-700 border border-emerald-200/80 rounded-full px-2.5 py-0.5 text-xs font-medium inline-flex items-center gap-1.5">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                                    Regularizado
-                                  </span>
+                                  {t.active !== false ? (
+                                    <span className="bg-emerald-50 text-emerald-700 border border-emerald-200/80 rounded-full px-2.5 py-0.5 text-xs font-medium inline-flex items-center gap-1.5">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                      Ativa / Regularizada
+                                    </span>
+                                  ) : (
+                                    <span className="bg-amber-50 text-amber-800 border border-amber-300 rounded-full px-2.5 py-0.5 text-xs font-semibold inline-flex items-center gap-1.5">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                                      Temporariamente Desativada
+                                    </span>
+                                  )}
                                 </div>
                                 <p className="text-xs text-slate-500 font-medium mt-0.5">
                                   {t.cnpj}
@@ -750,6 +862,29 @@ export default function SuperAdminDashboard() {
 
                           {/* Ações completas de Gestão da Usina */}
                           <div className="flex items-center gap-2 self-start md:self-center shrink-0 flex-wrap">
+                            {/* Botão de Ativação / Desativação da Usina */}
+                            <button
+                              onClick={() => handleToggleTenantStatus(t.id, t.active !== false)}
+                              disabled={updatingTenantId === t.id}
+                              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition-all cursor-pointer shadow-xs active:scale-95 disabled:opacity-50 ${
+                                t.active !== false
+                                  ? 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-200/80 hover:border-amber-300'
+                                  : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200/80 hover:border-emerald-300'
+                              }`}
+                              title={t.active !== false ? "Desativar Acesso da Usina (Suspender Temporariamente)" : "Reativar Acesso da Usina"}
+                            >
+                              {updatingTenantId === t.id ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              ) : t.active !== false ? (
+                                <PowerOff className="w-3.5 h-3.5 text-amber-600" />
+                              ) : (
+                                <Power className="w-3.5 h-3.5 text-emerald-600" />
+                              )}
+                              <span className="hidden sm:inline">
+                                {t.active !== false ? 'Desativar Usina' : 'Ativar Usina'}
+                              </span>
+                            </button>
+
                             <button
                               onClick={() => generateAndCopyNewLink(t.id)}
                               className="flex items-center gap-1.5 px-3 py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-medium border border-slate-200/80 transition-all cursor-pointer shadow-xs active:scale-95"
@@ -833,10 +968,17 @@ export default function SuperAdminDashboard() {
                               </div>
                             </td>
                             <td className="px-6 py-4">
-                              <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 text-xs font-medium rounded-full border border-emerald-200/80 inline-flex items-center gap-1.5">
-                                <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
-                                Regularizado
-                              </span>
+                              {t.active !== false ? (
+                                <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 text-xs font-medium rounded-full border border-emerald-200/80 inline-flex items-center gap-1.5">
+                                  <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
+                                  Ativa
+                                </span>
+                              ) : (
+                                <span className="px-2.5 py-1 bg-amber-50 text-amber-800 text-xs font-semibold rounded-full border border-amber-300 inline-flex items-center gap-1.5">
+                                  <span className="w-1.5 h-1.5 bg-amber-500 rounded-full"></span>
+                                  Desativada
+                                </span>
+                              )}
                             </td>
                             <td className="px-6 py-4">
                               <span className="text-xs font-medium text-slate-600">{new Date(t.created_at).toLocaleDateString('pt-BR')}</span>
@@ -848,6 +990,12 @@ export default function SuperAdminDashboard() {
                             </td>
                             <td className="px-6 py-4 text-right">
                               <div className="flex items-center justify-end gap-1">
+                                <ActionButton 
+                                  onClick={() => handleToggleTenantStatus(t.id, t.active !== false)} 
+                                  icon={t.active !== false ? <PowerOff className="w-3.5 h-3.5" /> : <Power className="w-3.5 h-3.5" />} 
+                                  title={t.active !== false ? "Desativar Usina" : "Reativar Usina"} 
+                                  color={t.active !== false ? "text-slate-500 hover:text-amber-600 hover:bg-amber-50" : "text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"} 
+                                />
                                 <ActionButton onClick={() => generateAndCopyNewLink(t.id)} icon={<Copy className="w-3.5 h-3.5" />} title="Convite Gestor" color="text-slate-500 hover:text-navy hover:bg-slate-100" />
                                 <ActionButton
                                   onClick={() => {
@@ -998,102 +1146,627 @@ export default function SuperAdminDashboard() {
 
           {activeTab === 'users' && (
             <div className="space-y-6 animate-in slide-in-from-bottom-4 fade-in duration-500">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              {/* Header com Título e Estatísticas Rápidas */}
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                 <div>
-                  <h2 className="text-xl font-bold text-navy">Usuários Globais</h2>
-                  <p className="text-xs text-slate-500 mt-0.5">Controle de acessos e identidade agrupados por unidade industrial.</p>
+                  <h2 className="text-xl font-bold text-navy">Gerenciamento de Usuários</h2>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Controle de acessos, status e isolamento por unidade industrial e empresas terceirizadas parceiras.
+                  </p>
+                </div>
+
+                {/* KPI Badges Resumidos */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="bg-white border border-slate-200/80 px-3 py-1.5 rounded-xl shadow-xs flex items-center gap-2">
+                    <Users className="w-3.5 h-3.5 text-primary" />
+                    <span className="text-xs font-bold text-navy">{allUsers.length}</span>
+                    <span className="text-[10px] text-slate-400 font-medium">Total</span>
+                  </div>
+                  <div className="bg-emerald-50/70 border border-emerald-200/80 px-3 py-1.5 rounded-xl shadow-xs flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span className="text-xs font-bold text-emerald-800">
+                      {allUsers.filter(u => u.is_active !== false).length}
+                    </span>
+                    <span className="text-[10px] text-emerald-600 font-medium">Ativos</span>
+                  </div>
+                  <div className="bg-rose-50/70 border border-rose-200/80 px-3 py-1.5 rounded-xl shadow-xs flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-rose-500"></span>
+                    <span className="text-xs font-bold text-rose-800">
+                      {allUsers.filter(u => u.is_active === false).length}
+                    </span>
+                    <span className="text-[10px] text-rose-600 font-medium">Desativados</span>
+                  </div>
+                  <div className="bg-blue-50/70 border border-blue-200/80 px-3 py-1.5 rounded-xl shadow-xs flex items-center gap-2">
+                    <Briefcase className="w-3.5 h-3.5 text-blue-600" />
+                    <span className="text-xs font-bold text-blue-800">
+                      {allUsers.filter(u => u.role === 'TERCEIRIZADA').length}
+                    </span>
+                    <span className="text-[10px] text-blue-600 font-medium">Terceirizadas</span>
+                  </div>
                 </div>
               </div>
 
-              {/* Grouping Logic */}
+              {/* Barra de Filtros & Busca */}
+              <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs space-y-3.5">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                  {/* Busca */}
+                  <div className="relative flex-1">
+                    <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Buscar por nome, email, cargo, setor, CNPJ ou empresa..."
+                      value={userSearchTerm}
+                      onChange={(e) => setUserSearchTerm(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200/80 rounded-xl text-xs font-medium text-navy placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                    />
+                  </div>
+
+                  {/* Filtro de Categoria: Equipe Usina vs Terceirizadas */}
+                  <div className="flex items-center gap-1 bg-slate-100/80 p-1 rounded-xl shrink-0 self-start sm:self-auto">
+                    <button
+                      type="button"
+                      onClick={() => setUserCategoryFilter('all')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                        userCategoryFilter === 'all'
+                          ? 'bg-white text-navy shadow-xs'
+                          : 'text-slate-500 hover:text-navy'
+                      }`}
+                    >
+                      Todos
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setUserCategoryFilter('internal')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+                        userCategoryFilter === 'internal'
+                          ? 'bg-white text-primary shadow-xs'
+                          : 'text-slate-500 hover:text-navy'
+                      }`}
+                    >
+                      <Building2 className="w-3.5 h-3.5" />
+                      <span>Equipe da Usina</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setUserCategoryFilter('terceirizada')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+                        userCategoryFilter === 'terceirizada'
+                          ? 'bg-white text-blue-600 shadow-xs'
+                          : 'text-slate-500 hover:text-navy'
+                      }`}
+                    >
+                      <Briefcase className="w-3.5 h-3.5" />
+                      <span>Terceirizadas</span>
+                    </button>
+                  </div>
+
+                  {/* Filtro de Status */}
+                  <div className="flex items-center gap-1 bg-slate-100/80 p-1 rounded-xl shrink-0 self-start sm:self-auto">
+                    <button
+                      type="button"
+                      onClick={() => setUserStatusFilter('all')}
+                      className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                        userStatusFilter === 'all' ? 'bg-white text-navy shadow-xs' : 'text-slate-500 hover:text-navy'
+                      }`}
+                    >
+                      Todos
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setUserStatusFilter('active')}
+                      className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer text-emerald-700 ${
+                        userStatusFilter === 'active' ? 'bg-white shadow-xs font-bold' : 'text-slate-500 hover:text-emerald-700'
+                      }`}
+                    >
+                      Ativos
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setUserStatusFilter('inactive')}
+                      className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer text-rose-700 ${
+                        userStatusFilter === 'inactive' ? 'bg-white shadow-xs font-bold' : 'text-slate-500 hover:text-rose-700'
+                      }`}
+                    >
+                      Desativados
+                    </button>
+                  </div>
+                </div>
+
+                {/* Filtro de Usinas (Pills / Seletor Rápido) */}
+                <div className="flex items-center gap-2 overflow-x-auto pt-1 pb-0.5 custom-scrollbar text-xs">
+                  <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider shrink-0 mr-1">
+                    Unidade:
+                  </span>
+                  <button
+                    onClick={() => setSelectedUserTenantId('all')}
+                    className={`px-3 py-1 rounded-lg font-medium whitespace-nowrap transition-all cursor-pointer border ${
+                      selectedUserTenantId === 'all'
+                        ? 'bg-navy text-white border-navy shadow-xs'
+                        : 'bg-slate-50 text-slate-600 border-slate-200/80 hover:bg-slate-100'
+                    }`}
+                  >
+                    Todas ({allUsers.length})
+                  </button>
+                  {tenants.map(t => {
+                    const count = allUsers.filter(u => u.tenant?.id === t.id).length;
+                    return (
+                      <button
+                        key={t.id}
+                        onClick={() => setSelectedUserTenantId(t.id)}
+                        className={`px-3 py-1 rounded-lg font-medium whitespace-nowrap transition-all cursor-pointer border flex items-center gap-1.5 ${
+                          selectedUserTenantId === t.id
+                            ? 'bg-navy text-white border-navy shadow-xs'
+                            : 'bg-slate-50 text-slate-600 border-slate-200/80 hover:bg-slate-100'
+                        }`}
+                      >
+                        <span 
+                          className="w-2 h-2 rounded-full shrink-0" 
+                          style={{ backgroundColor: t.company_color || '#00B5AD' }}
+                        />
+                        <span>{t.name}</span>
+                        <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                          selectedUserTenantId === t.id ? 'bg-white/20 text-white' : 'bg-slate-200/80 text-slate-600'
+                        }`}>
+                          {count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                  {allUsers.some(u => !u.tenant?.id || u.role === 'SUPER_ADMIN') && (
+                    <button
+                      onClick={() => setSelectedUserTenantId('global')}
+                      className={`px-3 py-1 rounded-lg font-medium whitespace-nowrap transition-all cursor-pointer border flex items-center gap-1.5 ${
+                        selectedUserTenantId === 'global'
+                          ? 'bg-navy text-white border-navy shadow-xs'
+                          : 'bg-slate-50 text-slate-600 border-slate-200/80 hover:bg-slate-100'
+                      }`}
+                    >
+                      <ShieldCheck className="w-3.5 h-3.5 text-primary" />
+                      <span>Admin Global</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Lógica de Filtragem e Agrupamento */}
               {(() => {
-                const groups = allUsers
-                  .filter(u => u.id !== user?.id)
-                  .reduce((acc, user) => {
-                    const key = user.tenant?.id || 'global';
-                    const name = user.tenant?.name || 'Sistema Global';
-                    if (!acc[key]) acc[key] = { name, users: [] };
-                    acc[key].users.push(user);
-                    return acc;
-                  }, {} as Record<string, { name: string, users: GlobalProfile[] }>);
+                // 1. Filtragem global de usuários
+                const filtered = allUsers.filter(u => {
+                  // Filtro por busca
+                  if (userSearchTerm.trim()) {
+                    const term = userSearchTerm.toLowerCase();
+                    const matchName = u.full_name?.toLowerCase().includes(term);
+                    const matchEmail = u.email?.toLowerCase().includes(term);
+                    const matchRole = u.role?.toLowerCase().includes(term);
+                    const matchSector = u.sector?.toLowerCase().includes(term);
+                    const matchCnpj = u.cnpj?.includes(term);
+                    const matchRep = u.representative_name?.toLowerCase().includes(term);
+                    const matchTenant = u.tenant?.name?.toLowerCase().includes(term);
+                    if (!matchName && !matchEmail && !matchRole && !matchSector && !matchCnpj && !matchRep && !matchTenant) {
+                      return false;
+                    }
+                  }
+
+                  // Filtro por Unidade selecionada
+                  if (selectedUserTenantId !== 'all') {
+                    if (selectedUserTenantId === 'global') {
+                      if (u.tenant?.id && u.role !== 'SUPER_ADMIN') return false;
+                    } else {
+                      if (u.tenant?.id !== selectedUserTenantId) return false;
+                    }
+                  }
+
+                  // Filtro por Categoria
+                  if (userCategoryFilter === 'internal') {
+                    if (u.role === 'TERCEIRIZADA') return false;
+                  } else if (userCategoryFilter === 'terceirizada') {
+                    if (u.role !== 'TERCEIRIZADA') return false;
+                  }
+
+                  // Filtro por Status
+                  if (userStatusFilter === 'active') {
+                    if (u.is_active === false) return false;
+                  } else if (userStatusFilter === 'inactive') {
+                    if (u.is_active !== false) return false;
+                  }
+
+                  return true;
+                });
+
+                if (filtered.length === 0) {
+                  return (
+                    <div className="bg-white rounded-2xl p-12 text-center border border-slate-200/80 shadow-xs">
+                      <Users className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                      <p className="text-sm font-semibold text-navy">Nenhum usuário ou empresa encontrado</p>
+                      <p className="text-xs text-slate-400 mt-1">
+                        Ajuste os filtros de busca, categoria ou status acima.
+                      </p>
+                    </div>
+                  );
+                }
+
+                // Identifica quais tenants possuem usuários no resultado filtrado
+                const displayTenants = selectedUserTenantId === 'global'
+                  ? []
+                  : selectedUserTenantId === 'all'
+                    ? tenants
+                    : tenants.filter(t => t.id === selectedUserTenantId);
+
+                const globalUsers = filtered.filter(u => !u.tenant?.id || u.role === 'SUPER_ADMIN');
 
                 return (
-                  <div className="space-y-4">
-                    {Object.entries(groups).sort(([a], [b]) => a === 'global' ? -1 : b === 'global' ? 1 : 0).map(([id, group]) => {
-                      const isExpanded = expandedTenants.includes(id);
+                  <div className="space-y-5">
+                    {/* Grupos por Unidade Industrial */}
+                    {displayTenants.map(t => {
+                      const tenantUsers = filtered.filter(u => u.tenant?.id === t.id);
+                      if (tenantUsers.length === 0 && selectedUserTenantId === 'all' && (userSearchTerm || userCategoryFilter !== 'all' || userStatusFilter !== 'all')) {
+                        return null; // Oculta tenants vazios apenas durante busca ativa
+                      }
+
+                      const colaboradores = tenantUsers.filter(u => u.role !== 'TERCEIRIZADA' && u.role !== 'SUPER_ADMIN');
+                      const terceirizadas = tenantUsers.filter(u => u.role === 'TERCEIRIZADA');
+                      const isExpanded = expandedTenants.includes(t.id);
+
                       return (
-                        <div key={id} className="bg-white rounded-2xl shadow-xs border border-slate-200/80 overflow-hidden transition-all duration-300">
-                          {/* Group Header */}
-                          <button 
-                            onClick={() => toggleTenant(id)}
-                            className="w-full flex items-center justify-between p-4 sm:p-5 hover:bg-slate-50/60 transition-colors group cursor-pointer"
+                        <div key={t.id} className="bg-white rounded-2xl shadow-xs border border-slate-200/80 overflow-hidden transition-all duration-300">
+                          {/* Cabeçalho da Usina */}
+                          <button
+                            type="button"
+                            onClick={() => toggleTenant(t.id)}
+                            className="w-full flex items-center justify-between p-4 sm:p-5 hover:bg-slate-50/70 transition-colors group cursor-pointer text-left"
                           >
                             <div className="flex items-center gap-3.5">
-                              <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${id === 'global' ? 'bg-navy text-white' : 'bg-primary/10 text-primary'}`}>
-                                {id === 'global' ? <ShieldCheck className="w-5 h-5" /> : <Building2 className="w-5 h-5" />}
+                              <div 
+                                className="w-11 h-11 rounded-xl flex items-center justify-center font-bold text-white text-base shadow-xs shrink-0 overflow-hidden"
+                                style={{ backgroundColor: t.tertiary_color || t.company_color || '#001D4A' }}
+                              >
+                                {t.logo_url ? (
+                                  <img src={t.logo_url} alt={t.name} className="w-full h-full object-contain p-1.5" onError={(e: any) => e.target.style.display = 'none'} />
+                                ) : (
+                                  t.name[0]
+                                )}
                               </div>
-                              <div className="text-left">
-                                <h4 className="font-semibold text-navy text-sm group-hover:text-primary transition-colors">
-                                  {group.name}
-                                </h4>
-                                <p className="text-xs text-slate-400 mt-0.5">
-                                  {group.users.length} {group.users.length === 1 ? 'usuário vinculado' : 'usuários vinculados'}
-                                </p>
+                              <div>
+                                <div className="flex items-center gap-2.5 flex-wrap">
+                                  <h4 className="font-bold text-navy text-sm group-hover:text-primary transition-colors">
+                                    {t.name}
+                                  </h4>
+                                  {t.active !== false ? (
+                                    <span className="bg-emerald-50 text-emerald-700 border border-emerald-200/80 rounded-full px-2 py-0.5 text-[10px] font-semibold inline-flex items-center gap-1">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                      Usina Ativa
+                                    </span>
+                                  ) : (
+                                    <span className="bg-amber-50 text-amber-800 border border-amber-300 rounded-full px-2 py-0.5 text-[10px] font-semibold inline-flex items-center gap-1">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                                      Usina Desativada
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-500 font-medium flex-wrap">
+                                  <span>{colaboradores.length} {colaboradores.length === 1 ? 'colaborador interno' : 'colaboradores internos'}</span>
+                                  <span className="text-slate-300">·</span>
+                                  <span className="text-blue-600 font-semibold">{terceirizadas.length} {terceirizadas.length === 1 ? 'terceirizada parceira' : 'terceirizadas parceiras'}</span>
+                                  <span className="text-slate-300">·</span>
+                                  <span className="text-slate-400 font-normal">CNPJ: {t.cnpj}</span>
+                                </div>
                               </div>
                             </div>
-                            <div className={`p-1.5 rounded-lg bg-slate-50 text-slate-400 group-hover:text-primary transition-all ${isExpanded ? 'rotate-180 bg-primary/10 text-primary' : ''}`}>
-                              <ChevronDown className="w-4 h-4" />
+
+                            <div className="flex items-center gap-3">
+                              <span className="hidden sm:inline-block text-xs font-semibold px-2.5 py-1 bg-slate-100 text-slate-600 rounded-lg">
+                                {tenantUsers.length} total
+                              </span>
+                              <div className={`p-1.5 rounded-lg bg-slate-50 text-slate-400 group-hover:text-primary transition-all ${isExpanded ? 'rotate-180 bg-primary/10 text-primary' : ''}`}>
+                                <ChevronDown className="w-4 h-4" />
+                              </div>
                             </div>
                           </button>
 
-                          {/* Group Content (User Table) */}
+                          {/* Conteúdo Expandido com Separação Nítida de Equipe Interna vs Terceirizadas */}
                           {isExpanded && (
-                            <div className="border-t border-slate-100 overflow-x-auto">
-                              <table className="w-full text-left border-collapse">
-                                <thead className="bg-slate-50">
-                                  <tr>
-                                    <th className="px-6 py-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Identidade</th>
-                                    <th className="px-6 py-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Acesso / Perfil</th>
-                                    <th className="px-6 py-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider text-right">Data de Registro</th>
-                                  </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100 text-xs">
-                                  {group.users.map(u => (
-                                    <tr key={u.id} className="hover:bg-slate-50/60 transition-colors">
-                                      <td className="px-6 py-3.5">
-                                        <div className="flex items-center gap-3">
-                                          <div className="w-8 h-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-xs font-bold text-primary shrink-0">
-                                            {u.full_name?.[0]?.toUpperCase() || '?'}
-                                          </div>
-                                          <div className="flex flex-col">
-                                            <span className="font-semibold text-navy text-xs">{u.full_name}</span>
-                                            <span className="text-[10px] text-slate-400">{u.email}</span>
-                                          </div>
-                                        </div>
-                                      </td>
-                                      <td className="px-6 py-3.5">
-                                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${
-                                          u.role === 'SUPER_ADMIN' ? 'bg-navy/10 text-navy border-navy/20' :
-                                          u.role === 'GESTOR_SEGURANCA' ? 'bg-primary/15 text-primary border-primary/30' :
-                                          'bg-slate-100 text-slate-600 border-slate-200'
-                                        }`}>
-                                          {u.role.replace('_', ' ')}
-                                        </span>
-                                      </td>
-                                      <td className="px-6 py-3.5 text-right">
-                                        <span className="text-xs text-slate-500">
-                                          {new Date(u.created_at).toLocaleDateString('pt-BR')}
-                                        </span>
-                                      </td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
+                            <div className="border-t border-slate-100 divide-y divide-slate-100 bg-[#FCFDFE]">
+                              {/* 1. SEÇÃO: COLABORADORES & GESTÃO DA USINA */}
+                              {userCategoryFilter !== 'terceirizada' && (
+                                <div className="p-4 sm:p-5 space-y-3">
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                      <Building2 className="w-4 h-4 text-primary" />
+                                      <h5 className="text-xs font-bold text-navy uppercase tracking-wider">
+                                        Colaboradores & Gestão da Usina
+                                      </h5>
+                                      <span className="px-2 py-0.2 bg-primary/10 text-primary rounded-full text-[10px] font-bold">
+                                        {colaboradores.length}
+                                      </span>
+                                    </div>
+                                    <span className="text-[11px] text-slate-400">
+                                      Gestores, Líderes de Setor e Portaria
+                                    </span>
+                                  </div>
+
+                                  {colaboradores.length === 0 ? (
+                                    <div className="p-6 bg-white rounded-xl border border-dashed border-slate-200 text-center text-xs text-slate-400">
+                                      Nenhum colaborador interno vinculado a esta usina.
+                                    </div>
+                                  ) : (
+                                    <div className="bg-white rounded-xl border border-slate-200/80 overflow-hidden overflow-x-auto shadow-2xs">
+                                      <table className="w-full text-left border-collapse">
+                                        <thead className="bg-slate-50/80 text-[10px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-100">
+                                          <tr>
+                                            <th className="px-5 py-3">Colaborador</th>
+                                            <th className="px-5 py-3">Cargo / Perfil</th>
+                                            <th className="px-5 py-3">Setor Alocado</th>
+                                            <th className="px-5 py-3 text-center">Status</th>
+                                            <th className="px-5 py-3 text-right">Controle</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100 text-xs">
+                                          {colaboradores.map(u => (
+                                            <tr key={u.id} className="hover:bg-slate-50/60 transition-colors">
+                                              <td className="px-5 py-3.5">
+                                                <div className="flex items-center gap-3">
+                                                  <div className="w-8 h-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-xs font-bold text-primary shrink-0">
+                                                    {u.full_name?.[0]?.toUpperCase() || '?'}
+                                                  </div>
+                                                  <div className="flex flex-col">
+                                                    <span className="font-semibold text-navy text-xs leading-tight">{u.full_name}</span>
+                                                    <span className="text-[10px] text-slate-400 mt-0.5">{u.email}</span>
+                                                    {u.registration_number && (
+                                                      <span className="text-[9px] text-slate-400 font-mono mt-0.5">Matrícula: {u.registration_number}</span>
+                                                    )}
+                                                  </div>
+                                                </div>
+                                              </td>
+                                              <td className="px-5 py-3.5">
+                                                <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${
+                                                  u.role === 'GESTOR_SEGURANCA' 
+                                                    ? 'bg-primary/10 text-primary border-primary/20' 
+                                                    : u.role === 'LIDER_SETOR' 
+                                                    ? 'bg-blue-50 text-blue-700 border-blue-200' 
+                                                    : 'bg-slate-100 text-slate-700 border-slate-200'
+                                                }`}>
+                                                  {u.role === 'GESTOR_SEGURANCA' ? 'Gestor de Segurança' :
+                                                   u.role === 'LIDER_SETOR' ? 'Líder de Setor' :
+                                                   u.role === 'PORTARIA' ? 'Portaria & Acesso' : u.role}
+                                                </span>
+                                              </td>
+                                              <td className="px-5 py-3.5">
+                                                <span className="text-xs font-medium text-slate-700 bg-slate-50 px-2 py-0.5 rounded-md border border-slate-100">
+                                                  {u.sector || 'Todos os setores'}
+                                                </span>
+                                              </td>
+                                              <td className="px-5 py-3.5 text-center">
+                                                {u.is_active !== false ? (
+                                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                                    Ativo
+                                                  </span>
+                                                ) : (
+                                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                                                    Desativado
+                                                  </span>
+                                                )}
+                                              </td>
+                                              <td className="px-5 py-3.5 text-right">
+                                                <button
+                                                  type="button"
+                                                  onClick={() => handleToggleUserStatus(u.id, u.is_active !== false)}
+                                                  disabled={updatingUserId === u.id}
+                                                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer shadow-xs active:scale-95 disabled:opacity-50 ${
+                                                    u.is_active !== false
+                                                      ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-200 hover:border-rose-300'
+                                                      : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200 hover:border-emerald-300'
+                                                  }`}
+                                                  title={u.is_active !== false ? "Desativar acesso do colaborador" : "Reativar acesso do colaborador"}
+                                                >
+                                                  {updatingUserId === u.id ? (
+                                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                                  ) : u.is_active !== false ? (
+                                                    <UserX className="w-3.5 h-3.5 text-rose-600" />
+                                                  ) : (
+                                                    <UserCheck className="w-3.5 h-3.5 text-emerald-600" />
+                                                  )}
+                                                  <span>{u.is_active !== false ? 'Desativar' : 'Ativar'}</span>
+                                                </button>
+                                              </td>
+                                            </tr>
+                                          ))}
+                                        </tbody>
+                                      </table>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* 2. SEÇÃO: EMPRESAS TERCEIRIZADAS CREDENCIADAS */}
+                              {userCategoryFilter !== 'internal' && (
+                                <div className="p-4 sm:p-5 space-y-3 bg-slate-50/40">
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                      <Briefcase className="w-4 h-4 text-blue-600" />
+                                      <h5 className="text-xs font-bold text-navy uppercase tracking-wider">
+                                        Empresas Terceirizadas Credenciadas
+                                      </h5>
+                                      <span className="px-2 py-0.2 bg-blue-100 text-blue-700 rounded-full text-[10px] font-bold">
+                                        {terceirizadas.length}
+                                      </span>
+                                    </div>
+                                    <span className="text-[11px] text-slate-400">
+                                      Empresas prestadoras de serviço com acesso à planta
+                                    </span>
+                                  </div>
+
+                                  {terceirizadas.length === 0 ? (
+                                    <div className="p-6 bg-white rounded-xl border border-dashed border-slate-200 text-center text-xs text-slate-400">
+                                      Nenhuma empresa terceirizada vinculada a esta usina.
+                                    </div>
+                                  ) : (
+                                    <div className="bg-white rounded-xl border border-slate-200/80 overflow-hidden overflow-x-auto shadow-2xs">
+                                      <table className="w-full text-left border-collapse">
+                                        <thead className="bg-slate-50/80 text-[10px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-100">
+                                          <tr>
+                                            <th className="px-5 py-3">Empresa Terceirizada</th>
+                                            <th className="px-5 py-3">CNPJ / Registro</th>
+                                            <th className="px-5 py-3">Representante & Contato</th>
+                                            <th className="px-5 py-3 text-center">Status</th>
+                                            <th className="px-5 py-3 text-right">Controle</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100 text-xs">
+                                          {terceirizadas.map(u => (
+                                            <tr key={u.id} className="hover:bg-slate-50/60 transition-colors">
+                                              <td className="px-5 py-3.5">
+                                                <div className="flex items-center gap-3">
+                                                  <div className="w-8 h-8 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-600 font-bold text-xs shrink-0">
+                                                    <Briefcase className="w-4 h-4" />
+                                                  </div>
+                                                  <div className="flex flex-col">
+                                                    <span className="font-bold text-navy text-xs leading-tight">{u.full_name}</span>
+                                                    <span className="text-[10px] text-slate-400 mt-0.5">{u.email}</span>
+                                                    <span className="text-[9px] text-blue-600 font-medium">Credenciada na Usina</span>
+                                                  </div>
+                                                </div>
+                                              </td>
+                                              <td className="px-5 py-3.5">
+                                                <span className="font-mono text-xs text-slate-700 bg-slate-50 px-2.5 py-1 rounded-md border border-slate-200/80">
+                                                  {u.cnpj || 'CNPJ não informado'}
+                                                </span>
+                                              </td>
+                                              <td className="px-5 py-3.5">
+                                                <div className="flex flex-col text-xs">
+                                                  <span className="font-semibold text-slate-700">
+                                                    {u.representative_name || 'Responsável não informado'}
+                                                  </span>
+                                                  {u.phone && (
+                                                    <span className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1">
+                                                      <Phone className="w-3 h-3 text-slate-400" />
+                                                      {u.phone}
+                                                    </span>
+                                                  )}
+                                                </div>
+                                              </td>
+                                              <td className="px-5 py-3.5 text-center">
+                                                {u.is_active !== false ? (
+                                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                                    Ativa
+                                                  </span>
+                                                ) : (
+                                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                                                    Desativada
+                                                  </span>
+                                                )}
+                                              </td>
+                                              <td className="px-5 py-3.5 text-right">
+                                                <button
+                                                  type="button"
+                                                  onClick={() => handleToggleUserStatus(u.id, u.is_active !== false)}
+                                                  disabled={updatingUserId === u.id}
+                                                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer shadow-xs active:scale-95 disabled:opacity-50 ${
+                                                    u.is_active !== false
+                                                      ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-200 hover:border-rose-300'
+                                                      : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200 hover:border-emerald-300'
+                                                  }`}
+                                                  title={u.is_active !== false ? "Desativar empresa terceirizada" : "Reativar empresa terceirizada"}
+                                                >
+                                                  {updatingUserId === u.id ? (
+                                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                                  ) : u.is_active !== false ? (
+                                                    <PowerOff className="w-3.5 h-3.5 text-rose-600" />
+                                                  ) : (
+                                                    <Power className="w-3.5 h-3.5 text-emerald-600" />
+                                                  )}
+                                                  <span>{u.is_active !== false ? 'Desativar Empresa' : 'Ativar Empresa'}</span>
+                                                </button>
+                                              </td>
+                                            </tr>
+                                          ))}
+                                        </tbody>
+                                      </table>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
                       );
                     })}
+
+                    {/* Grupo: Administração Central do SaaS */}
+                    {globalUsers.length > 0 && (selectedUserTenantId === 'all' || selectedUserTenantId === 'global') && (
+                      <div className="bg-white rounded-2xl shadow-xs border border-slate-200/80 overflow-hidden transition-all duration-300">
+                        <div className="w-full flex items-center justify-between p-4 sm:p-5 bg-gradient-to-r from-navy/[0.03] to-transparent">
+                          <div className="flex items-center gap-3.5">
+                            <div className="w-11 h-11 rounded-xl bg-navy text-white flex items-center justify-center font-bold text-base shadow-xs shrink-0">
+                              <ShieldCheck className="w-5 h-5 text-primary" />
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <h4 className="font-bold text-navy text-sm">Administração Central do SaaS</h4>
+                                <span className="px-2 py-0.5 bg-navy/10 text-navy font-bold text-[10px] rounded-full">
+                                  Super Admins
+                                </span>
+                              </div>
+                              <p className="text-xs text-slate-500 font-medium mt-0.5">
+                                Usuários com permissão irrestrita e controle global de infraestrutura.
+                              </p>
+                            </div>
+                          </div>
+                          <span className="text-xs font-semibold px-2.5 py-1 bg-navy/10 text-navy rounded-lg">
+                            {globalUsers.length} administrador(es)
+                          </span>
+                        </div>
+
+                        <div className="border-t border-slate-100 overflow-x-auto">
+                          <table className="w-full text-left border-collapse">
+                            <thead className="bg-slate-50/80 text-[10px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-100">
+                              <tr>
+                                <th className="px-5 py-3">Administrador</th>
+                                <th className="px-5 py-3">Privilégio</th>
+                                <th className="px-5 py-3 text-center">Status</th>
+                                <th className="px-5 py-3 text-right">Proteção</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 text-xs">
+                              {globalUsers.map(u => (
+                                <tr key={u.id} className="hover:bg-slate-50/60 transition-colors">
+                                  <td className="px-5 py-3.5">
+                                    <div className="flex items-center gap-3">
+                                      <div className="w-8 h-8 rounded-full bg-navy text-white flex items-center justify-center text-xs font-bold shrink-0">
+                                        {u.full_name?.[0]?.toUpperCase() || 'A'}
+                                      </div>
+                                      <div className="flex flex-col">
+                                        <span className="font-bold text-navy text-xs">{u.full_name}</span>
+                                        <span className="text-[10px] text-slate-400">{u.email}</span>
+                                      </div>
+                                    </div>
+                                  </td>
+                                  <td className="px-5 py-3.5">
+                                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-navy text-white border border-navy">
+                                      SUPER ADMIN
+                                    </span>
+                                  </td>
+                                  <td className="px-5 py-3.5 text-center">
+                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                      Ativo
+                                    </span>
+                                  </td>
+                                  <td className="px-5 py-3.5 text-right">
+                                    <span className="text-[11px] text-slate-400 italic">
+                                      {u.id === user?.id ? 'Sua Conta (Protegida)' : 'Acesso do Sistema'}
+                                    </span>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })()}

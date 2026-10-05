@@ -12,6 +12,7 @@ export interface Tenant {
   company_color?: string;
   secondary_color?: string;
   tertiary_color?: string;
+  active?: boolean;
 }
 
 interface TenantContextType {

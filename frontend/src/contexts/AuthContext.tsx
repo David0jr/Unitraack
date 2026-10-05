@@ -133,6 +133,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             
           if (tenantData) {
             profileData.tenant = tenantData;
+
+            if (profileData.role !== 'SUPER_ADMIN' && tenantData.active === false) {
+              console.warn(`[Auth] Usina desativada detectada (${tenantData.name}) para o usuário ${userId}. Bloqueando acesso.`);
+              const performSignOut = async () => {
+                await authService.signOut();
+                const tokenKey = getTokenKey();
+                sessionStorage.removeItem(tokenKey);
+                sessionStorage.clear();
+                setUser(null);
+                setProfile(null);
+              };
+              performSignOut();
+              throw new Error(`Sistema ${tenantData.name} temporariamente desativado.`);
+            }
           }
         }
 

@@ -70,6 +70,7 @@ export interface Tenant {
   secondary_color?: string;
   tertiary_color?: string;
   subdomain?: string;
+  active?: boolean;
 }
 
 /**

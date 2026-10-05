@@ -80,7 +80,7 @@ export const requireRole = (...allowedRoles: string[]) => {
       if (!req.userProfile) {
         const { data: profile, error } = await supabaseAdmin
           .from('profiles')
-          .select('id, role, full_name, tenant_id, sector, sector_id, is_active')
+          .select('id, role, full_name, tenant_id, sector, sector_id, is_active, tenant:tenants(name, active)')
           .eq('id', req.user.id)
           .single();
 
@@ -91,6 +91,22 @@ export const requireRole = (...allowedRoles: string[]) => {
 
         if (profile.is_active === false) {
           res.status(403).json({ error: 'Conta de usuário desativada.' });
+          return;
+        }
+
+        // Super Admin possui acesso de manutenção global irrestrito
+        if (profile.role === 'SUPER_ADMIN') {
+          req.userProfile = profile;
+          next();
+          return;
+        }
+
+        // Se a Usina estiver desativada pelo Super Admin, bloqueia acesso de gestores, líderes e terceirizados
+        const tenantData: any = Array.isArray(profile.tenant) ? profile.tenant[0] : profile.tenant;
+        if (tenantData && tenantData.active === false) {
+          res.status(403).json({ 
+            error: `Sistema ${tenantData.name} temporariamente desativado.` 
+          });
           return;
         }
 

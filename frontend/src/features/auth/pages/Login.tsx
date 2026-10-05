@@ -80,7 +80,38 @@ export default function Login() {
           <div className="space-y-3">
             <button
               onClick={() => navigate('/')}
-              className="w-full py-4 bg-navy text-white font-bold text-xs uppercase tracking-widest rounded-xl flex items-center justify-center gap-2 hover:bg-navy/90 shadow-lg shadow-navy/10 transition-all active:scale-95"
+              className="w-full py-4 bg-navy text-white font-bold text-xs uppercase tracking-widest rounded-xl flex items-center justify-center gap-2 hover:bg-navy/90 shadow-lg shadow-navy/10 transition-all active:scale-95 cursor-pointer"
+            >
+              Ir para o Início <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Se a usina estiver temporariamente desativada pela administração
+  if (tenant && tenant.active === false) {
+    return (
+      <div className="min-h-screen bg-slate-900/95 flex items-center justify-center p-6 font-brand selection:bg-amber-500 selection:text-white relative overflow-hidden">
+        <ParticleBackground />
+        <div className="bg-white/95 backdrop-blur-md p-8 sm:p-10 rounded-3xl shadow-2xl max-w-md w-full text-center border border-amber-200/50 relative z-10 animate-in zoom-in-95 duration-300">
+          <div className="w-20 h-20 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-inner border border-amber-200">
+            <ShieldAlert className="w-10 h-10" />
+          </div>
+          <span className="inline-block px-3 py-1 bg-amber-100/80 text-amber-800 text-[11px] font-bold uppercase tracking-wider rounded-full mb-3">
+            Acesso Temporariamente Suspenso
+          </span>
+          <h2 className="text-xl sm:text-2xl font-black text-navy mb-3 tracking-tight">
+            Sistema {tenant.name} temporariamente desativado.
+          </h2>
+          <p className="text-slate-600 text-xs sm:text-sm leading-relaxed mb-8">
+            O acesso a esta unidade industrial está temporariamente indisponível. Para regularização cadastral, faturamento ou restabelecimento, entre em contato com a administração da plataforma.
+          </p>
+          <div className="space-y-3">
+            <button
+              onClick={() => navigate('/')}
+              className="w-full py-3.5 bg-navy text-white font-bold text-xs uppercase tracking-widest rounded-xl flex items-center justify-center gap-2 hover:bg-navy/90 shadow-lg shadow-navy/20 transition-all active:scale-95 cursor-pointer"
             >
               Ir para o Início <ArrowRight className="w-4 h-4" />
             </button>
@@ -94,6 +125,12 @@ export default function Login() {
     e.preventDefault();
     setLoading(true);
     setError('');
+
+    if (tenant && tenant.active === false) {
+      setError(`Sistema ${tenant.name} temporariamente desativado.`);
+      setLoading(false);
+      return;
+    }
     try {
       isLoggingIn.current = true;
       // 10 second timeout for the entire login process
@@ -128,6 +165,15 @@ export default function Login() {
 
       // BLOQUEIO ESTRITO MULTI-TENANT: Conta pertence a outra usina
       if (isTenantPortal && !isSuperAdmin) {
+        // Se a Usina estiver desativada
+        if (profile?.tenant && profile.tenant.active === false) {
+          isLoggingIn.current = false;
+          await signOut();
+          setError(`Sistema ${profile.tenant.name} temporariamente desativado.`);
+          setLoading(false);
+          return;
+        }
+
         if (!profile?.tenant_id) {
           isLoggingIn.current = false;
           await signOut();
