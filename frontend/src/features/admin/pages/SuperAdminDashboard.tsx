@@ -1484,16 +1484,6 @@ export default function SuperAdminDashboard() {
                       {/* Barra de Identificação da Usina Selecionada & Seletor de Troca */}
                       <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <div className="flex items-center gap-3.5">
-                          {/* Botão Voltar Ícone */}
-                          <button
-                            type="button"
-                            onClick={() => setSelectedUserTenantId('')}
-                            className="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200/60 text-slate-600 hover:text-navy flex items-center justify-center transition-all cursor-pointer shrink-0"
-                            title="Voltar para a seleção de empresas"
-                          >
-                            <ArrowLeft className="w-4 h-4" />
-                          </button>
-
                           <div
                             className="w-12 h-12 rounded-xl flex items-center justify-center font-bold text-white text-base shadow-xs shrink-0 overflow-hidden"
                             style={{ backgroundColor: targetTenant.tertiary_color || targetTenant.company_color || '#001D4A' }}
@@ -1537,15 +1527,6 @@ export default function SuperAdminDashboard() {
                               </option>
                             ))}
                           </select>
-                          <button
-                            type="button"
-                            onClick={() => setSelectedUserTenantId('')}
-                            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-slate-700 hover:text-navy bg-slate-100 hover:bg-slate-200 rounded-xl transition-all cursor-pointer whitespace-nowrap border border-slate-200/60"
-                            title="Voltar à tela de seleção de empresas"
-                          >
-                            <ArrowLeft className="w-3.5 h-3.5" />
-                            <span>Voltar</span>
-                          </button>
                         </div>
                       </div>
 
