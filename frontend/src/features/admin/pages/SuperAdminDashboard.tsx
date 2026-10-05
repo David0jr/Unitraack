@@ -967,132 +967,95 @@ export default function SuperAdminDashboard() {
                     <p className="text-xs text-slate-400 mt-1">Tente ajustar os termos de busca ou clique em "Cadastrar Unidade" para adicionar uma nova.</p>
                   </div>
                 ) : (
-                  <div className="space-y-4">
-                    {filteredTenants.map(t => (
-                      <div 
-                        key={t.id} 
-                        className="bg-white rounded-2xl p-5 sm:p-6 shadow-xs border border-slate-200/80 hover:border-slate-300 hover:shadow-sm transition-all"
-                      >
-                        <div className="flex flex-col md:flex-row gap-6 items-start justify-between">
-                          <div className="flex-1 w-full">
-                            <div className="flex items-center gap-3 mb-4">
-                              <div 
-                                className="w-11 h-11 rounded-xl flex items-center justify-center font-bold text-white text-base shadow-xs overflow-hidden shrink-0"
-                                style={{ backgroundColor: t.tertiary_color || t.company_color || '#001D4A' }}
-                              >
-                                {t.logo_url ? (
-                                  <img src={t.logo_url} alt={t.name} className="w-full h-full object-contain p-1.5" onError={(e: any) => e.target.style.display = 'none'} />
-                                ) : (
-                                  t.name[0]
-                                )}
-                              </div>
-                              <div>
-                                <div className="flex items-center gap-2.5">
-                                  <h4 className="font-bold text-navy text-sm">{t.name}</h4>
-                                  {t.active !== false ? (
-                                    <span className="bg-emerald-50 text-emerald-700 border border-emerald-200/80 rounded-full px-2.5 py-0.5 text-xs font-medium inline-flex items-center gap-1.5">
-                                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                                      Ativa / Regularizada
-                                    </span>
+                  <div className="bg-white rounded-2xl shadow-xs border border-slate-200/80 overflow-hidden overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead className="bg-slate-50 border-b border-slate-100">
+                        <tr>
+                          <th className="px-6 py-3.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Unidade / Identidade</th>
+                          <th className="px-6 py-3.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Contrato</th>
+                          <th className="px-6 py-3.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Ativação</th>
+                          <th className="px-6 py-3.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider text-center">Gestores</th>
+                          <th className="px-6 py-3.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider text-right">Controle</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 text-xs">
+                        {filteredTenants.map(t => (
+                          <tr key={t.id} className="hover:bg-slate-50/60 transition-colors">
+                            <td className="px-6 py-4">
+                              <div className="flex items-center gap-4">
+                                <div 
+                                  className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white text-sm shadow-xs overflow-hidden shrink-0"
+                                  style={{ backgroundColor: t.tertiary_color || t.company_color || '#001D4A' }}
+                                >
+                                  {t.logo_url ? (
+                                    <img src={t.logo_url} alt={t.name} className="w-full h-full object-contain p-1.5" onError={(e: any) => e.target.style.display = 'none'} />
                                   ) : (
-                                    <span className="bg-amber-50 text-amber-800 border border-amber-300 rounded-full px-2.5 py-0.5 text-xs font-semibold inline-flex items-center gap-1.5">
-                                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-                                      Temporariamente Desativada
-                                    </span>
+                                    t.name[0]
                                   )}
                                 </div>
-                                <p className="text-xs text-slate-500 font-medium mt-0.5">
-                                  {t.cnpj}
-                                </p>
-                              </div>
-                            </div>
-
-                            {/* Grid de Informações completas */}
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                              <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
-                                <p className="text-[10px] text-slate-400 font-medium">Subdomínio / Link</p>
-                                <p className="text-xs font-semibold text-navy mt-0.5 truncate">{t.subdomain}.localhost</p>
-                              </div>
-                              <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
-                                <p className="text-[10px] text-slate-400 font-medium">Gestores / Emissão</p>
-                                <p className="text-xs font-semibold text-navy mt-0.5">
-                                  {Number(t.gestores?.[0]?.count || 0)} gestor(es) · {new Date(t.created_at).toLocaleDateString('pt-BR')}
-                                </p>
-                              </div>
-                              <div className="bg-slate-50 rounded-xl p-3 border border-slate-100 flex flex-col justify-center">
-                                <p className="text-[10px] text-slate-400 font-medium mb-1">Paleta Visual</p>
-                                <div className="flex items-center gap-1.5">
-                                  <span className="w-3.5 h-3.5 rounded-full shadow-xs border border-white" style={{ backgroundColor: t.company_color || '#00B5AD' }} title="Primária" />
-                                  <span className="w-3.5 h-3.5 rounded-full shadow-xs border border-white" style={{ backgroundColor: t.secondary_color || '#1996DC' }} title="Secundária" />
-                                  <span className="w-3.5 h-3.5 rounded-full shadow-xs border border-white" style={{ backgroundColor: t.tertiary_color || '#001D4A' }} title="Terciária" />
+                                <div className="flex flex-col">
+                                  <span className="font-semibold text-navy text-xs leading-tight">{t.name}</span>
+                                  <div className="flex items-center gap-2 mt-0.5">
+                                    <span className="text-[10px] text-primary font-medium">{t.subdomain}.localhost</span>
+                                    <div className="w-1 h-1 bg-slate-300 rounded-full"></div>
+                                    <span className="text-[10px] text-slate-400">{t.cnpj}</span>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 mt-1.5">
+                                    <span className="w-2.5 h-2.5 rounded-full shadow-xs border border-white" style={{ backgroundColor: t.company_color || '#00B5AD' }} title="Cor Primária" />
+                                    <span className="w-2.5 h-2.5 rounded-full shadow-xs border border-white" style={{ backgroundColor: t.secondary_color || '#1996DC' }} title="Cor Secundária" />
+                                    <span className="w-2.5 h-2.5 rounded-full shadow-xs border border-white" style={{ backgroundColor: t.tertiary_color || '#001D4A' }} title="Cor Terciária / Base" />
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                          </div>
-
-                          {/* Ações completas de Gestão da Usina */}
-                          <div className="flex items-center gap-2 self-start md:self-center shrink-0 flex-wrap">
-                            {/* Botão de Ativação / Desativação da Usina */}
-                            <button
-                              onClick={() => handleToggleTenantStatus(t.id, t.active !== false)}
-                              disabled={updatingTenantId === t.id}
-                              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition-all cursor-pointer shadow-xs active:scale-95 disabled:opacity-50 ${
-                                t.active !== false
-                                  ? 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-200/80 hover:border-amber-300'
-                                  : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200/80 hover:border-emerald-300'
-                              }`}
-                              title={t.active !== false ? "Desativar Acesso da Usina (Suspender Temporariamente)" : "Reativar Acesso da Usina"}
-                            >
-                              {updatingTenantId === t.id ? (
-                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                              ) : t.active !== false ? (
-                                <PowerOff className="w-3.5 h-3.5 text-amber-600" />
+                            </td>
+                            <td className="px-6 py-4">
+                              {t.active !== false ? (
+                                <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 text-xs font-medium rounded-full border border-emerald-200/80 inline-flex items-center gap-1.5">
+                                  <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
+                                  Ativa
+                                </span>
                               ) : (
-                                <Power className="w-3.5 h-3.5 text-emerald-600" />
+                                <span className="px-2.5 py-1 bg-amber-50 text-amber-800 text-xs font-semibold rounded-full border border-amber-300 inline-flex items-center gap-1.5">
+                                  <span className="w-1.5 h-1.5 bg-amber-500 rounded-full"></span>
+                                  Desativada
+                                </span>
                               )}
-                              <span className="hidden sm:inline">
-                                {t.active !== false ? 'Desativar Usina' : 'Ativar Usina'}
+                            </td>
+                            <td className="px-6 py-4">
+                              <span className="text-xs font-medium text-slate-600">{new Date(t.created_at).toLocaleDateString('pt-BR')}</span>
+                            </td>
+                            <td className="px-6 py-4 text-center">
+                              <span className="inline-flex items-center justify-center px-3 py-1 bg-slate-50 text-slate-700 rounded-lg text-xs font-semibold border border-slate-100">
+                                {Number(t.gestores?.[0]?.count || 0)}
                               </span>
-                            </button>
-
-                            <button
-                              onClick={() => generateAndCopyNewLink(t.id)}
-                              className="flex items-center gap-1.5 px-3 py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-medium border border-slate-200/80 transition-all cursor-pointer shadow-xs active:scale-95"
-                              title="Copiar Link de Convite para Gestor"
-                            >
-                              <Copy className="w-3.5 h-3.5 text-slate-500" />
-                              <span className="hidden sm:inline">Convite Gestor</span>
-                            </button>
-                            <button
-                              onClick={() => {
-                                const url = `${window.location.origin}/${t.subdomain}/login`;
-                                window.open(url, '_blank');
-                                navigator.clipboard.writeText(url);
-                              }}
-                              className="flex items-center gap-1.5 px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-xl text-xs font-medium border border-emerald-200/80 transition-all cursor-pointer shadow-xs active:scale-95"
-                              title="Acessar Portal da Usina (abre em nova aba e copia URL)"
-                            >
-                              <ExternalLink className="w-3.5 h-3.5" />
-                              <span className="hidden sm:inline">Portal</span>
-                            </button>
-                            <button
-                              onClick={() => openEditModal(t)}
-                              className="p-2 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-xl border border-slate-200/80 transition-all cursor-pointer shadow-xs hover:text-primary active:scale-95"
-                              title="Editar Unidade"
-                            >
-                              <Pencil className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteTenant(t.id)}
-                              className="p-2 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl border border-rose-200/80 transition-all cursor-pointer shadow-xs hover:bg-rose-100 active:scale-95"
-                              title="Excluir Unidade"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+                            </td>
+                            <td className="px-6 py-4 text-right">
+                              <div className="flex items-center justify-end gap-1">
+                                <ActionButton 
+                                  onClick={() => handleToggleTenantStatus(t.id, t.active !== false)} 
+                                  icon={t.active !== false ? <PowerOff className="w-3.5 h-3.5" /> : <Power className="w-3.5 h-3.5" />} 
+                                  title={t.active !== false ? "Desativar Usina" : "Reativar Usina"} 
+                                  color={t.active !== false ? "text-slate-500 hover:text-amber-600 hover:bg-amber-50" : "text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"} 
+                                />
+                                <ActionButton onClick={() => generateAndCopyNewLink(t.id)} icon={<Copy className="w-3.5 h-3.5" />} title="Convite Gestor" color="text-slate-500 hover:text-navy hover:bg-slate-100" />
+                                <ActionButton
+                                  onClick={() => {
+                                    const url = `${window.location.origin}/${t.subdomain}/login`;
+                                    window.open(url, '_blank');
+                                    navigator.clipboard.writeText(url);
+                                  }}
+                                  icon={<ExternalLink className="w-3.5 h-3.5" />}
+                                  title="Portal"
+                                  color="text-slate-500 hover:text-emerald-600 hover:bg-emerald-50"
+                                />
+                                <ActionButton onClick={() => openEditModal(t)} icon={<Pencil className="w-3.5 h-3.5" />} title="Editar" color="text-slate-500 hover:text-primary hover:bg-primary/5" />
+                                <ActionButton onClick={() => handleDeleteTenant(t.id)} icon={<Trash2 className="w-3.5 h-3.5" />} title="Excluir" color="text-slate-500 hover:text-rose-600 hover:bg-rose-50" />
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 )}
               </div>
