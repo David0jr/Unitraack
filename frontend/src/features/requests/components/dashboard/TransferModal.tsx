@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Send, Loader2, ChevronDown, Camera, Upload, Hash } from 'lucide-react';
 import { useDashboard } from '../../../../contexts/DashboardContext';
 import { useAuth } from '../../../../contexts/AuthContext';
+import { api } from '../../../../lib/axios';
 import { WebcamModal } from '../../../../components/WebcamModal';
 import { compressImage } from '../../../../utils/imageCompressor';
 import Swal from 'sweetalert2';
@@ -23,14 +24,44 @@ export const TransferModal: React.FC<TransferModalProps> = ({
   currentSectorId,
   currentSectorName
 }) => {
-  const { sectors } = useDashboard();
+  // Obtenção de setores via contexto com fallback seguro
+  let contextSectors: any[] = [];
+  try {
+    const dashboard = useDashboard();
+    contextSectors = dashboard?.sectors || [];
+  } catch {
+    contextSectors = [];
+  }
+
   const { profile } = useAuth();
+  const [sectors, setSectors] = useState<any[]>(contextSectors);
+  const [loadingSectors, setLoadingSectors] = useState(false);
   const [selectedParentSector, setSelectedParentSector] = useState('');
   const [selectedSubSector, setSelectedSubSector] = useState('');
   const [signature, setSignature] = useState('');
   const [photos, setPhotos] = useState<string[]>([]);
   const [observation, setObservation] = useState('');
   const [isWebcamOpen, setIsWebcamOpen] = useState(false);
+
+  // Carrega setores caso o contexto não possua (ex: tela acessada diretamente por Líder)
+  useEffect(() => {
+    if (contextSectors && contextSectors.length > 0) {
+      setSectors(contextSectors);
+    } else {
+      setLoadingSectors(true);
+      api.get('/sectors')
+        .then(res => {
+          const list = res.data?.data || res.data || [];
+          if (Array.isArray(list)) {
+            setSectors(list);
+          }
+        })
+        .catch(err => {
+          console.error('[TransferModal] Erro ao carregar setores:', err);
+        })
+        .finally(() => setLoadingSectors(false));
+    }
+  }, [contextSectors]);
 
   // Identifica o setor de origem (onde o material já está alocado)
   const originSectorId = currentSectorId || profile?.sector_id;
@@ -43,15 +74,42 @@ export const TransferModal: React.FC<TransferModalProps> = ({
     return false;
   };
 
-  // Filtra as áreas gerais e remove o próprio setor caso seja um parent sem outros filhos
+  // Filtra as áreas gerais disponíveis (que não sejam o próprio setor atual exclusivo)
   const parentSectors = sectors
     .filter(s => !s.parent_id)
-    .filter(s => !isCurrentSector(s) || sectors.some(child => child.parent_id === s.id && !isCurrentSector(child)));
+    .filter(s => {
+      const children = sectors.filter(child => child.parent_id === s.id);
+      if (children.length === 0) {
+        return !isCurrentSector(s);
+      }
+      return children.some(child => !isCurrentSector(child));
+    });
 
   // Filtra os locais específicos removendo SEMPRE o próprio setor atual do líder/material
-  const subSectors = sectors
+  const rawSubSectors = sectors
     .filter(s => s.parent_id === selectedParentSector)
     .filter(s => !isCurrentSector(s));
+
+  // Se a área geral selecionada não tem sub-setores cadastrados, disponibiliza a própria área geral como destino
+  const selectedParentObj = sectors.find(s => s.id === selectedParentSector);
+  const subSectors = rawSubSectors.length > 0
+    ? rawSubSectors
+    : (selectedParentObj && !isCurrentSector(selectedParentObj)
+        ? [{ id: selectedParentObj.id, name: `${selectedParentObj.name} (Área Geral / Única)` }]
+        : []);
+
+  // Quando a área geral selecionada mudar, seleciona automaticamente se houver apenas 1 opção
+  useEffect(() => {
+    if (selectedParentSector) {
+      if (subSectors.length === 1) {
+        setSelectedSubSector(subSectors[0].id);
+      } else {
+        setSelectedSubSector('');
+      }
+    } else {
+      setSelectedSubSector('');
+    }
+  }, [selectedParentSector, sectors]);
 
   const handleCapturePhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -195,17 +253,19 @@ export const TransferModal: React.FC<TransferModalProps> = ({
                     <label className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1.5 block">
                       Área de Destino Geral
                     </label>
-                    <div className="relative">
-                      <select 
+                        <select 
                         value={selectedParentSector}
                         onChange={(e) => {
                           setSelectedParentSector(e.target.value);
                           setSelectedSubSector('');
                         }}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-navy appearance-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all outline-none cursor-pointer"
+                        disabled={loadingSectors}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-navy appearance-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all outline-none cursor-pointer disabled:opacity-60"
                         required
                       >
-                        <option value="">SELECIONE A ÁREA GERAL...</option>
+                        <option value="">
+                          {loadingSectors ? 'CARREGANDO SETORES...' : 'SELECIONE A ÁREA GERAL...'}
+                        </option>
                         {parentSectors.map(s => (
                           <option key={s.id} value={s.id}>{s.name.toUpperCase()}</option>
                         ))}
@@ -223,11 +283,17 @@ export const TransferModal: React.FC<TransferModalProps> = ({
                       <select 
                         value={selectedSubSector}
                         onChange={(e) => setSelectedSubSector(e.target.value)}
-                        disabled={!selectedParentSector}
+                        disabled={!selectedParentSector || loadingSectors}
                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-navy appearance-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all outline-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                         required
                       >
-                        <option value="">{selectedParentSector ? 'SELECIONE O LOCAL ESPECÍFICO...' : 'PRIMEIRO ESCOLHA A ÁREA GERAL'}</option>
+                        <option value="">
+                          {loadingSectors 
+                            ? 'CARREGANDO...' 
+                            : (!selectedParentSector 
+                                ? 'PRIMEIRO ESCOLHA A ÁREA GERAL' 
+                                : (subSectors.length === 0 ? 'NENHUM LOCAL DISPONÍVEL' : 'SELECIONE O LOCAL ESPECÍFICO...'))}
+                        </option>
                         {subSectors.map(s => (
                           <option key={s.id} value={s.id}>{s.name.toUpperCase()}</option>
                         ))}
@@ -254,7 +320,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({
                     </div>
                     <div className="relative">
                       <input 
-                        type="text"
+                        type="text" 
                         placeholder="DIGITE SUA MATRÍCULA..."
                         value={signature}
                         onChange={(e) => setSignature(e.target.value)}
@@ -269,7 +335,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({
                 {/* Botão de Envio */}
                 <button 
                   type="submit"
-                  disabled={!selectedSubSector || !signature || isProcessing}
+                  disabled={!selectedSubSector || !signature || isProcessing || loadingSectors}
                   className="w-full bg-primary hover:bg-[#009e96] disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-xs uppercase tracking-widest py-3.5 rounded-xl shadow-lg shadow-primary/20 transition-all flex items-center justify-center gap-2 active:scale-[0.99] cursor-pointer mt-4"
                 >
                   {isProcessing ? (

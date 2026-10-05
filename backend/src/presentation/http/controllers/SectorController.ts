@@ -9,12 +9,13 @@ export class SectorController {
   static async listSectors(req: AuthRequest, res: Response): Promise<any> {
     try {
       const profile = await userService.findProfileById(req.user.id);
+      const tenantId = profile?.tenant_id || (req.query.tenant_id as string) || (req.headers['x-tenant-id'] as string);
       
-      if (!profile || !profile.tenant_id) {
+      if (!tenantId) {
         return ApiResponse.error(res, 'Unidade organizacional não identificada.', 403);
       }
 
-      const sectors = await sectorService.listByTenant(profile.tenant_id as string);
+      const sectors = await sectorService.listByTenant(tenantId as string);
       return ApiResponse.success(res, sectors);
     } catch (error: any) {
       return ApiResponse.error(res, error.message, 500, error);
