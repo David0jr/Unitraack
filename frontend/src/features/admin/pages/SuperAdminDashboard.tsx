@@ -26,7 +26,9 @@ import {
   User,
   Sparkles,
   Palette,
-  Check
+  Check,
+  LayoutGrid,
+  List
 } from 'lucide-react';
 import { MobileNav } from '../../requests/components/dashboard/MobileNav';
 import { NotificationDropdown } from '../../requests/components/dashboard/NotificationDropdown';
@@ -81,6 +83,7 @@ export default function SuperAdminDashboard() {
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [tenantViewMode, setTenantViewMode] = useState<'cards' | 'table'>('cards');
   const itemsPerPage = 8;
 
   const fetchAuditLogs = async (tenantId: string) => {
@@ -517,8 +520,8 @@ export default function SuperAdminDashboard() {
           <div className="space-y-8 animate-in fade-in duration-500">
             {activeTab === 'dashboard' && (
               <div className="space-y-8">
-                {/* 4 KPI Cards - Identical to Image 2 Gestor Dashboard */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5 mb-8">
+                {/* 3 KPI Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-3 gap-4 md:gap-5 mb-8">
                   <StatCard 
                     label="Usinas Integradas" 
                     value={stats?.totalTenants.toString() || '0'} 
@@ -537,15 +540,9 @@ export default function SuperAdminDashboard() {
                     icon={<BarChart3 className="w-5 h-5" />}
                     color="bg-amber-50 text-amber-600 border border-amber-100/80"
                   />
-                  <StatCard 
-                    label="Infraestrutura & Status" 
-                    value="100% Online" 
-                    icon={<ShieldCheck className="w-5 h-5" />}
-                    color="bg-teal-50 text-teal-600 border border-teal-100/80"
-                  />
                 </div>
 
-                {/* Seção de Usinas - Estilo idêntico ao Acompanhamento do Gestor */}
+                {/* Seção de Usinas - Visualização Pura de Informações */}
                 <div className="space-y-4">
                   <div className="flex items-center justify-between mb-1">
                     <h3 className="font-semibold text-navy text-sm flex items-center gap-2">
@@ -556,20 +553,6 @@ export default function SuperAdminDashboard() {
                       <span className="text-xs font-medium text-slate-500 bg-white border border-slate-200/80 px-3 py-1 rounded-xl shadow-xs">
                         {tenants.length} {tenants.length === 1 ? 'registro' : 'registros'}
                       </span>
-                      <button
-                        onClick={() => {
-                          setEditingTenant(null);
-                          setFormData(initialFormData);
-                          setWebsiteInput('');
-                          setDetectedPalette([]);
-                          setExtractionFeedback(null);
-                          setIsModalOpen(true);
-                        }}
-                        className="flex items-center gap-1.5 bg-primary hover:bg-primary/90 text-white px-3.5 py-1.5 rounded-xl font-semibold text-xs shadow-xs transition-all cursor-pointer"
-                      >
-                        <PlusCircle className="w-3.5 h-3.5" />
-                        <span>Nova Unidade</span>
-                      </button>
                     </div>
                   </div>
 
@@ -577,10 +560,140 @@ export default function SuperAdminDashboard() {
                     <div className="bg-white rounded-2xl p-12 text-center border border-slate-200/80 shadow-xs">
                       <Building2 className="w-12 h-12 text-slate-300 mx-auto mb-3" />
                       <p className="text-sm font-semibold text-navy">Nenhuma usina cadastrada</p>
-                      <p className="text-xs text-slate-400 mt-1">Clique em "Nova Unidade" para conectar o primeiro tenant ao SaaS.</p>
+                      <p className="text-xs text-slate-400 mt-1">Acesse a aba "Gerenciar Usinas" no menu lateral para cadastrar e gerenciar unidades.</p>
                     </div>
                   ) : (
                     tenants.map(t => (
+                      <div 
+                        key={t.id} 
+                        className="bg-white rounded-2xl p-5 sm:p-6 shadow-xs border border-slate-200/80 hover:border-slate-300 hover:shadow-sm transition-all"
+                      >
+                        <div className="w-full">
+                          <div className="flex items-center gap-3 mb-4">
+                            <div 
+                              className="w-11 h-11 rounded-xl flex items-center justify-center font-bold text-white text-base shadow-xs overflow-hidden shrink-0"
+                              style={{ backgroundColor: t.tertiary_color || t.company_color || '#001D4A' }}
+                            >
+                              {t.logo_url ? (
+                                <img src={t.logo_url} alt={t.name} className="w-full h-full object-contain p-1.5" onError={(e: any) => e.target.style.display = 'none'} />
+                              ) : (
+                                t.name[0]
+                              )}
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2.5">
+                                <h4 className="font-bold text-navy text-sm">{t.name}</h4>
+                                <span className="bg-emerald-50 text-emerald-700 border border-emerald-200/80 rounded-full px-2.5 py-0.5 text-xs font-medium inline-flex items-center gap-1.5">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                  Regularizado
+                                </span>
+                              </div>
+                              <p className="text-xs text-slate-500 font-medium mt-0.5">
+                                {t.cnpj}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Grid de Informações idêntico ao Gestor */}
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
+                              <p className="text-[10px] text-slate-400 font-medium">Subdomínio / Link</p>
+                              <p className="text-xs font-semibold text-navy mt-0.5 truncate">{t.subdomain}.localhost</p>
+                            </div>
+                            <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
+                              <p className="text-[10px] text-slate-400 font-medium">Gestores / Emissão</p>
+                              <p className="text-xs font-semibold text-navy mt-0.5">
+                                {Number(t.gestores?.[0]?.count || 0)} gestor(es) · {new Date(t.created_at).toLocaleDateString('pt-BR')}
+                              </p>
+                            </div>
+                            <div className="bg-slate-50 rounded-xl p-3 border border-slate-100 flex flex-col justify-center">
+                              <p className="text-[10px] text-slate-400 font-medium mb-1">Paleta Visual</p>
+                              <div className="flex items-center gap-1.5">
+                                <span className="w-3.5 h-3.5 rounded-full shadow-xs border border-white" style={{ backgroundColor: t.company_color || '#00B5AD' }} title="Primária" />
+                                <span className="w-3.5 h-3.5 rounded-full shadow-xs border border-white" style={{ backgroundColor: t.secondary_color || '#1996DC' }} title="Secundária" />
+                                <span className="w-3.5 h-3.5 rounded-full shadow-xs border border-white" style={{ backgroundColor: t.tertiary_color || '#001D4A' }} title="Terciária" />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'tenants' && (
+              <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <h2 className="text-xl font-bold text-navy">Gerenciar Usinas</h2>
+                    <p className="text-xs text-slate-500 mt-0.5">Central de controle, edição e cadastramento de unidades federadas.</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setEditingTenant(null);
+                      setFormData(initialFormData);
+                      setWebsiteInput('');
+                      setDetectedPalette([]);
+                      setExtractionFeedback(null);
+                      setIsModalOpen(true);
+                    }}
+                    className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-white px-4 py-2.5 rounded-xl font-semibold text-xs shadow-xs transition-all cursor-pointer w-fit"
+                  >
+                    <PlusCircle className="w-4 h-4" />
+                    <span>Cadastrar Unidade</span>
+                  </button>
+                </div>
+
+                {/* Toolbar: Busca & Alternador de Modo de Visualização */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="relative w-full max-w-md">
+                    <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Filtrar por nome, CNPJ ou subdomínio..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200/80 rounded-xl shadow-xs text-xs font-medium text-navy placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-2 self-end sm:self-auto">
+                    <span className="text-xs font-medium text-slate-500 bg-white border border-slate-200/80 px-3 py-1.5 rounded-xl shadow-xs">
+                      {filteredTenants.length} {filteredTenants.length === 1 ? 'usina' : 'usinas'}
+                    </span>
+                    <div className="flex items-center bg-white border border-slate-200/80 rounded-xl p-1 shadow-xs">
+                      <button
+                        type="button"
+                        onClick={() => setTenantViewMode('cards')}
+                        className={`p-1.5 rounded-lg transition-all cursor-pointer ${tenantViewMode === 'cards' ? 'bg-primary text-white shadow-xs' : 'text-slate-400 hover:text-navy hover:bg-slate-50'}`}
+                        title="Visualização em Cards"
+                      >
+                        <LayoutGrid className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setTenantViewMode('table')}
+                        className={`p-1.5 rounded-lg transition-all cursor-pointer ${tenantViewMode === 'table' ? 'bg-primary text-white shadow-xs' : 'text-slate-400 hover:text-navy hover:bg-slate-50'}`}
+                        title="Visualização em Tabela"
+                      >
+                        <List className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {filteredTenants.length === 0 ? (
+                  <div className="bg-white rounded-2xl p-12 text-center border border-slate-200/80 shadow-xs">
+                    <Building2 className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                    <p className="text-sm font-semibold text-navy">Nenhuma usina encontrada</p>
+                    <p className="text-xs text-slate-400 mt-1">Tente ajustar os termos de busca ou clique em "Cadastrar Unidade" para adicionar uma nova.</p>
+                  </div>
+                ) : tenantViewMode === 'cards' ? (
+                  /* Cards View com TODAS as ações de gerenciamento */
+                  <div className="space-y-4">
+                    {filteredTenants.map(t => (
                       <div 
                         key={t.id} 
                         className="bg-white rounded-2xl p-5 sm:p-6 shadow-xs border border-slate-200/80 hover:border-slate-300 hover:shadow-sm transition-all"
@@ -612,7 +725,7 @@ export default function SuperAdminDashboard() {
                               </div>
                             </div>
 
-                            {/* Grid de Informações idêntico ao Gestor */}
+                            {/* Grid de Informações completas */}
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                               <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
                                 <p className="text-[10px] text-slate-400 font-medium">Subdomínio / Link</p>
@@ -635,38 +748,38 @@ export default function SuperAdminDashboard() {
                             </div>
                           </div>
 
-                          {/* Ações */}
-                          <div className="flex items-center gap-2 self-start md:self-center shrink-0">
+                          {/* Ações completas de Gestão da Usina */}
+                          <div className="flex items-center gap-2 self-start md:self-center shrink-0 flex-wrap">
                             <button
                               onClick={() => generateAndCopyNewLink(t.id)}
-                              className="flex items-center gap-1.5 px-3 py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-medium border border-slate-200/80 transition-all cursor-pointer"
+                              className="flex items-center gap-1.5 px-3 py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-medium border border-slate-200/80 transition-all cursor-pointer shadow-xs active:scale-95"
                               title="Copiar Link de Convite para Gestor"
                             >
-                              <Copy className="w-3.5 h-3.5" />
+                              <Copy className="w-3.5 h-3.5 text-slate-500" />
                               <span className="hidden sm:inline">Convite Gestor</span>
                             </button>
                             <button
                               onClick={() => {
                                 const url = `${window.location.origin}/${t.subdomain}/login`;
+                                window.open(url, '_blank');
                                 navigator.clipboard.writeText(url);
-                                alert('Portal da usina copiado!');
                               }}
-                              className="flex items-center gap-1.5 px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-xl text-xs font-medium border border-emerald-200/80 transition-all cursor-pointer"
-                              title="Copiar link do portal"
+                              className="flex items-center gap-1.5 px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-xl text-xs font-medium border border-emerald-200/80 transition-all cursor-pointer shadow-xs active:scale-95"
+                              title="Acessar Portal da Usina (abre em nova aba e copia URL)"
                             >
                               <ExternalLink className="w-3.5 h-3.5" />
                               <span className="hidden sm:inline">Portal</span>
                             </button>
                             <button
                               onClick={() => openEditModal(t)}
-                              className="p-2 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-xl border border-slate-200/80 transition-all cursor-pointer"
+                              className="p-2 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-xl border border-slate-200/80 transition-all cursor-pointer shadow-xs hover:text-primary active:scale-95"
                               title="Editar Unidade"
                             >
                               <Pencil className="w-3.5 h-3.5" />
                             </button>
                             <button
                               onClick={() => handleDeleteTenant(t.id)}
-                              className="p-2 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl border border-rose-200/80 transition-all cursor-pointer"
+                              className="p-2 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl border border-rose-200/80 transition-all cursor-pointer shadow-xs hover:bg-rose-100 active:scale-95"
                               title="Excluir Unidade"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
@@ -674,125 +787,88 @@ export default function SuperAdminDashboard() {
                           </div>
                         </div>
                       </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            )}
-
-            {activeTab === 'tenants' && (
-              <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div>
-                    <h2 className="text-xl font-bold text-navy">Gerenciar Usinas</h2>
-                    <p className="text-xs text-slate-500 mt-0.5">Central de controle e cadastramento de unidades federadas.</p>
+                    ))}
                   </div>
-                  <button
-                    onClick={() => {
-                      setEditingTenant(null);
-                      setFormData(initialFormData);
-                      setWebsiteInput('');
-                      setDetectedPalette([]);
-                      setExtractionFeedback(null);
-                      setIsModalOpen(true);
-                    }}
-                    className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-white px-4 py-2.5 rounded-xl font-semibold text-xs shadow-xs transition-all cursor-pointer w-fit"
-                  >
-                    <PlusCircle className="w-4 h-4" />
-                    <span>Cadastrar Unidade</span>
-                  </button>
-                </div>
-
-                {/* Toolbar: Busca */}
-                <div className="relative w-full max-w-md">
-                  <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <input
-                    type="text"
-                    placeholder="Filtrar por nome, CNPJ ou subdomínio..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200/80 rounded-xl shadow-xs text-xs font-medium text-navy placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                  />
-                </div>
-
-                {/* Table View */}
-                <div className="bg-white rounded-2xl shadow-xs border border-slate-200/80 overflow-hidden overflow-x-auto">
-                  <table className="w-full text-left border-collapse">
-                    <thead className="bg-slate-50 border-b border-slate-100">
-                      <tr>
-                        <th className="px-6 py-3.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Unidade / Identidade</th>
-                        <th className="px-6 py-3.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Contrato</th>
-                        <th className="px-6 py-3.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Ativação</th>
-                        <th className="px-6 py-3.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider text-center">Gestores</th>
-                        <th className="px-6 py-3.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider text-right">Controle</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 text-xs">
-                      {filteredTenants.map(t => (
-                        <tr key={t.id} className="hover:bg-slate-50/60 transition-colors">
-                          <td className="px-6 py-4">
-                            <div className="flex items-center gap-4">
-                              <div 
-                                className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white text-sm shadow-xs overflow-hidden shrink-0"
-                                style={{ backgroundColor: t.tertiary_color || t.company_color || '#001D4A' }}
-                              >
-                                {t.logo_url ? (
-                                  <img src={t.logo_url} alt={t.name} className="w-full h-full object-contain p-1.5" onError={(e: any) => e.target.style.display = 'none'} />
-                                ) : (
-                                  t.name[0]
-                                )}
-                              </div>
-                              <div className="flex flex-col">
-                                <span className="font-semibold text-navy text-xs leading-tight">{t.name}</span>
-                                <div className="flex items-center gap-2 mt-0.5">
-                                  <span className="text-[10px] text-primary font-medium">{t.subdomain}.localhost</span>
-                                  <div className="w-1 h-1 bg-slate-300 rounded-full"></div>
-                                  <span className="text-[10px] text-slate-400">{t.cnpj}</span>
-                                </div>
-                                <div className="flex items-center gap-1.5 mt-1.5">
-                                  <span className="w-2.5 h-2.5 rounded-full shadow-xs border border-white" style={{ backgroundColor: t.company_color || '#00B5AD' }} title="Cor Primária" />
-                                  <span className="w-2.5 h-2.5 rounded-full shadow-xs border border-white" style={{ backgroundColor: t.secondary_color || '#1996DC' }} title="Cor Secundária" />
-                                  <span className="w-2.5 h-2.5 rounded-full shadow-xs border border-white" style={{ backgroundColor: t.tertiary_color || '#001D4A' }} title="Cor Terciária / Base" />
-                                </div>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 text-xs font-medium rounded-full border border-emerald-200/80 inline-flex items-center gap-1.5">
-                              <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
-                              Regularizado
-                            </span>
-                          </td>
-                          <td className="px-6 py-4">
-                            <span className="text-xs font-medium text-slate-600">{new Date(t.created_at).toLocaleDateString('pt-BR')}</span>
-                          </td>
-                          <td className="px-6 py-4 text-center">
-                            <span className="inline-flex items-center justify-center px-3 py-1 bg-slate-50 text-slate-700 rounded-lg text-xs font-semibold border border-slate-100">
-                              {Number(t.gestores?.[0]?.count || 0)}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 text-right">
-                            <div className="flex items-center justify-end gap-1">
-                              <ActionButton onClick={() => generateAndCopyNewLink(t.id)} icon={<Copy className="w-3.5 h-3.5" />} title="Gestor" color="text-slate-500 hover:text-navy hover:bg-slate-100" />
-                              <ActionButton onClick={() => openEditModal(t)} icon={<Pencil className="w-3.5 h-3.5" />} title="Editar" color="text-slate-500 hover:text-primary hover:bg-primary/5" />
-                              <ActionButton
-                                onClick={() => {
-                                  const url = `${window.location.origin}/${t.subdomain}/login`;
-                                  navigator.clipboard.writeText(url);
-                                  alert('Portal copiado!');
-                                }}
-                                icon={<ExternalLink className="w-3.5 h-3.5" />}
-                                title="Portal"
-                                color="text-slate-500 hover:text-emerald-600 hover:bg-emerald-50"
-                              />
-                              <ActionButton onClick={() => handleDeleteTenant(t.id)} icon={<Trash2 className="w-3.5 h-3.5" />} title="Excluir" color="text-slate-500 hover:text-rose-600 hover:bg-rose-50" />
-                            </div>
-                          </td>
+                ) : (
+                  /* Table View */
+                  <div className="bg-white rounded-2xl shadow-xs border border-slate-200/80 overflow-hidden overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead className="bg-slate-50 border-b border-slate-100">
+                        <tr>
+                          <th className="px-6 py-3.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Unidade / Identidade</th>
+                          <th className="px-6 py-3.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Contrato</th>
+                          <th className="px-6 py-3.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Ativação</th>
+                          <th className="px-6 py-3.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider text-center">Gestores</th>
+                          <th className="px-6 py-3.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider text-right">Controle</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 text-xs">
+                        {filteredTenants.map(t => (
+                          <tr key={t.id} className="hover:bg-slate-50/60 transition-colors">
+                            <td className="px-6 py-4">
+                              <div className="flex items-center gap-4">
+                                <div 
+                                  className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white text-sm shadow-xs overflow-hidden shrink-0"
+                                  style={{ backgroundColor: t.tertiary_color || t.company_color || '#001D4A' }}
+                                >
+                                  {t.logo_url ? (
+                                    <img src={t.logo_url} alt={t.name} className="w-full h-full object-contain p-1.5" onError={(e: any) => e.target.style.display = 'none'} />
+                                  ) : (
+                                    t.name[0]
+                                  )}
+                                </div>
+                                <div className="flex flex-col">
+                                  <span className="font-semibold text-navy text-xs leading-tight">{t.name}</span>
+                                  <div className="flex items-center gap-2 mt-0.5">
+                                    <span className="text-[10px] text-primary font-medium">{t.subdomain}.localhost</span>
+                                    <div className="w-1 h-1 bg-slate-300 rounded-full"></div>
+                                    <span className="text-[10px] text-slate-400">{t.cnpj}</span>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 mt-1.5">
+                                    <span className="w-2.5 h-2.5 rounded-full shadow-xs border border-white" style={{ backgroundColor: t.company_color || '#00B5AD' }} title="Cor Primária" />
+                                    <span className="w-2.5 h-2.5 rounded-full shadow-xs border border-white" style={{ backgroundColor: t.secondary_color || '#1996DC' }} title="Cor Secundária" />
+                                    <span className="w-2.5 h-2.5 rounded-full shadow-xs border border-white" style={{ backgroundColor: t.tertiary_color || '#001D4A' }} title="Cor Terciária / Base" />
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 text-xs font-medium rounded-full border border-emerald-200/80 inline-flex items-center gap-1.5">
+                                <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
+                                Regularizado
+                              </span>
+                            </td>
+                            <td className="px-6 py-4">
+                              <span className="text-xs font-medium text-slate-600">{new Date(t.created_at).toLocaleDateString('pt-BR')}</span>
+                            </td>
+                            <td className="px-6 py-4 text-center">
+                              <span className="inline-flex items-center justify-center px-3 py-1 bg-slate-50 text-slate-700 rounded-lg text-xs font-semibold border border-slate-100">
+                                {Number(t.gestores?.[0]?.count || 0)}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-right">
+                              <div className="flex items-center justify-end gap-1">
+                                <ActionButton onClick={() => generateAndCopyNewLink(t.id)} icon={<Copy className="w-3.5 h-3.5" />} title="Convite Gestor" color="text-slate-500 hover:text-navy hover:bg-slate-100" />
+                                <ActionButton
+                                  onClick={() => {
+                                    const url = `${window.location.origin}/${t.subdomain}/login`;
+                                    window.open(url, '_blank');
+                                    navigator.clipboard.writeText(url);
+                                  }}
+                                  icon={<ExternalLink className="w-3.5 h-3.5" />}
+                                  title="Portal"
+                                  color="text-slate-500 hover:text-emerald-600 hover:bg-emerald-50"
+                                />
+                                <ActionButton onClick={() => openEditModal(t)} icon={<Pencil className="w-3.5 h-3.5" />} title="Editar" color="text-slate-500 hover:text-primary hover:bg-primary/5" />
+                                <ActionButton onClick={() => handleDeleteTenant(t.id)} icon={<Trash2 className="w-3.5 h-3.5" />} title="Excluir" color="text-slate-500 hover:text-rose-600 hover:bg-rose-50" />
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             )}
 
