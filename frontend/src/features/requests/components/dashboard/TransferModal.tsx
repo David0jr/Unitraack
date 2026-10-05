@@ -253,7 +253,8 @@ export const TransferModal: React.FC<TransferModalProps> = ({
                     <label className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1.5 block">
                       Área de Destino Geral
                     </label>
-                        <select 
+                    <div className="relative">
+                      <select 
                         value={selectedParentSector}
                         onChange={(e) => {
                           setSelectedParentSector(e.target.value);
