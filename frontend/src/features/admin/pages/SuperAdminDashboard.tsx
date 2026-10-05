@@ -115,6 +115,39 @@ export default function SuperAdminDashboard() {
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
   const [updatingTenantId, setUpdatingTenantId] = useState<string | null>(null);
 
+  // Estados para Modais Personalizados do Sistema (Substituindo alertas nativos do navegador)
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    subMessage?: string;
+    confirmText?: string;
+    cancelText?: string;
+    variant?: 'danger' | 'warning' | 'success' | 'primary';
+    icon?: 'power-off' | 'power' | 'trash' | 'user-x' | 'user-check';
+    onConfirm: () => void | Promise<void>;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {}
+  });
+
+  const [infoDialog, setInfoDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    copyableText?: string;
+    type?: 'success' | 'info' | 'warning' | 'error';
+  }>({
+    isOpen: false,
+    title: '',
+    message: ''
+  });
+
+  const [dialogLoading, setDialogLoading] = useState(false);
+  const [infoCopySuccess, setInfoCopySuccess] = useState(false);
+
   const fetchAuditLogs = async (tenantId: string) => {
     if (!tenantId) {
       setAuditLogs([]);
@@ -183,7 +216,12 @@ export default function SuperAdminDashboard() {
   const handleAutoDetectBranding = async (urlToScan?: string) => {
     const url = (urlToScan || websiteInput || formData.logoUrl).trim();
     if (!url) {
-      alert('Por favor, digite ou cole o link do site da usina (ex: https://cafealcool.com.br).');
+      setInfoDialog({
+        isOpen: true,
+        title: 'URL Necessária',
+        message: 'Por favor, digite ou cole o link do site da usina (ex: https://usinalins.com.br) para realizar o escaneamento automático de identidade visual.',
+        type: 'info'
+      });
       return;
     }
 
@@ -271,78 +309,149 @@ export default function SuperAdminDashboard() {
     }
   };
 
-  const handleToggleTenantStatus = async (tenantId: string, currentActive: boolean) => {
+  const handleToggleTenantStatus = (tenantId: string, currentActive: boolean) => {
     const targetTenant = tenants.find(t => t.id === tenantId);
     const nextStatus = !currentActive;
-    const confirmMessage = currentActive
-      ? `Deseja realmente desativar o acesso da "${targetTenant?.name || 'Usina'}"?\n\nNenhum dado será apagado. Colaboradores e gestores receberão o aviso "Sistema ${targetTenant?.name || 'da Usina'} temporariamente desativado" ao tentarem acessar.`
-      : `Deseja reativar o acesso da "${targetTenant?.name || 'Usina'}"? O portal voltará a ficar disponível imediatamente para todos os usuários.`;
 
-    if (!window.confirm(confirmMessage)) return;
+    setConfirmDialog({
+      isOpen: true,
+      title: currentActive ? 'Desativar Acesso da Usina' : 'Reativar Acesso da Usina',
+      message: currentActive
+        ? `Deseja realmente desativar o acesso da "${targetTenant?.name || 'Usina'}"?`
+        : `Deseja reativar o acesso da "${targetTenant?.name || 'Usina'}"?`,
+      subMessage: currentActive
+        ? 'Nenhum dado será apagado. Colaboradores e gestores receberão o aviso "Sistema temporariamente desativado" ao tentarem acessar o portal.'
+        : 'O portal voltará a ficar disponível imediatamente para todos os gestores, colaboradores e empresas credenciadas.',
+      confirmText: currentActive ? 'Sim, Desativar' : 'Sim, Reativar',
+      cancelText: 'Cancelar',
+      variant: currentActive ? 'warning' : 'success',
+      icon: currentActive ? 'power-off' : 'power',
+      onConfirm: async () => {
+        setDialogLoading(true);
+        setUpdatingTenantId(tenantId);
+        try {
+          const resp = await fetch(`${import.meta.env.VITE_API_URL}/admin/tenants/${tenantId}/status`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${getAuthToken()}`
+            },
+            body: JSON.stringify({ active: nextStatus })
+          });
 
-    setUpdatingTenantId(tenantId);
-    try {
-      const resp = await fetch(`${import.meta.env.VITE_API_URL}/admin/tenants/${tenantId}/status`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${getAuthToken()}`
-        },
-        body: JSON.stringify({ active: nextStatus })
-      });
-
-      const d = await resp.json();
-      if (resp.ok) {
-        setTenants(prev => prev.map(t => t.id === tenantId ? { ...t, active: nextStatus } : t));
-      } else {
-        alert(d.error || 'Erro ao alterar status da usina.');
+          const d = await resp.json();
+          if (resp.ok) {
+            setTenants(prev => prev.map(t => t.id === tenantId ? { ...t, active: nextStatus } : t));
+            setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+            setInfoDialog({
+              isOpen: true,
+              title: nextStatus ? 'Usina Reativada!' : 'Usina Desativada!',
+              message: `O status da unidade "${targetTenant?.name || 'Usina'}" foi alterado para ${nextStatus ? 'Ativa' : 'Desativada'} com sucesso.`,
+              type: nextStatus ? 'success' : 'warning'
+            });
+          } else {
+            setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+            setInfoDialog({
+              isOpen: true,
+              title: 'Erro na Operação',
+              message: d.error || 'Erro ao alterar status da usina.',
+              type: 'error'
+            });
+          }
+        } catch (err) {
+          console.error('Erro ao alternar status da usina:', err);
+          setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+          setInfoDialog({
+            isOpen: true,
+            title: 'Erro de Conexão',
+            message: 'Erro de conexão com o servidor ao tentar alterar o status da usina.',
+            type: 'error'
+          });
+        } finally {
+          setDialogLoading(false);
+          setUpdatingTenantId(null);
+        }
       }
-    } catch (err) {
-      console.error('Erro ao alternar status da usina:', err);
-      alert('Erro de conexão ao alterar status da usina.');
-    } finally {
-      setUpdatingTenantId(null);
-    }
+    });
   };
 
-  const handleToggleUserStatus = async (userId: string, currentActive: boolean) => {
+  const handleToggleUserStatus = (userId: string, currentActive: boolean) => {
     const targetUser = allUsers.find(u => u.id === userId);
     const nextStatus = !currentActive;
 
     if (userId === user?.id && !nextStatus) {
-      alert('Você não pode desativar seu próprio acesso de Super Admin.');
+      setInfoDialog({
+        isOpen: true,
+        title: 'Ação Bloqueada',
+        message: 'Você não pode desativar seu próprio acesso de Super Administrador.',
+        type: 'warning'
+      });
       return;
     }
 
-    const confirmMessage = nextStatus
-      ? `Deseja reativar o acesso de "${targetUser?.full_name || 'Usuário'}"? O acesso será restabelecido imediatamente.`
-      : `Deseja realmente desativar o acesso de "${targetUser?.full_name || 'Usuário'}"? O usuário será bloqueado ao tentar realizar login.`;
+    const isTerceirizada = targetUser?.role === 'TERCEIRIZADA';
+    const entityLabel = isTerceirizada ? 'a empresa terceirizada' : 'o colaborador';
 
-    if (!window.confirm(confirmMessage)) return;
+    setConfirmDialog({
+      isOpen: true,
+      title: nextStatus ? `Reativar ${isTerceirizada ? 'Empresa' : 'Colaborador'}` : `Desativar ${isTerceirizada ? 'Empresa' : 'Colaborador'}`,
+      message: nextStatus
+        ? `Deseja reativar o acesso de "${targetUser?.full_name || 'Usuário'}"?`
+        : `Deseja realmente desativar o acesso de "${targetUser?.full_name || 'Usuário'}"?`,
+      subMessage: nextStatus
+        ? 'O acesso ao sistema será restabelecido imediatamente.'
+        : `Ao ser desativado, ${entityLabel} não conseguirá realizar login até que seu status seja reativado pela administração.`,
+      confirmText: nextStatus ? 'Sim, Reativar' : 'Sim, Desativar',
+      cancelText: 'Cancelar',
+      variant: nextStatus ? 'success' : 'warning',
+      icon: nextStatus ? 'user-check' : 'user-x',
+      onConfirm: async () => {
+        setDialogLoading(true);
+        setUpdatingUserId(userId);
+        try {
+          const resp = await fetch(`${import.meta.env.VITE_API_URL}/admin/users/${userId}/status`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${getAuthToken()}`
+            },
+            body: JSON.stringify({ is_active: nextStatus })
+          });
 
-    setUpdatingUserId(userId);
-    try {
-      const resp = await fetch(`${import.meta.env.VITE_API_URL}/admin/users/${userId}/status`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${getAuthToken()}`
-        },
-        body: JSON.stringify({ is_active: nextStatus })
-      });
-
-      const d = await resp.json();
-      if (resp.ok) {
-        setAllUsers(prev => prev.map(u => u.id === userId ? { ...u, is_active: nextStatus } : u));
-      } else {
-        alert(d.error || 'Erro ao alterar status do usuário.');
+          const d = await resp.json();
+          if (resp.ok) {
+            setAllUsers(prev => prev.map(u => u.id === userId ? { ...u, is_active: nextStatus } : u));
+            setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+            setInfoDialog({
+              isOpen: true,
+              title: nextStatus ? 'Acesso Reativado!' : 'Acesso Desativado!',
+              message: `O acesso de "${targetUser?.full_name}" foi ${nextStatus ? 'reativado' : 'desativado'} com sucesso.`,
+              type: nextStatus ? 'success' : 'warning'
+            });
+          } else {
+            setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+            setInfoDialog({
+              isOpen: true,
+              title: 'Erro na Operação',
+              message: d.error || 'Erro ao alterar status do usuário.',
+              type: 'error'
+            });
+          }
+        } catch (err) {
+          console.error('Erro ao alternar status do usuário:', err);
+          setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+          setInfoDialog({
+            isOpen: true,
+            title: 'Erro de Conexão',
+            message: 'Erro de conexão com o servidor ao tentar alterar o status do usuário.',
+            type: 'error'
+          });
+        } finally {
+          setDialogLoading(false);
+          setUpdatingUserId(null);
+        }
       }
-    } catch (err) {
-      console.error('Erro ao alternar status do usuário:', err);
-      alert('Erro de conexão ao alterar status do usuário.');
-    } finally {
-      setUpdatingUserId(null);
-    }
+    });
   };
 
   useEffect(() => { fetchData(); }, [user]);
@@ -390,14 +499,32 @@ export default function SuperAdminDashboard() {
         } else {
           setIsModalOpen(false);
           setFormData(initialFormData);
+          setInfoDialog({
+            isOpen: true,
+            title: isEditing ? 'Usina Atualizada!' : 'Usina Cadastrada!',
+            message: isEditing ? 'Os dados da unidade foram atualizados com sucesso.' : 'A nova unidade industrial foi cadastrada no sistema.',
+            type: 'success'
+          });
         }
         fetchData();
 
       } else {
         const d = await resp.json();
-        alert(d.error);
+        setInfoDialog({
+          isOpen: true,
+          title: 'Erro ao Salvar Usina',
+          message: d.error || 'Ocorreu um erro ao salvar a usina.',
+          type: 'error'
+        });
       }
-    } catch (e) { alert('Erro'); } finally { setCreating(false); }
+    } catch (e) {
+      setInfoDialog({
+        isOpen: true,
+        title: 'Erro de Conexão',
+        message: 'Erro ao comunicar com o servidor para salvar a usina.',
+        type: 'error'
+      });
+    } finally { setCreating(false); }
   };
 
   const handleCopyLink = (token?: string) => {
@@ -413,6 +540,7 @@ export default function SuperAdminDashboard() {
   };
 
   const generateAndCopyNewLink = async (tenantId: string) => {
+    const tenant = tenants.find(t => t.id === tenantId);
     try {
       const resp = await fetch(`${import.meta.env.VITE_API_URL}/admin/tenants/invite`, {
         method: 'POST',
@@ -426,27 +554,84 @@ export default function SuperAdminDashboard() {
         const d = await resp.json();
         const link = `${window.location.origin}/register-gestor?token=${d.inviteToken}`;
         navigator.clipboard.writeText(link);
-        alert('Novo link de convite gerado e copiado!');
-      }
-    } catch (e) { alert('Erro ao gerar link'); }
-  };
-
-  const handleDeleteTenant = async (id: string) => {
-    if (!confirm('Tem certeza que deseja excluir esta usina? Esta ação não pode ser desfeita.')) return;
-
-    try {
-      const resp = await fetch(`${import.meta.env.VITE_API_URL}/admin/tenants/${id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${getAuthToken()}` }
-      });
-
-      if (resp.ok) {
-        fetchData();
+        setInfoDialog({
+          isOpen: true,
+          title: 'Convite Gerado & Copiado!',
+          message: `O link de auto-cadastro para o Gestor de Segurança da "${tenant?.name || 'Usina'}" foi gerado e copiado para sua área de transferência com sucesso!`,
+          copyableText: link,
+          type: 'success'
+        });
       } else {
         const d = await resp.json();
-        alert(d.error);
+        setInfoDialog({
+          isOpen: true,
+          title: 'Erro ao Gerar Convite',
+          message: d.error || 'Não foi possível gerar o link de convite.',
+          type: 'error'
+        });
       }
-    } catch (e) { alert('Erro ao excluir'); }
+    } catch (e) {
+      setInfoDialog({
+        isOpen: true,
+        title: 'Erro de Conexão',
+        message: 'Erro ao conectar ao servidor para gerar o convite.',
+        type: 'error'
+      });
+    }
+  };
+
+  const handleDeleteTenant = (id: string) => {
+    const target = tenants.find(t => t.id === id);
+
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Excluir Unidade Industrial',
+      message: `Tem certeza que deseja excluir definitivamente a usina "${target?.name || 'Unidade'}"?`,
+      subMessage: 'Esta ação não pode ser desfeita. Se houver usuários ou histórico vinculado, a exclusão será bloqueada para preservar o histórico.',
+      confirmText: 'Sim, Excluir Unidade',
+      cancelText: 'Cancelar',
+      variant: 'danger',
+      icon: 'trash',
+      onConfirm: async () => {
+        setDialogLoading(true);
+        try {
+          const resp = await fetch(`${import.meta.env.VITE_API_URL}/admin/tenants/${id}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${getAuthToken()}` }
+          });
+
+          if (resp.ok) {
+            setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+            setInfoDialog({
+              isOpen: true,
+              title: 'Usina Excluída!',
+              message: `A usina "${target?.name || 'Unidade'}" foi excluída com sucesso.`,
+              type: 'success'
+            });
+            fetchData();
+          } else {
+            const d = await resp.json();
+            setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+            setInfoDialog({
+              isOpen: true,
+              title: 'Não Foi Possível Excluir',
+              message: d.error || 'Erro ao excluir unidade.',
+              type: 'error'
+            });
+          }
+        } catch (e) {
+          setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+          setInfoDialog({
+            isOpen: true,
+            title: 'Erro de Conexão',
+            message: 'Erro ao tentar conectar ao servidor para excluir usina.',
+            type: 'error'
+          });
+        } finally {
+          setDialogLoading(false);
+        }
+      }
+    });
   };
 
   const openEditModal = (t: Tenant) => {
@@ -2191,6 +2376,193 @@ export default function SuperAdminDashboard() {
                   </form>
                 </>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Personalizado de Confirmação (Substitui confirm() nativo do navegador) */}
+      {confirmDialog.isOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-navy/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-100 p-6 sm:p-7 overflow-hidden animate-in zoom-in-95 duration-200">
+            {/* Botão fechar modal */}
+            <button
+              onClick={() => {
+                if (!dialogLoading) {
+                  setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+                }
+              }}
+              disabled={dialogLoading}
+              className="absolute top-5 right-5 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-navy flex items-center justify-center transition-all cursor-pointer disabled:opacity-50"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div className="flex flex-col items-center text-center">
+              {/* Ícone contextual */}
+              <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-4 shadow-sm ${
+                confirmDialog.variant === 'danger'
+                  ? 'bg-rose-50 text-rose-600 border border-rose-200/80 shadow-rose-100'
+                  : confirmDialog.variant === 'warning'
+                  ? 'bg-amber-50 text-amber-600 border border-amber-200/80 shadow-amber-100'
+                  : confirmDialog.variant === 'success'
+                  ? 'bg-emerald-50 text-emerald-600 border border-emerald-200/80 shadow-emerald-100'
+                  : 'bg-primary/10 text-primary border border-primary/20 shadow-primary/5'
+              }`}>
+                {confirmDialog.icon === 'trash' && <Trash2 className="w-7 h-7" />}
+                {confirmDialog.icon === 'power-off' && <PowerOff className="w-7 h-7" />}
+                {confirmDialog.icon === 'power' && <Power className="w-7 h-7" />}
+                {confirmDialog.icon === 'user-x' && <UserX className="w-7 h-7" />}
+                {confirmDialog.icon === 'user-check' && <UserCheck className="w-7 h-7" />}
+                {!confirmDialog.icon && <AlertCircle className="w-7 h-7" />}
+              </div>
+
+              {/* Título */}
+              <h3 className="text-lg font-bold text-navy tracking-tight mb-2">
+                {confirmDialog.title}
+              </h3>
+
+              {/* Mensagem principal */}
+              <p className="text-sm text-slate-600 font-medium leading-relaxed mb-4">
+                {confirmDialog.message}
+              </p>
+
+              {/* Sub-mensagem explicativa / aviso */}
+              {confirmDialog.subMessage && (
+                <div className="w-full bg-slate-50/80 border border-slate-200/70 rounded-2xl p-3.5 mb-6 text-left">
+                  <p className="text-xs text-slate-500 leading-relaxed">
+                    {confirmDialog.subMessage}
+                  </p>
+                </div>
+              )}
+
+              {/* Botões de Ação */}
+              <div className="flex items-center gap-3 w-full mt-2">
+                <button
+                  type="button"
+                  disabled={dialogLoading}
+                  onClick={() => setConfirmDialog(prev => ({ ...prev, isOpen: false }))}
+                  className="flex-1 py-3 px-4 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold text-xs uppercase tracking-wider transition-all cursor-pointer disabled:opacity-50"
+                >
+                  {confirmDialog.cancelText || 'Cancelar'}
+                </button>
+                <button
+                  type="button"
+                  disabled={dialogLoading}
+                  onClick={() => confirmDialog.onConfirm()}
+                  className={`flex-1 py-3 px-4 rounded-xl font-bold text-xs uppercase tracking-wider text-white transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg disabled:opacity-50 ${
+                    confirmDialog.variant === 'danger'
+                      ? 'bg-rose-600 hover:bg-rose-700 shadow-rose-600/25'
+                      : confirmDialog.variant === 'warning'
+                      ? 'bg-amber-500 hover:bg-amber-600 shadow-amber-500/25'
+                      : confirmDialog.variant === 'success'
+                      ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/25'
+                      : 'bg-navy hover:bg-[#002880] shadow-navy/25'
+                  }`}
+                >
+                  {dialogLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Processando...</span>
+                    </>
+                  ) : (
+                    confirmDialog.confirmText || 'Confirmar'
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Personalizado de Informação / Alerta / Cópia (Substitui alert() nativo do navegador) */}
+      {infoDialog.isOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-navy/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-100 p-6 sm:p-7 overflow-hidden animate-in zoom-in-95 duration-200">
+            {/* Botão fechar modal */}
+            <button
+              onClick={() => setInfoDialog(prev => ({ ...prev, isOpen: false }))}
+              className="absolute top-5 right-5 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-navy flex items-center justify-center transition-all cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div className="flex flex-col items-center text-center">
+              {/* Ícone contextual */}
+              <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-4 shadow-sm ${
+                infoDialog.type === 'error'
+                  ? 'bg-rose-50 text-rose-600 border border-rose-200/80 shadow-rose-100'
+                  : infoDialog.type === 'warning'
+                  ? 'bg-amber-50 text-amber-600 border border-amber-200/80 shadow-amber-100'
+                  : infoDialog.type === 'success'
+                  ? 'bg-emerald-50 text-emerald-600 border border-emerald-200/80 shadow-emerald-100'
+                  : 'bg-blue-50 text-blue-600 border border-blue-200/80 shadow-blue-100'
+              }`}>
+                {infoDialog.type === 'error' && <AlertCircle className="w-7 h-7" />}
+                {infoDialog.type === 'warning' && <ShieldAlert className="w-7 h-7" />}
+                {infoDialog.type === 'success' && <CheckCircle2 className="w-7 h-7" />}
+                {(!infoDialog.type || infoDialog.type === 'info') && <Globe className="w-7 h-7" />}
+              </div>
+
+              {/* Título */}
+              <h3 className="text-lg font-bold text-navy tracking-tight mb-2">
+                {infoDialog.title}
+              </h3>
+
+              {/* Mensagem principal */}
+              <p className="text-sm text-slate-600 font-medium leading-relaxed">
+                {infoDialog.message}
+              </p>
+
+              {/* Caixa Especial para Texto Copiável / Link de Convite */}
+              {infoDialog.copyableText && (
+                <div className="w-full mt-5 p-3.5 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between gap-3 text-left">
+                  <div className="flex-1 min-w-0">
+                    <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">
+                      Link do Convite Gerado
+                    </span>
+                    <p className="text-xs font-mono text-slate-700 truncate select-all bg-white px-2.5 py-1.5 rounded-lg border border-slate-200/60">
+                      {infoDialog.copyableText}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (infoDialog.copyableText) {
+                        navigator.clipboard.writeText(infoDialog.copyableText);
+                        setInfoCopySuccess(true);
+                        setTimeout(() => setInfoCopySuccess(false), 2000);
+                      }
+                    }}
+                    className={`px-3 py-2.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shrink-0 cursor-pointer ${
+                      infoCopySuccess
+                        ? 'bg-emerald-500 text-white shadow-sm shadow-emerald-500/30'
+                        : 'bg-white hover:bg-slate-100 text-navy border border-slate-200 shadow-xs'
+                    }`}
+                  >
+                    {infoCopySuccess ? (
+                      <>
+                        <Check className="w-3.5 h-3.5" />
+                        <span>Copiado!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5" />
+                        <span>Copiar</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+
+              {/* Botão Entendido */}
+              <button
+                type="button"
+                onClick={() => setInfoDialog(prev => ({ ...prev, isOpen: false }))}
+                className="w-full mt-6 py-3.5 bg-navy hover:bg-[#002880] text-white font-bold text-xs uppercase tracking-widest rounded-xl shadow-lg shadow-navy/20 transition-all cursor-pointer"
+              >
+                Entendido
+              </button>
             </div>
           </div>
         </div>
