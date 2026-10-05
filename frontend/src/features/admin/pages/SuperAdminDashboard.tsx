@@ -109,9 +109,10 @@ export default function SuperAdminDashboard() {
 
   // Filtros & Estado para Gerenciamento de Usuários
   const [userSearchTerm, setUserSearchTerm] = useState('');
-  const [selectedUserTenantId, setSelectedUserTenantId] = useState<string>('all');
+  const [selectedUserTenantId, setSelectedUserTenantId] = useState<string>('');
   const [userCategoryFilter, setUserCategoryFilter] = useState<'all' | 'internal' | 'terceirizada'>('all');
   const [userStatusFilter, setUserStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+  const [expandedSections, setExpandedSections] = useState<string[]>([]);
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
   const [updatingTenantId, setUpdatingTenantId] = useState<string | null>(null);
 
@@ -191,6 +192,14 @@ export default function SuperAdminDashboard() {
       prev.includes(tenantId) 
         ? prev.filter(id => id !== tenantId) 
         : [...prev, tenantId]
+    );
+  };
+
+  const toggleSection = (sectionId: string) => {
+    setExpandedSections(prev =>
+      prev.includes(sectionId)
+        ? prev.filter(id => id !== sectionId)
+        : [...prev, sectionId]
     );
   };
 
@@ -296,7 +305,6 @@ export default function SuperAdminDashboard() {
         setTenants(loadedTenants);
         setStats(await statsRes.json());
         setAllUsers(await usersRes.json());
-        setExpandedTenants(prev => prev.length === 0 ? loadedTenants.map((t: any) => t.id) : prev);
       } else {
         console.error('[Dashboard] Erro ao buscar dados:', {
           tenants: tenantsRes.status,
@@ -1330,359 +1338,345 @@ export default function SuperAdminDashboard() {
           )}
 
           {activeTab === 'users' && (
-            <div className="space-y-6 animate-in slide-in-from-bottom-4 fade-in duration-500">
-              {/* Header com Título e Estatísticas Rápidas */}
-              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div className="space-y-6 animate-in slide-in-from-bottom-4 fade-in duration-300">
+              {/* Header Limpo e Direto */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                   <h2 className="text-xl font-bold text-navy">Gerenciamento de Usuários</h2>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Controle de acessos, status e isolamento por unidade industrial e empresas terceirizadas parceiras.
+                    Controle de colaboradores internos e empresas terceirizadas por unidade industrial.
                   </p>
                 </div>
-
-                {/* KPI Badges Resumidos */}
-                <div className="flex items-center gap-2 flex-wrap">
-                  <div className="bg-white border border-slate-200/80 px-3 py-1.5 rounded-xl shadow-xs flex items-center gap-2">
-                    <Users className="w-3.5 h-3.5 text-primary" />
-                    <span className="text-xs font-bold text-navy">{allUsers.length}</span>
-                    <span className="text-[10px] text-slate-400 font-medium">Total</span>
-                  </div>
-                  <div className="bg-emerald-50/70 border border-emerald-200/80 px-3 py-1.5 rounded-xl shadow-xs flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                    <span className="text-xs font-bold text-emerald-800">
-                      {allUsers.filter(u => u.is_active !== false).length}
-                    </span>
-                    <span className="text-[10px] text-emerald-600 font-medium">Ativos</span>
-                  </div>
-                  <div className="bg-rose-50/70 border border-rose-200/80 px-3 py-1.5 rounded-xl shadow-xs flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-rose-500"></span>
-                    <span className="text-xs font-bold text-rose-800">
-                      {allUsers.filter(u => u.is_active === false).length}
-                    </span>
-                    <span className="text-[10px] text-rose-600 font-medium">Desativados</span>
-                  </div>
-                  <div className="bg-blue-50/70 border border-blue-200/80 px-3 py-1.5 rounded-xl shadow-xs flex items-center gap-2">
-                    <Briefcase className="w-3.5 h-3.5 text-blue-600" />
-                    <span className="text-xs font-bold text-blue-800">
-                      {allUsers.filter(u => u.role === 'TERCEIRIZADA').length}
-                    </span>
-                    <span className="text-[10px] text-blue-600 font-medium">Terceirizadas</span>
-                  </div>
-                </div>
               </div>
 
-              {/* Barra de Filtros & Busca */}
-              <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs space-y-3.5">
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-                  {/* Busca */}
-                  <div className="relative flex-1">
-                    <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input
-                      type="text"
-                      placeholder="Buscar por nome, email, cargo, setor, CNPJ ou empresa..."
-                      value={userSearchTerm}
-                      onChange={(e) => setUserSearchTerm(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200/80 rounded-xl text-xs font-medium text-navy placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                    />
+              {/* SE NENHUMA UNIDADE SELECIONADA: Mostra a grade limpa para escolher a Usina */}
+              {!selectedUserTenantId ? (
+                <div className="bg-white rounded-2xl border border-slate-200/80 p-6 sm:p-8 shadow-xs">
+                  <div className="max-w-lg mb-6">
+                    <span className="text-[11px] font-bold text-primary uppercase tracking-wider">Etapa 1</span>
+                    <h3 className="text-base font-bold text-navy mt-1">Selecione uma Unidade Industrial</h3>
+                    <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                      Clique na usina que deseja consultar para visualizar e gerenciar sua equipe e empresas parceiras.
+                    </p>
                   </div>
 
-                  {/* Filtro de Categoria: Equipe Usina vs Terceirizadas */}
-                  <div className="flex items-center gap-1 bg-slate-100/80 p-1 rounded-xl shrink-0 self-start sm:self-auto">
-                    <button
-                      type="button"
-                      onClick={() => setUserCategoryFilter('all')}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                        userCategoryFilter === 'all'
-                          ? 'bg-white text-navy shadow-xs'
-                          : 'text-slate-500 hover:text-navy'
-                      }`}
-                    >
-                      Todos
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setUserCategoryFilter('internal')}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
-                        userCategoryFilter === 'internal'
-                          ? 'bg-white text-primary shadow-xs'
-                          : 'text-slate-500 hover:text-navy'
-                      }`}
-                    >
-                      <Building2 className="w-3.5 h-3.5" />
-                      <span>Equipe da Usina</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setUserCategoryFilter('terceirizada')}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
-                        userCategoryFilter === 'terceirizada'
-                          ? 'bg-white text-blue-600 shadow-xs'
-                          : 'text-slate-500 hover:text-navy'
-                      }`}
-                    >
-                      <Briefcase className="w-3.5 h-3.5" />
-                      <span>Terceirizadas</span>
-                    </button>
-                  </div>
-
-                  {/* Filtro de Status */}
-                  <div className="flex items-center gap-1 bg-slate-100/80 p-1 rounded-xl shrink-0 self-start sm:self-auto">
-                    <button
-                      type="button"
-                      onClick={() => setUserStatusFilter('all')}
-                      className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                        userStatusFilter === 'all' ? 'bg-white text-navy shadow-xs' : 'text-slate-500 hover:text-navy'
-                      }`}
-                    >
-                      Todos
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setUserStatusFilter('active')}
-                      className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer text-emerald-700 ${
-                        userStatusFilter === 'active' ? 'bg-white shadow-xs font-bold' : 'text-slate-500 hover:text-emerald-700'
-                      }`}
-                    >
-                      Ativos
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setUserStatusFilter('inactive')}
-                      className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer text-rose-700 ${
-                        userStatusFilter === 'inactive' ? 'bg-white shadow-xs font-bold' : 'text-slate-500 hover:text-rose-700'
-                      }`}
-                    >
-                      Desativados
-                    </button>
-                  </div>
-                </div>
-
-                {/* Filtro de Usinas (Pills / Seletor Rápido) */}
-                <div className="flex items-center gap-2 overflow-x-auto pt-1 pb-0.5 custom-scrollbar text-xs">
-                  <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider shrink-0 mr-1">
-                    Unidade:
-                  </span>
-                  <button
-                    onClick={() => setSelectedUserTenantId('all')}
-                    className={`px-3 py-1 rounded-lg font-medium whitespace-nowrap transition-all cursor-pointer border ${
-                      selectedUserTenantId === 'all'
-                        ? 'bg-navy text-white border-navy shadow-xs'
-                        : 'bg-slate-50 text-slate-600 border-slate-200/80 hover:bg-slate-100'
-                    }`}
-                  >
-                    Todas ({allUsers.length})
-                  </button>
-                  {tenants.map(t => {
-                    const count = allUsers.filter(u => u.tenant?.id === t.id).length;
-                    return (
-                      <button
-                        key={t.id}
-                        onClick={() => setSelectedUserTenantId(t.id)}
-                        className={`px-3 py-1 rounded-lg font-medium whitespace-nowrap transition-all cursor-pointer border flex items-center gap-1.5 ${
-                          selectedUserTenantId === t.id
-                            ? 'bg-navy text-white border-navy shadow-xs'
-                            : 'bg-slate-50 text-slate-600 border-slate-200/80 hover:bg-slate-100'
-                        }`}
-                      >
-                        <span 
-                          className="w-2 h-2 rounded-full shrink-0" 
-                          style={{ backgroundColor: t.company_color || '#00B5AD' }}
-                        />
-                        <span>{t.name}</span>
-                        <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
-                          selectedUserTenantId === t.id ? 'bg-white/20 text-white' : 'bg-slate-200/80 text-slate-600'
-                        }`}>
-                          {count}
-                        </span>
-                      </button>
-                    );
-                  })}
-                  {allUsers.some(u => !u.tenant?.id || u.role === 'SUPER_ADMIN') && (
-                    <button
-                      onClick={() => setSelectedUserTenantId('global')}
-                      className={`px-3 py-1 rounded-lg font-medium whitespace-nowrap transition-all cursor-pointer border flex items-center gap-1.5 ${
-                        selectedUserTenantId === 'global'
-                          ? 'bg-navy text-white border-navy shadow-xs'
-                          : 'bg-slate-50 text-slate-600 border-slate-200/80 hover:bg-slate-100'
-                      }`}
-                    >
-                      <ShieldCheck className="w-3.5 h-3.5 text-primary" />
-                      <span>Admin Global</span>
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Lógica de Filtragem e Agrupamento */}
-              {(() => {
-                // 1. Filtragem global de usuários
-                const filtered = allUsers.filter(u => {
-                  // Filtro por busca
-                  if (userSearchTerm.trim()) {
-                    const term = userSearchTerm.toLowerCase();
-                    const matchName = u.full_name?.toLowerCase().includes(term);
-                    const matchEmail = u.email?.toLowerCase().includes(term);
-                    const matchRole = u.role?.toLowerCase().includes(term);
-                    const matchSector = u.sector?.toLowerCase().includes(term);
-                    const matchCnpj = u.cnpj?.includes(term);
-                    const matchRep = u.representative_name?.toLowerCase().includes(term);
-                    const matchTenant = u.tenant?.name?.toLowerCase().includes(term);
-                    if (!matchName && !matchEmail && !matchRole && !matchSector && !matchCnpj && !matchRep && !matchTenant) {
-                      return false;
-                    }
-                  }
-
-                  // Filtro por Unidade selecionada
-                  if (selectedUserTenantId !== 'all') {
-                    if (selectedUserTenantId === 'global') {
-                      if (u.tenant?.id && u.role !== 'SUPER_ADMIN') return false;
-                    } else {
-                      if (u.tenant?.id !== selectedUserTenantId) return false;
-                    }
-                  }
-
-                  // Filtro por Categoria
-                  if (userCategoryFilter === 'internal') {
-                    if (u.role === 'TERCEIRIZADA') return false;
-                  } else if (userCategoryFilter === 'terceirizada') {
-                    if (u.role !== 'TERCEIRIZADA') return false;
-                  }
-
-                  // Filtro por Status
-                  if (userStatusFilter === 'active') {
-                    if (u.is_active === false) return false;
-                  } else if (userStatusFilter === 'inactive') {
-                    if (u.is_active !== false) return false;
-                  }
-
-                  return true;
-                });
-
-                if (filtered.length === 0) {
-                  return (
-                    <div className="bg-white rounded-2xl p-12 text-center border border-slate-200/80 shadow-xs">
-                      <Users className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                      <p className="text-sm font-semibold text-navy">Nenhum usuário ou empresa encontrado</p>
-                      <p className="text-xs text-slate-400 mt-1">
-                        Ajuste os filtros de busca, categoria ou status acima.
-                      </p>
-                    </div>
-                  );
-                }
-
-                // Identifica quais tenants possuem usuários no resultado filtrado
-                const displayTenants = selectedUserTenantId === 'global'
-                  ? []
-                  : selectedUserTenantId === 'all'
-                    ? tenants
-                    : tenants.filter(t => t.id === selectedUserTenantId);
-
-                const globalUsers = filtered.filter(u => !u.tenant?.id || u.role === 'SUPER_ADMIN');
-
-                return (
-                  <div className="space-y-5">
-                    {/* Grupos por Unidade Industrial */}
-                    {displayTenants.map(t => {
-                      const tenantUsers = filtered.filter(u => u.tenant?.id === t.id);
-                      if (tenantUsers.length === 0 && selectedUserTenantId === 'all' && (userSearchTerm || userCategoryFilter !== 'all' || userStatusFilter !== 'all')) {
-                        return null; // Oculta tenants vazios apenas durante busca ativa
-                      }
-
-                      const colaboradores = tenantUsers.filter(u => u.role !== 'TERCEIRIZADA' && u.role !== 'SUPER_ADMIN');
-                      const terceirizadas = tenantUsers.filter(u => u.role === 'TERCEIRIZADA');
-                      const isExpanded = expandedTenants.includes(t.id);
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {tenants.map(t => {
+                      const tenantUsers = allUsers.filter(u => u.tenant?.id === t.id && u.role !== 'SUPER_ADMIN');
+                      const colaboradoresCount = tenantUsers.filter(u => u.role !== 'TERCEIRIZADA').length;
+                      const terceirizadasCount = tenantUsers.filter(u => u.role === 'TERCEIRIZADA').length;
 
                       return (
-                        <div key={t.id} className="bg-white rounded-2xl shadow-xs border border-slate-200/80 overflow-hidden transition-all duration-300">
-                          {/* Cabeçalho da Usina */}
+                        <button
+                          key={t.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedUserTenantId(t.id);
+                            setExpandedSections([]); // Cards fechados por padrão!
+                          }}
+                          className="flex flex-col justify-between p-5 rounded-2xl border border-slate-200/80 hover:border-primary/50 bg-white hover:bg-slate-50/50 hover:shadow-md transition-all text-left group cursor-pointer"
+                        >
+                          <div className="flex items-start gap-3.5">
+                            <div
+                              className="w-12 h-12 rounded-xl flex items-center justify-center font-bold text-white text-base shadow-xs shrink-0 overflow-hidden"
+                              style={{ backgroundColor: t.tertiary_color || t.company_color || '#001D4A' }}
+                            >
+                              {t.logo_url ? (
+                                <img src={t.logo_url} alt={t.name} className="w-full h-full object-contain p-1.5" onError={(e: any) => e.target.style.display = 'none'} />
+                              ) : (
+                                t.name[0]
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-bold text-navy text-sm truncate group-hover:text-primary transition-colors">
+                                {t.name}
+                              </h4>
+                              <p className="text-xs text-slate-400 font-mono mt-0.5">
+                                CNPJ: {t.cnpj}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="mt-5 pt-4 border-t border-slate-100 flex items-center justify-between text-xs">
+                            <div className="text-slate-500 font-medium">
+                              <span>{colaboradoresCount} colaboradores</span>
+                              <span className="mx-1.5 text-slate-300">·</span>
+                              <span>{terceirizadasCount} terceirizadas</span>
+                            </div>
+                            <span className="text-primary font-bold inline-flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+                              Gerenciar <ChevronRight className="w-3.5 h-3.5" />
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : (
+                /* SE UMA UNIDADE FOI SELECIONADA */
+                (() => {
+                  const targetTenant = tenants.find(t => t.id === selectedUserTenantId);
+                  if (!targetTenant) {
+                    return (
+                      <div className="bg-white rounded-2xl p-8 text-center border border-slate-200/80">
+                        <p className="text-sm font-semibold text-navy">Unidade não encontrada.</p>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedUserTenantId('')}
+                          className="mt-3 px-4 py-2 bg-navy text-white text-xs font-bold rounded-xl cursor-pointer"
+                        >
+                          Selecionar outra unidade
+                        </button>
+                      </div>
+                    );
+                  }
+
+                  // Usuários desta usina (excluindo qualquer conta Super Admin)
+                  const tenantUsers = allUsers.filter(u => u.tenant?.id === targetTenant.id && u.role !== 'SUPER_ADMIN');
+
+                  // Aplicação dos filtros locais desta usina
+                  const filtered = tenantUsers.filter(u => {
+                    if (userSearchTerm.trim()) {
+                      const term = userSearchTerm.toLowerCase();
+                      const matchName = u.full_name?.toLowerCase().includes(term);
+                      const matchEmail = u.email?.toLowerCase().includes(term);
+                      const matchRole = u.role?.toLowerCase().includes(term);
+                      const matchSector = u.sector?.toLowerCase().includes(term);
+                      const matchCnpj = u.cnpj?.includes(term);
+                      const matchRep = u.representative_name?.toLowerCase().includes(term);
+                      if (!matchName && !matchEmail && !matchRole && !matchSector && !matchCnpj && !matchRep) {
+                        return false;
+                      }
+                    }
+
+                    if (userCategoryFilter === 'internal' && u.role === 'TERCEIRIZADA') return false;
+                    if (userCategoryFilter === 'terceirizada' && u.role !== 'TERCEIRIZADA') return false;
+
+                    if (userStatusFilter === 'active' && u.is_active === false) return false;
+                    if (userStatusFilter === 'inactive' && u.is_active !== false) return false;
+
+                    return true;
+                  });
+
+                  const colaboradores = filtered.filter(u => u.role !== 'TERCEIRIZADA');
+                  const terceirizadas = filtered.filter(u => u.role === 'TERCEIRIZADA');
+
+                  const isSearchActive = userSearchTerm.trim() !== '';
+                  // Por padrão recolhidos / fechados, exceto se usuário expandiu manualmente ou digitou na busca
+                  const isColaboradoresExpanded = expandedSections.includes('colaboradores') || (isSearchActive && colaboradores.length > 0);
+                  const isTerceirizadasExpanded = expandedSections.includes('terceirizadas') || (isSearchActive && terceirizadas.length > 0);
+
+                  return (
+                    <div className="space-y-5">
+                      {/* Barra de Identificação da Usina Selecionada & Seletor de Troca */}
+                      <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div className="flex items-center gap-3.5">
+                          <div
+                            className="w-12 h-12 rounded-xl flex items-center justify-center font-bold text-white text-base shadow-xs shrink-0 overflow-hidden"
+                            style={{ backgroundColor: targetTenant.tertiary_color || targetTenant.company_color || '#001D4A' }}
+                          >
+                            {targetTenant.logo_url ? (
+                              <img src={targetTenant.logo_url} alt={targetTenant.name} className="w-full h-full object-contain p-1.5" onError={(e: any) => e.target.style.display = 'none'} />
+                            ) : (
+                              targetTenant.name[0]
+                            )}
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2.5">
+                              <h3 className="text-base font-bold text-navy">{targetTenant.name}</h3>
+                            </div>
+                            <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-500 font-medium">
+                              <span className="font-mono">CNPJ: {targetTenant.cnpj}</span>
+                              <span className="text-slate-300">·</span>
+                              <span>{tenantUsers.filter(u => u.role !== 'TERCEIRIZADA').length} colaboradores</span>
+                              <span className="text-slate-300">·</span>
+                              <span>{tenantUsers.filter(u => u.role === 'TERCEIRIZADA').length} terceirizadas</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Seletor para alternar entre usinas */}
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-semibold text-slate-400 hidden sm:inline">
+                            Alternar Empresa:
+                          </span>
+                          <select
+                            value={selectedUserTenantId}
+                            onChange={(e) => {
+                              setSelectedUserTenantId(e.target.value);
+                              setExpandedSections([]); // Mantém fechado por padrão
+                            }}
+                            className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-navy shadow-xs focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all cursor-pointer max-w-[200px] truncate"
+                          >
+                            {tenants.map(t => (
+                              <option key={t.id} value={t.id}>
+                                {t.name}
+                              </option>
+                            ))}
+                          </select>
                           <button
                             type="button"
-                            onClick={() => toggleTenant(t.id)}
-                            className="w-full flex items-center justify-between p-4 sm:p-5 hover:bg-slate-50/70 transition-colors group cursor-pointer text-left"
+                            onClick={() => setSelectedUserTenantId('')}
+                            className="px-3 py-2 text-xs font-semibold text-slate-600 hover:text-navy bg-slate-100 hover:bg-slate-200/80 rounded-xl transition-all cursor-pointer whitespace-nowrap"
+                            title="Voltar à tela de seleção de empresas"
                           >
-                            <div className="flex items-center gap-3.5">
-                              <div 
-                                className="w-11 h-11 rounded-xl flex items-center justify-center font-bold text-white text-base shadow-xs shrink-0 overflow-hidden"
-                                style={{ backgroundColor: t.tertiary_color || t.company_color || '#001D4A' }}
-                              >
-                                {t.logo_url ? (
-                                  <img src={t.logo_url} alt={t.name} className="w-full h-full object-contain p-1.5" onError={(e: any) => e.target.style.display = 'none'} />
-                                ) : (
-                                  t.name[0]
-                                )}
-                              </div>
-                              <div>
-                                <div className="flex items-center gap-2.5 flex-wrap">
-                                  <h4 className="font-bold text-navy text-sm group-hover:text-primary transition-colors">
-                                    {t.name}
-                                  </h4>
-                                  {t.active !== false ? (
-                                    <span className="bg-emerald-50 text-emerald-700 border border-emerald-200/80 rounded-full px-2 py-0.5 text-[10px] font-semibold inline-flex items-center gap-1">
-                                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                                      Usina Ativa
-                                    </span>
-                                  ) : (
-                                    <span className="bg-amber-50 text-amber-800 border border-amber-300 rounded-full px-2 py-0.5 text-[10px] font-semibold inline-flex items-center gap-1">
-                                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-                                      Usina Desativada
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-500 font-medium flex-wrap">
-                                  <span>{colaboradores.length} {colaboradores.length === 1 ? 'colaborador interno' : 'colaboradores internos'}</span>
-                                  <span className="text-slate-300">·</span>
-                                  <span className="text-blue-600 font-semibold">{terceirizadas.length} {terceirizadas.length === 1 ? 'terceirizada parceira' : 'terceirizadas parceiras'}</span>
-                                  <span className="text-slate-300">·</span>
-                                  <span className="text-slate-400 font-normal">CNPJ: {t.cnpj}</span>
-                                </div>
-                              </div>
-                            </div>
-
-                            <div className="flex items-center gap-3">
-                              <span className="hidden sm:inline-block text-xs font-semibold px-2.5 py-1 bg-slate-100 text-slate-600 rounded-lg">
-                                {tenantUsers.length} total
-                              </span>
-                              <div className={`p-1.5 rounded-lg bg-slate-50 text-slate-400 group-hover:text-primary transition-all ${isExpanded ? 'rotate-180 bg-primary/10 text-primary' : ''}`}>
-                                <ChevronDown className="w-4 h-4" />
-                              </div>
-                            </div>
+                            Ver Todas
                           </button>
+                        </div>
+                      </div>
 
-                          {/* Conteúdo Expandido com Separação Nítida de Equipe Interna vs Terceirizadas */}
-                          {isExpanded && (
-                            <div className="border-t border-slate-100 divide-y divide-slate-100 bg-[#FCFDFE]">
-                              {/* 1. SEÇÃO: COLABORADORES & GESTÃO DA USINA */}
-                              {userCategoryFilter !== 'terceirizada' && (
-                                <div className="p-4 sm:p-5 space-y-3">
-                                  <div className="flex items-center justify-between">
+                      {/* Barra de Filtros & Busca */}
+                      <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
+                        {/* Busca */}
+                        <div className="relative flex-1">
+                          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                          <input
+                            type="text"
+                            placeholder="Buscar por nome, email, cargo, setor ou empresa..."
+                            value={userSearchTerm}
+                            onChange={(e) => setUserSearchTerm(e.target.value)}
+                            className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200/80 rounded-xl text-xs font-medium text-navy placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                          />
+                        </div>
+
+                        {/* Filtros Limpos: Categoria e Status */}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {/* Categoria */}
+                          <div className="flex items-center gap-1 bg-slate-100/80 p-1 rounded-xl shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => setUserCategoryFilter('all')}
+                              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                                userCategoryFilter === 'all'
+                                  ? 'bg-white text-navy shadow-xs'
+                                  : 'text-slate-500 hover:text-navy'
+                              }`}
+                            >
+                              Todos
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setUserCategoryFilter('internal')}
+                              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+                                userCategoryFilter === 'internal'
+                                  ? 'bg-white text-primary shadow-xs'
+                                  : 'text-slate-500 hover:text-navy'
+                              }`}
+                            >
+                              <Building2 className="w-3.5 h-3.5 text-primary" />
+                              <span>Colaboradores</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setUserCategoryFilter('terceirizada')}
+                              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+                                userCategoryFilter === 'terceirizada'
+                                  ? 'bg-white text-blue-600 shadow-xs'
+                                  : 'text-slate-500 hover:text-navy'
+                              }`}
+                            >
+                              <Briefcase className="w-3.5 h-3.5 text-blue-600" />
+                              <span>Terceirizadas</span>
+                            </button>
+                          </div>
+
+                          {/* Status */}
+                          <div className="flex items-center gap-1 bg-slate-100/80 p-1 rounded-xl shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => setUserStatusFilter('all')}
+                              className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                                userStatusFilter === 'all' ? 'bg-white text-navy shadow-xs' : 'text-slate-500 hover:text-navy'
+                              }`}
+                            >
+                              Todos
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setUserStatusFilter('active')}
+                              className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                                userStatusFilter === 'active' ? 'bg-white shadow-xs font-bold text-emerald-700' : 'text-slate-500 hover:text-emerald-700'
+                              }`}
+                            >
+                              Ativos
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setUserStatusFilter('inactive')}
+                              className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                                userStatusFilter === 'inactive' ? 'bg-white shadow-xs font-bold text-rose-700' : 'text-slate-500 hover:text-rose-700'
+                              }`}
+                            >
+                              Desativados
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Estado Vazio se nenhum registro corresponder */}
+                      {filtered.length === 0 ? (
+                        <div className="bg-white rounded-2xl p-10 text-center border border-slate-200/80 shadow-xs">
+                          <Users className="w-10 h-10 text-slate-300 mx-auto mb-2.5" />
+                          <p className="text-sm font-bold text-navy">Nenhum registro encontrado</p>
+                          <p className="text-xs text-slate-400 mt-1">
+                            Não encontramos colaboradores ou terceirizadas com os filtros selecionados.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          {/* 1. SEÇÃO DE COLABORADORES INTERNOS (Recolhido por padrão) */}
+                          {userCategoryFilter !== 'terceirizada' && (
+                            <div className="bg-white rounded-2xl shadow-xs border border-slate-200/80 overflow-hidden transition-all">
+                              <button
+                                type="button"
+                                onClick={() => toggleSection('colaboradores')}
+                                className="w-full flex items-center justify-between p-4 sm:p-5 hover:bg-slate-50/70 transition-colors group cursor-pointer text-left"
+                              >
+                                <div className="flex items-center gap-3">
+                                  <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold text-sm shrink-0">
+                                    <Building2 className="w-5 h-5" />
+                                  </div>
+                                  <div>
                                     <div className="flex items-center gap-2">
-                                      <Building2 className="w-4 h-4 text-primary" />
-                                      <h5 className="text-xs font-bold text-navy uppercase tracking-wider">
+                                      <h4 className="font-bold text-navy text-sm">
                                         Colaboradores & Gestão da Usina
-                                      </h5>
-                                      <span className="px-2 py-0.2 bg-primary/10 text-primary rounded-full text-[10px] font-bold">
-                                        {colaboradores.length}
+                                      </h4>
+                                      <span className="text-xs text-slate-400 font-medium">
+                                        ({colaboradores.length})
                                       </span>
                                     </div>
-                                    <span className="text-[11px] text-slate-400">
-                                      Gestores, Líderes de Setor e Portaria
-                                    </span>
+                                    <p className="text-xs text-slate-400 mt-0.5">
+                                      Gestores de segurança, líderes de setor e equipe de portaria
+                                    </p>
                                   </div>
+                                </div>
 
+                                <div className="flex items-center gap-3">
+                                  <span className="text-xs font-medium text-slate-500 hidden sm:inline-block">
+                                    {colaboradores.filter(c => c.is_active !== false).length} ativos
+                                  </span>
+                                  <div className={`p-1.5 rounded-lg bg-slate-100 text-slate-400 group-hover:text-navy transition-all ${isColaboradoresExpanded ? 'rotate-180 bg-primary/10 text-primary' : ''}`}>
+                                    <ChevronDown className="w-4 h-4" />
+                                  </div>
+                                </div>
+                              </button>
+
+                              {isColaboradoresExpanded && (
+                                <div className="border-t border-slate-100">
                                   {colaboradores.length === 0 ? (
-                                    <div className="p-6 bg-white rounded-xl border border-dashed border-slate-200 text-center text-xs text-slate-400">
-                                      Nenhum colaborador interno vinculado a esta usina.
+                                    <div className="p-6 text-center text-xs text-slate-400">
+                                      Nenhum colaborador encontrado nesta seção com os filtros atuais.
                                     </div>
                                   ) : (
-                                    <div className="bg-white rounded-xl border border-slate-200/80 overflow-hidden overflow-x-auto shadow-2xs">
+                                    <div className="overflow-x-auto">
                                       <table className="w-full text-left border-collapse">
                                         <thead className="bg-slate-50/80 text-[10px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-100">
                                           <tr>
                                             <th className="px-5 py-3">Colaborador</th>
                                             <th className="px-5 py-3">Cargo / Perfil</th>
-                                            <th className="px-5 py-3">Setor Alocado</th>
+                                            <th className="px-5 py-3">Setor</th>
                                             <th className="px-5 py-3 text-center">Status</th>
-                                            <th className="px-5 py-3 text-right">Controle</th>
+                                            <th className="px-5 py-3 text-right">Ação</th>
                                           </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-100 text-xs">
@@ -1690,45 +1684,39 @@ export default function SuperAdminDashboard() {
                                             <tr key={u.id} className="hover:bg-slate-50/60 transition-colors">
                                               <td className="px-5 py-3.5">
                                                 <div className="flex items-center gap-3">
-                                                  <div className="w-8 h-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-xs font-bold text-primary shrink-0">
+                                                  <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-700 font-bold flex items-center justify-center text-xs shrink-0">
                                                     {u.full_name?.[0]?.toUpperCase() || '?'}
                                                   </div>
                                                   <div className="flex flex-col">
-                                                    <span className="font-semibold text-navy text-xs leading-tight">{u.full_name}</span>
-                                                    <span className="text-[10px] text-slate-400 mt-0.5">{u.email}</span>
+                                                    <span className="font-semibold text-navy text-xs">{u.full_name}</span>
+                                                    <span className="text-[11px] text-slate-400 mt-0.5">{u.email}</span>
                                                     {u.registration_number && (
-                                                      <span className="text-[9px] text-slate-400 font-mono mt-0.5">Matrícula: {u.registration_number}</span>
+                                                      <span className="text-[10px] text-slate-400 font-mono">Matrícula: {u.registration_number}</span>
                                                     )}
                                                   </div>
                                                 </div>
                                               </td>
                                               <td className="px-5 py-3.5">
-                                                <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${
-                                                  u.role === 'GESTOR_SEGURANCA' 
-                                                    ? 'bg-primary/10 text-primary border-primary/20' 
-                                                    : u.role === 'LIDER_SETOR' 
-                                                    ? 'bg-blue-50 text-blue-700 border-blue-200' 
-                                                    : 'bg-slate-100 text-slate-700 border-slate-200'
-                                                }`}>
+                                                <span className="text-xs font-medium text-slate-700">
                                                   {u.role === 'GESTOR_SEGURANCA' ? 'Gestor de Segurança' :
                                                    u.role === 'LIDER_SETOR' ? 'Líder de Setor' :
                                                    u.role === 'PORTARIA' ? 'Portaria & Acesso' : u.role}
                                                 </span>
                                               </td>
                                               <td className="px-5 py-3.5">
-                                                <span className="text-xs font-medium text-slate-700 bg-slate-50 px-2 py-0.5 rounded-md border border-slate-100">
+                                                <span className="text-xs text-slate-600">
                                                   {u.sector || 'Todos os setores'}
                                                 </span>
                                               </td>
                                               <td className="px-5 py-3.5 text-center">
                                                 {u.is_active !== false ? (
-                                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                                  <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                                                     Ativo
                                                   </span>
                                                 ) : (
-                                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200">
-                                                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                                                  <span className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-400">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
                                                     Desativado
                                                   </span>
                                                 )}
@@ -1738,10 +1726,10 @@ export default function SuperAdminDashboard() {
                                                   type="button"
                                                   onClick={() => handleToggleUserStatus(u.id, u.is_active !== false)}
                                                   disabled={updatingUserId === u.id}
-                                                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer shadow-xs active:scale-95 disabled:opacity-50 ${
+                                                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer shadow-2xs active:scale-95 disabled:opacity-50 ${
                                                     u.is_active !== false
-                                                      ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-200 hover:border-rose-300'
-                                                      : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200 hover:border-emerald-300'
+                                                      ? 'border-slate-200 hover:border-rose-200 hover:bg-rose-50 text-slate-600 hover:text-rose-700'
+                                                      : 'border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-700'
                                                   }`}
                                                   title={u.is_active !== false ? "Desativar acesso do colaborador" : "Reativar acesso do colaborador"}
                                                 >
@@ -1763,39 +1751,62 @@ export default function SuperAdminDashboard() {
                                   )}
                                 </div>
                               )}
+                            </div>
+                          )}
 
-                              {/* 2. SEÇÃO: EMPRESAS TERCEIRIZADAS CREDENCIADAS */}
-                              {userCategoryFilter !== 'internal' && (
-                                <div className="p-4 sm:p-5 space-y-3 bg-slate-50/40">
-                                  <div className="flex items-center justify-between">
+                          {/* 2. SEÇÃO DE EMPRESAS TERCEIRIZADAS (Recolhido por padrão) */}
+                          {userCategoryFilter !== 'internal' && (
+                            <div className="bg-white rounded-2xl shadow-xs border border-slate-200/80 overflow-hidden transition-all">
+                              <button
+                                type="button"
+                                onClick={() => toggleSection('terceirizadas')}
+                                className="w-full flex items-center justify-between p-4 sm:p-5 hover:bg-slate-50/70 transition-colors group cursor-pointer text-left"
+                              >
+                                <div className="flex items-center gap-3">
+                                  <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-sm shrink-0">
+                                    <Briefcase className="w-5 h-5" />
+                                  </div>
+                                  <div>
                                     <div className="flex items-center gap-2">
-                                      <Briefcase className="w-4 h-4 text-blue-600" />
-                                      <h5 className="text-xs font-bold text-navy uppercase tracking-wider">
+                                      <h4 className="font-bold text-navy text-sm">
                                         Empresas Terceirizadas Credenciadas
-                                      </h5>
-                                      <span className="px-2 py-0.2 bg-blue-100 text-blue-700 rounded-full text-[10px] font-bold">
-                                        {terceirizadas.length}
+                                      </h4>
+                                      <span className="text-xs text-slate-400 font-medium">
+                                        ({terceirizadas.length})
                                       </span>
                                     </div>
-                                    <span className="text-[11px] text-slate-400">
-                                      Empresas prestadoras de serviço com acesso à planta
-                                    </span>
+                                    <p className="text-xs text-slate-400 mt-0.5">
+                                      Prestadoras de serviços com acesso credenciado à planta
+                                    </p>
                                   </div>
+                                </div>
 
+                                <div className="flex items-center gap-3">
+                                  <span className="text-xs font-medium text-slate-500 hidden sm:inline-block">
+                                    {terceirizadas.filter(t => t.is_active !== false).length} ativas
+                                  </span>
+                                  <div className={`p-1.5 rounded-lg bg-slate-100 text-slate-400 group-hover:text-navy transition-all ${isTerceirizadasExpanded ? 'rotate-180 bg-blue-100 text-blue-700' : ''}`}>
+                                    <ChevronDown className="w-4 h-4" />
+                                  </div>
+                                </div>
+                              </button>
+
+                              {isTerceirizadasExpanded && (
+                                <div className="border-t border-slate-100">
                                   {terceirizadas.length === 0 ? (
-                                    <div className="p-6 bg-white rounded-xl border border-dashed border-slate-200 text-center text-xs text-slate-400">
-                                      Nenhuma empresa terceirizada vinculada a esta usina.
+                                    <div className="p-6 text-center text-xs text-slate-400">
+                                      Nenhuma empresa terceirizada encontrada com os filtros atuais.
                                     </div>
                                   ) : (
-                                    <div className="bg-white rounded-xl border border-slate-200/80 overflow-hidden overflow-x-auto shadow-2xs">
+                                    <div className="overflow-x-auto">
                                       <table className="w-full text-left border-collapse">
                                         <thead className="bg-slate-50/80 text-[10px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-100">
                                           <tr>
                                             <th className="px-5 py-3">Empresa Terceirizada</th>
-                                            <th className="px-5 py-3">CNPJ / Registro</th>
+                                            <th className="px-5 py-3">CNPJ</th>
                                             <th className="px-5 py-3">Representante & Contato</th>
                                             <th className="px-5 py-3 text-center">Status</th>
-                                            <th className="px-5 py-3 text-right">Controle</th>
+                                            <th className="px-5 py-3 text-right">Ação</th>
                                           </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-100 text-xs">
@@ -1803,24 +1814,23 @@ export default function SuperAdminDashboard() {
                                             <tr key={u.id} className="hover:bg-slate-50/60 transition-colors">
                                               <td className="px-5 py-3.5">
                                                 <div className="flex items-center gap-3">
-                                                  <div className="w-8 h-8 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-600 font-bold text-xs shrink-0">
+                                                  <div className="w-8 h-8 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 font-bold text-xs shrink-0">
                                                     <Briefcase className="w-4 h-4" />
                                                   </div>
                                                   <div className="flex flex-col">
-                                                    <span className="font-bold text-navy text-xs leading-tight">{u.full_name}</span>
-                                                    <span className="text-[10px] text-slate-400 mt-0.5">{u.email}</span>
-                                                    <span className="text-[9px] text-blue-600 font-medium">Credenciada na Usina</span>
+                                                    <span className="font-bold text-navy text-xs">{u.full_name}</span>
+                                                    <span className="text-[11px] text-slate-400 mt-0.5">{u.email}</span>
                                                   </div>
                                                 </div>
                                               </td>
                                               <td className="px-5 py-3.5">
-                                                <span className="font-mono text-xs text-slate-700 bg-slate-50 px-2.5 py-1 rounded-md border border-slate-200/80">
-                                                  {u.cnpj || 'CNPJ não informado'}
+                                                <span className="font-mono text-xs text-slate-700">
+                                                  {u.cnpj || '—'}
                                                 </span>
                                               </td>
                                               <td className="px-5 py-3.5">
                                                 <div className="flex flex-col text-xs">
-                                                  <span className="font-semibold text-slate-700">
+                                                  <span className="font-medium text-slate-700">
                                                     {u.representative_name || 'Responsável não informado'}
                                                   </span>
                                                   {u.phone && (
@@ -1833,13 +1843,13 @@ export default function SuperAdminDashboard() {
                                               </td>
                                               <td className="px-5 py-3.5 text-center">
                                                 {u.is_active !== false ? (
-                                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                                  <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                                                     Ativa
                                                   </span>
                                                 ) : (
-                                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200">
-                                                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                                                  <span className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-400">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
                                                     Desativada
                                                   </span>
                                                 )}
@@ -1849,10 +1859,10 @@ export default function SuperAdminDashboard() {
                                                   type="button"
                                                   onClick={() => handleToggleUserStatus(u.id, u.is_active !== false)}
                                                   disabled={updatingUserId === u.id}
-                                                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer shadow-xs active:scale-95 disabled:opacity-50 ${
+                                                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer shadow-2xs active:scale-95 disabled:opacity-50 ${
                                                     u.is_active !== false
-                                                      ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-200 hover:border-rose-300'
-                                                      : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200 hover:border-emerald-300'
+                                                      ? 'border-slate-200 hover:border-rose-200 hover:bg-rose-50 text-slate-600 hover:text-rose-700'
+                                                      : 'border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-700'
                                                   }`}
                                                   title={u.is_active !== false ? "Desativar empresa terceirizada" : "Reativar empresa terceirizada"}
                                                 >
@@ -1877,84 +1887,11 @@ export default function SuperAdminDashboard() {
                             </div>
                           )}
                         </div>
-                      );
-                    })}
-
-                    {/* Grupo: Administração Central do SaaS */}
-                    {globalUsers.length > 0 && (selectedUserTenantId === 'all' || selectedUserTenantId === 'global') && (
-                      <div className="bg-white rounded-2xl shadow-xs border border-slate-200/80 overflow-hidden transition-all duration-300">
-                        <div className="w-full flex items-center justify-between p-4 sm:p-5 bg-gradient-to-r from-navy/[0.03] to-transparent">
-                          <div className="flex items-center gap-3.5">
-                            <div className="w-11 h-11 rounded-xl bg-navy text-white flex items-center justify-center font-bold text-base shadow-xs shrink-0">
-                              <ShieldCheck className="w-5 h-5 text-primary" />
-                            </div>
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <h4 className="font-bold text-navy text-sm">Administração Central do SaaS</h4>
-                                <span className="px-2 py-0.5 bg-navy/10 text-navy font-bold text-[10px] rounded-full">
-                                  Super Admins
-                                </span>
-                              </div>
-                              <p className="text-xs text-slate-500 font-medium mt-0.5">
-                                Usuários com permissão irrestrita e controle global de infraestrutura.
-                              </p>
-                            </div>
-                          </div>
-                          <span className="text-xs font-semibold px-2.5 py-1 bg-navy/10 text-navy rounded-lg">
-                            {globalUsers.length} administrador(es)
-                          </span>
-                        </div>
-
-                        <div className="border-t border-slate-100 overflow-x-auto">
-                          <table className="w-full text-left border-collapse">
-                            <thead className="bg-slate-50/80 text-[10px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-100">
-                              <tr>
-                                <th className="px-5 py-3">Administrador</th>
-                                <th className="px-5 py-3">Privilégio</th>
-                                <th className="px-5 py-3 text-center">Status</th>
-                                <th className="px-5 py-3 text-right">Proteção</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100 text-xs">
-                              {globalUsers.map(u => (
-                                <tr key={u.id} className="hover:bg-slate-50/60 transition-colors">
-                                  <td className="px-5 py-3.5">
-                                    <div className="flex items-center gap-3">
-                                      <div className="w-8 h-8 rounded-full bg-navy text-white flex items-center justify-center text-xs font-bold shrink-0">
-                                        {u.full_name?.[0]?.toUpperCase() || 'A'}
-                                      </div>
-                                      <div className="flex flex-col">
-                                        <span className="font-bold text-navy text-xs">{u.full_name}</span>
-                                        <span className="text-[10px] text-slate-400">{u.email}</span>
-                                      </div>
-                                    </div>
-                                  </td>
-                                  <td className="px-5 py-3.5">
-                                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-navy text-white border border-navy">
-                                      SUPER ADMIN
-                                    </span>
-                                  </td>
-                                  <td className="px-5 py-3.5 text-center">
-                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                                      Ativo
-                                    </span>
-                                  </td>
-                                  <td className="px-5 py-3.5 text-right">
-                                    <span className="text-[11px] text-slate-400 italic">
-                                      {u.id === user?.id ? 'Sua Conta (Protegida)' : 'Acesso do Sistema'}
-                                    </span>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
+                      )}
+                    </div>
+                  );
+                })()
+              )}
             </div>
           )}
           </div>
