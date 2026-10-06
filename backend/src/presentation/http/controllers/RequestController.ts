@@ -110,10 +110,47 @@ export class RequestController {
     }
   }
 
+  /**
+   * Faz a transição automática de requisições aguardando chegada cuja data/horário agendado já foi atingido
+   * Mantém a liberdade de alteração manual prévia ou posterior pelo operador.
+   */
+  static async autoAdvanceScheduledArrivals(tenantId: string) {
+    try {
+      const nowIso = new Date().toISOString();
+      const { data: dueRequests, error } = await supabaseAdmin
+        .from('entry_requests')
+        .select('id, tenant_id, entry_date, status, profile:profiles!profile_id(full_name), sector, driver_name, plate')
+        .eq('tenant_id', tenantId)
+        .in('status', ['APPROVED', 'APPROVED_LIDER', 'APPROVED_GESTOR'])
+        .lte('entry_date', nowIso);
+
+      if (error) {
+        console.error('[RequestController.autoAdvanceScheduledArrivals] Erro ao consultar agendamentos:', error);
+        return;
+      }
+
+      if (dueRequests && dueRequests.length > 0) {
+        for (const req of dueRequests) {
+          await supabaseAdmin
+            .from('entry_requests')
+            .update({ status: 'ARRIVED' })
+            .eq('id', req.id);
+
+          NotificationService.notifyArrival(req).catch(console.error);
+        }
+      }
+    } catch (err) {
+      console.error('[RequestController.autoAdvanceScheduledArrivals] Erro inesperado:', err);
+    }
+  }
+
   static async listByTenant(req: AuthRequest, res: Response) {
     try {
       const profile = await userService.findProfileById(req.user.id);
       if (!profile || !profile.tenant_id) return ApiResponse.error(res, 'Tenant não identificado.', 403);
+
+      // Atualização automática de agendamentos vencidos para o status Chegada
+      await RequestController.autoAdvanceScheduledArrivals(profile.tenant_id);
 
       const queryFilters = { ...(req.query as any) };
       if (profile.role === 'TERCEIRIZADA') {

@@ -120,6 +120,24 @@ export class NotificationService {
   }
 
   /**
+   * Notifica cancelamento de entrada pela portaria
+   */
+  static async notifyEntryCancelledByGatekeeper(request: any, reason: string): Promise<void> {
+    const companyName = request.profile?.full_name || 'Empresa';
+    const sector = request.sector || 'Setor';
+
+    await this.create({
+      tenant_id: request.tenant_id,
+      request_id: request.id,
+      company_id: request.profile_id || request.profile?.id || null,
+      sector_id: request.sector_id,
+      type: 'INFO',
+      title: 'Entrada Cancelada na Portaria',
+      message: `A entrada de ${companyName} (${sector}) foi cancelada pela portaria. Motivo: ${reason}`
+    });
+  }
+
+  /**
    * Notifica que a saída de equipamentos foi autorizada e está aguardando no portão.
    */
   static async notifyExitWaiting(request: any, itemsCount: number): Promise<void> {

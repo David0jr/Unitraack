@@ -224,6 +224,14 @@ export default function PortariaDashboard() {
     setExitSubFilter('WAITING');
   }, [activeTab]);
 
+  // Polling a cada 30s para atualizar automaticamente chegadas agendadas e sincronizar fila
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchRequisicoes();
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [activeTab]);
+
   useEffect(() => {
     const channel = supabase
       .channel('portaria_dashboard_changes')
@@ -294,6 +302,22 @@ export default function PortariaDashboard() {
       setShowSuccessModal(true);
       return;
     }
+
+    // Se houver divergência apontada, confirmação explícita antes de liberar
+    if (activeTab === 'ENTRY' && selectedReq?.status === 'DISCREPANCY') {
+      const discReason = selectedReq.rejection_reason || (selectedReq as any).reason || 'Divergência apontada na conferência de itens';
+      const result = await Swal.fire({
+        title: 'Liberar com Divergência?',
+        text: `Esta solicitação possui uma divergência registrada ("${discReason}"). Deseja realmente autorizar a entrada do veículo e materiais na planta?`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#059669',
+        cancelButtonColor: '#64748b',
+        confirmButtonText: 'Sim, Liberar Entrada',
+        cancelButtonText: 'Voltar e Revisar'
+      });
+      if (!result.isConfirmed) return;
+    }
     
     setProcessing(true);
     try {
@@ -348,16 +372,22 @@ export default function PortariaDashboard() {
   const handleCancelEntry = async () => {
     if (!selecionadoId) return;
 
+    const defaultCancelReason = selectedReq?.status === 'DISCREPANCY'
+      ? `Cancelado pela Portaria devido a divergência: ${selectedReq.rejection_reason || (selectedReq as any).reason || 'Itens em desacordo'}`
+      : 'Cancelado pela Portaria: Não compareceu na data/prazo estimado';
+
     const { value: reason, isConfirmed } = await Swal.fire({
       title: 'Cancelar Entrada?',
-      text: 'Informe o motivo do cancelamento da entrada.',
+      text: selectedReq?.status === 'DISCREPANCY'
+        ? 'Confirme o cancelamento e recusa da entrada para esta solicitação com divergência.'
+        : 'Informe o motivo do cancelamento da entrada.',
       input: 'text',
-      inputValue: 'Cancelado pela Portaria: Não compareceu na data/prazo estimado',
+      inputValue: defaultCancelReason,
       icon: 'warning',
       showCancelButton: true,
       confirmButtonColor: '#ef4444',
       cancelButtonColor: '#64748b',
-      confirmButtonText: 'Sim, Cancelar Entrada',
+      confirmButtonText: selectedReq?.status === 'DISCREPANCY' ? 'Sim, Cancelar Entrada' : 'Sim, Cancelar Entrada',
       cancelButtonText: 'Voltar',
       inputValidator: (value) => {
         if (!value) {
@@ -378,6 +408,8 @@ export default function PortariaDashboard() {
           body: JSON.stringify({ reason })
         });
 
+        const payload = await response.json().catch(() => null);
+
         if (response.ok) {
           setRequisicoes(prev => prev.filter(r => r.id !== selecionadoId));
           setSelecionadoId(null);
@@ -385,7 +417,7 @@ export default function PortariaDashboard() {
           Swal.fire('Cancelado!', 'A entrada foi cancelada com sucesso.', 'success');
           fetchRequisicoes();
         } else {
-          Swal.fire('Erro', 'Ocorreu um erro ao cancelar a entrada.', 'error');
+          Swal.fire('Erro', payload?.error || payload?.message || 'Ocorreu um erro ao cancelar a entrada.', 'error');
         }
       } catch (err) {
         Swal.fire('Erro', 'Não foi possível comunicar com o servidor.', 'error');
@@ -1344,16 +1376,6 @@ export default function PortariaDashboard() {
                               <p className="text-[11px] text-slate-500">Digite seu código de matrícula cadastrado para validar no banco</p>
                             </div>
                           </div>
-                          {userProfile?.registration_number && (
-                            <button
-                              type="button"
-                              onClick={() => setSignature(userProfile.registration_number || '')}
-                              className="text-xs font-semibold text-primary bg-primary/10 hover:bg-primary/20 px-2.5 py-1 rounded-lg transition-all"
-                              title="Preencher com minha matrícula"
-                            >
-                              Minha Matrícula: {userProfile.registration_number}
-                            </button>
-                          )}
                         </div>
                         <input 
                           type="text" 
@@ -1367,39 +1389,71 @@ export default function PortariaDashboard() {
                   )}
 
                   {activeTab !== 'IN_PLANTA' && (
-                    <div className="p-6 md:px-8 md:py-6 bg-slate-50/70 border-t border-slate-100 flex flex-col sm:flex-row gap-3">
-                       <button 
-                          onClick={handleConfirmMovement}
-                          disabled={processing || selectedMaterials.length === 0 || !signature}
-                          className={`flex-[3] py-3.5 px-6 rounded-xl font-semibold text-xs flex items-center justify-center gap-2 transition-all active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed shadow-xs ${activeTab === 'ENTRY' ? 'bg-primary text-white hover:bg-primary-hover' : 'bg-emerald-600 text-white hover:bg-emerald-700'}`}
-                       >
-                          {processing ? <Loader2 className="w-4 h-4 animate-spin" /> : (
-                            <>
-                               <CheckCircle className="w-4 h-4" />
-                               {activeTab === 'ENTRY' ? `Liberar Entrada (${selectedMaterials.length})` : `Confirmar Saída (${selectedMaterials.length})`}
-                            </>
-                          )}
-                       </button>
-                       
-                       <button 
-                          onClick={() => setShowDiscrepancyModal(true)}
-                          disabled={processing || selectedReq.status === 'DISCREPANCY'}
-                          className="flex-1 py-3 px-4 bg-white text-rose-700 border border-rose-200 hover:bg-rose-50/70 disabled:opacity-40 rounded-xl font-medium text-xs flex items-center justify-center gap-2 transition-all active:scale-95 shadow-xs"
-                       >
-                          <ShieldAlert className="w-4 h-4 text-rose-600" />
-                          Divergência
-                       </button>
-                    </div>
+                    <>
+                      {activeTab === 'ENTRY' && !['IN_ANALYSIS', 'DISCREPANCY'].includes(selectedReq.status) && (
+                        <div className="px-6 md:px-8 pb-3">
+                          <div className="p-3 bg-amber-50 border border-amber-200/80 rounded-xl flex items-center gap-2.5 text-amber-800 text-xs">
+                            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                            <span>Para liberar a entrada ou registrar divergência, inicie a etapa <strong>Em Análise</strong> acima.</span>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="p-6 md:px-8 md:py-6 bg-slate-50/70 border-t border-slate-100 flex flex-col sm:flex-row gap-3">
+                         <button 
+                            onClick={handleConfirmMovement}
+                            disabled={
+                              processing || 
+                              selectedMaterials.length === 0 || 
+                              !signature ||
+                              (activeTab === 'ENTRY' && !['IN_ANALYSIS', 'DISCREPANCY'].includes(selectedReq.status))
+                            }
+                            className={`flex-[3] py-3.5 px-6 rounded-xl font-semibold text-xs flex items-center justify-center gap-2 transition-all active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed shadow-xs ${activeTab === 'ENTRY' ? 'bg-primary text-white hover:bg-primary-hover' : 'bg-emerald-600 text-white hover:bg-emerald-700'}`}
+                            title={
+                              activeTab === 'ENTRY' && !['IN_ANALYSIS', 'DISCREPANCY'].includes(selectedReq.status) 
+                                ? "Disponível apenas quando a solicitação estiver Em Análise" 
+                                : ""
+                            }
+                         >
+                            {processing ? <Loader2 className="w-4 h-4 animate-spin" /> : (
+                              <>
+                                 <CheckCircle className="w-4 h-4" />
+                                 {activeTab === 'ENTRY' ? `Liberar Entrada (${selectedMaterials.length})` : `Confirmar Saída (${selectedMaterials.length})`}
+                              </>
+                            )}
+                         </button>
+                         
+                         <button 
+                            onClick={() => setShowDiscrepancyModal(true)}
+                            disabled={
+                              processing || 
+                              selectedReq.status === 'DISCREPANCY' ||
+                              (activeTab === 'ENTRY' && selectedReq.status !== 'IN_ANALYSIS')
+                            }
+                            className="flex-1 py-3 px-4 bg-white text-rose-700 border border-rose-200 hover:bg-rose-50/70 disabled:opacity-40 rounded-xl font-medium text-xs flex items-center justify-center gap-2 transition-all active:scale-95 shadow-xs disabled:cursor-not-allowed"
+                            title={
+                              selectedReq.status === 'DISCREPANCY' 
+                                ? "Divergência já registrada nesta solicitação" 
+                                : (activeTab === 'ENTRY' && selectedReq.status !== 'IN_ANALYSIS')
+                                ? "Disponível apenas quando a solicitação estiver Em Análise"
+                                : ""
+                            }
+                         >
+                            <ShieldAlert className="w-4 h-4 text-rose-600" />
+                            {selectedReq.status === 'DISCREPANCY' ? 'Divergência Registrada' : 'Divergência'}
+                         </button>
+                      </div>
+                    </>
                   )}
                   {activeTab === 'ENTRY' && (
                      <div className="px-6 md:px-8 pb-6 flex">
                         <button 
                            onClick={handleCancelEntry}
-                           disabled={processing || selectedReq.status === 'DISCREPANCY'}
+                           disabled={processing}
                            className="flex-1 py-2.5 bg-white text-rose-600 border border-slate-200 hover:bg-rose-50 hover:border-rose-200 disabled:opacity-40 rounded-xl font-medium text-xs flex items-center justify-center gap-2 transition-all active:scale-95 shadow-xs"
                         >
                            <XOctagon className="w-4 h-4" />
-                           Não Compareceu / Cancelar Entrada
+                           {selectedReq.status === 'DISCREPANCY' ? 'Cancelar / Recusar Entrada (Divergência)' : 'Não Compareceu / Cancelar Entrada'}
                         </button>
                      </div>
                   )}
