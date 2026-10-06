@@ -309,15 +309,6 @@ export const TransferModal: React.FC<TransferModalProps> = ({
                       <label className="text-[10px] text-slate-400 font-bold uppercase tracking-widest block">
                         Matrícula do Líder
                       </label>
-                      {profile?.registration_number && (
-                        <button 
-                          type="button"
-                          onClick={() => setSignature(profile.registration_number || '')}
-                          className="text-[9px] font-black text-primary bg-primary/10 hover:bg-primary/20 px-2 py-0.5 rounded-lg uppercase tracking-wider transition-colors cursor-pointer"
-                        >
-                          Usar Minha: {profile.registration_number}
-                        </button>
-                      )}
                     </div>
                     <div className="relative">
                       <input 

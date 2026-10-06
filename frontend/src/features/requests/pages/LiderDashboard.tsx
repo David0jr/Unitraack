@@ -325,34 +325,42 @@ export default function LiderDashboard() {
   };
 
   const handleRejectClick = async (materialId: string) => {
-    const result = await Swal.fire({
+    const { value: reason, isConfirmed } = await Swal.fire({
       title: 'Recusar Transferência?',
-      text: 'O material será devolvido para o setor de origem.',
+      text: 'Informe o motivo da recusa desta transferência de equipamento:',
+      input: 'textarea',
+      inputPlaceholder: 'Descreva o motivo da recusa (ex: equipamento não solicitado, item avariado, setor incorreto)...',
       icon: 'warning',
       showCancelButton: true,
       confirmButtonColor: '#e11d48',
       cancelButtonColor: '#64748b',
-      confirmButtonText: 'Sim, Recusar',
+      confirmButtonText: 'Confirmar Recusa',
       cancelButtonText: 'Voltar',
       customClass: {
         popup: 'rounded-[2rem] font-brand',
         confirmButton: 'rounded-xl font-bold uppercase text-xs px-6 py-3',
         cancelButton: 'rounded-xl font-bold uppercase text-xs px-6 py-3'
+      },
+      inputValidator: (value) => {
+        if (!value || !value.trim()) {
+          return 'Você precisa informar o motivo da recusa!';
+        }
       }
     });
 
-    if (!result.isConfirmed) return;
+    if (!isConfirmed || !reason) return;
     
     setIsProcessing(true);
     try {
       await api.post('/lider/recusar-transferencia', {
-        materialIds: [materialId]
+        materialIds: [materialId],
+        reason: reason.trim()
       }, {
         headers: { Authorization: `Bearer ${getAuthToken()}` }
       });
       Swal.fire({
         title: 'Transferência Recusada!',
-        text: 'O item foi devolvido ao setor de origem.',
+        text: 'O item foi devolvido ao setor de origem e o líder remetente foi notificado com a justificativa.',
         icon: 'success',
         confirmButtonColor: '#0052cc',
         customClass: {

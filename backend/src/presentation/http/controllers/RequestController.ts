@@ -537,12 +537,38 @@ export class RequestController {
 
   static async rejectTransfer(req: AuthRequest, res: Response) {
     try {
-      const { materialIds } = req.body;
+      const { materialIds, reason } = req.body;
       const profile = await userService.findProfileById(req.user.id);
       if (!profile || !profile.tenant_id || !profile.sector_id) return ApiResponse.error(res, 'Perfil ou Setor não encontrado.', 403);
 
+      // Buscar os materiais antes de rejeitar para identificar os setores de origem e nomes dos equipamentos
+      const materialsToReject = await Promise.all(
+        materialIds.map(async (id: string) => {
+          return await requestRepo.findMaterialById(id);
+        })
+      );
+
+      const validMaterials = materialsToReject.filter(Boolean);
+      const originSectorIds = [...new Set(validMaterials.map(m => m?.current_sector_id).filter(Boolean))];
+
       const useCase = new RejectMaterialTransfer(requestRepo);
-      await useCase.execute(materialIds, req.user.id, profile.tenant_id);
+      await useCase.execute(materialIds, req.user.id, profile.tenant_id, reason, profile.sector_id);
+
+      // Notificar cada setor de origem sobre a recusa com o motivo
+      for (const originSectorId of originSectorIds) {
+        if (!originSectorId) continue;
+        const items = validMaterials.filter(m => m?.current_sector_id === originSectorId);
+        const itemNames = items.map(m => m?.name).filter(Boolean).join(', ');
+        NotificationService.notifyTransferRejected(
+          profile.tenant_id,
+          originSectorId,
+          profile.sector_id,
+          itemNames || `${items.length} equipamento(s)`,
+          reason || 'Recusado pelo líder do setor de destino.'
+        ).catch((err) =>
+          console.error('[RequestController.rejectTransfer] Erro ao notificar recusa:', err)
+        );
+      }
       
       return ApiResponse.success(res, { message: 'Transferência recusada. Materiais devolvidos ao setor de origem.' });
     } catch (error: any) {

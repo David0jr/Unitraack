@@ -174,15 +174,6 @@ export const ExitModal: React.FC<ExitModalProps> = ({
                       <label className="text-[10px] text-slate-400 font-bold uppercase tracking-widest block">
                         Matrícula do Líder
                       </label>
-                      {profile?.registration_number && (
-                        <button 
-                          type="button"
-                          onClick={() => setSignature(profile.registration_number || '')}
-                          className="text-[9px] font-black text-rose-600 bg-rose-50 hover:bg-rose-100 px-2 py-0.5 rounded-lg uppercase tracking-wider transition-colors cursor-pointer"
-                        >
-                          Usar Minha: {profile.registration_number}
-                        </button>
-                      )}
                     </div>
                     <div className="relative">
                       <input 

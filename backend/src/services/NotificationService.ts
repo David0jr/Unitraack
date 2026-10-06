@@ -246,6 +246,33 @@ export class NotificationService {
   }
 
   /**
+   * Notifica o líder do setor de origem que a transferência foi recusada pelo líder de destino.
+   */
+  static async notifyTransferRejected(
+    tenantId: string,
+    fromSectorId: string,
+    toSectorId: string,
+    materialNames: string,
+    reason: string
+  ): Promise<void> {
+    try {
+      const { data: toSector } = await supabaseAdmin.from('sectors').select('name').eq('id', toSectorId).maybeSingle();
+      const toName = toSector?.name || 'Setor Destino';
+
+      await this.create({
+        tenant_id: tenantId,
+        sector_id: fromSectorId,
+        role: 'LIDER_SETOR',
+        type: 'INFO',
+        title: 'Transferência Recusada pelo Outro Setor',
+        message: `O líder do setor ${toName} recusou o recebimento do(s) equipamento(s): ${materialNames}. Motivo da recusa: "${reason}". O material permaneceu no seu setor.`
+      });
+    } catch (err) {
+      console.error('[NotificationService.notifyTransferRejected] Erro:', err);
+    }
+  }
+
+  /**
    * Lista as notificações mais recentes para o usuário / setor / tenant.
    * Filtra por dismissed_by e calcula o estado de leitura individualizado por userId.
    */
