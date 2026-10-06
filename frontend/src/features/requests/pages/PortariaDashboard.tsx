@@ -1399,6 +1399,15 @@ export default function PortariaDashboard() {
                         </div>
                       )}
 
+                      {activeTab === 'EXIT' && !(selectedReq.status === 'EXIT_CONFERENCE' || selectedReq.materials?.some(m => m.status === 'EXIT_CONFERENCE') || selectedReq.status === 'DISCREPANCY') && (
+                        <div className="px-6 md:px-8 pb-3">
+                          <div className="p-3 bg-purple-50 border border-purple-200/80 rounded-xl flex items-center gap-2.5 text-purple-800 text-xs">
+                            <AlertTriangle className="w-4 h-4 text-purple-600 shrink-0" />
+                            <span>Para confirmar a saída ou registrar divergência, inicie a etapa <strong>Conferência</strong> acima.</span>
+                          </div>
+                        </div>
+                      )}
+
                       <div className="p-6 md:px-8 md:py-6 bg-slate-50/70 border-t border-slate-100 flex flex-col sm:flex-row gap-3">
                          <button 
                             onClick={handleConfirmMovement}
@@ -1406,12 +1415,15 @@ export default function PortariaDashboard() {
                               processing || 
                               selectedMaterials.length === 0 || 
                               !signature ||
-                              (activeTab === 'ENTRY' && !['IN_ANALYSIS', 'DISCREPANCY'].includes(selectedReq.status))
+                              (activeTab === 'ENTRY' && !['IN_ANALYSIS', 'DISCREPANCY'].includes(selectedReq.status)) ||
+                              (activeTab === 'EXIT' && !(selectedReq.status === 'EXIT_CONFERENCE' || selectedReq.materials?.some(m => m.status === 'EXIT_CONFERENCE') || selectedReq.status === 'DISCREPANCY'))
                             }
                             className={`flex-[3] py-3.5 px-6 rounded-xl font-semibold text-xs flex items-center justify-center gap-2 transition-all active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed shadow-xs ${activeTab === 'ENTRY' ? 'bg-primary text-white hover:bg-primary-hover' : 'bg-emerald-600 text-white hover:bg-emerald-700'}`}
                             title={
                               activeTab === 'ENTRY' && !['IN_ANALYSIS', 'DISCREPANCY'].includes(selectedReq.status) 
                                 ? "Disponível apenas quando a solicitação estiver Em Análise" 
+                                : activeTab === 'EXIT' && !(selectedReq.status === 'EXIT_CONFERENCE' || selectedReq.materials?.some(m => m.status === 'EXIT_CONFERENCE') || selectedReq.status === 'DISCREPANCY')
+                                ? "Disponível apenas quando a solicitação estiver em Conferência"
                                 : ""
                             }
                          >
@@ -1428,7 +1440,8 @@ export default function PortariaDashboard() {
                             disabled={
                               processing || 
                               selectedReq.status === 'DISCREPANCY' ||
-                              (activeTab === 'ENTRY' && selectedReq.status !== 'IN_ANALYSIS')
+                              (activeTab === 'ENTRY' && selectedReq.status !== 'IN_ANALYSIS') ||
+                              (activeTab === 'EXIT' && !(selectedReq.status === 'EXIT_CONFERENCE' || selectedReq.materials?.some(m => m.status === 'EXIT_CONFERENCE')))
                             }
                             className="flex-1 py-3 px-4 bg-white text-rose-700 border border-rose-200 hover:bg-rose-50/70 disabled:opacity-40 rounded-xl font-medium text-xs flex items-center justify-center gap-2 transition-all active:scale-95 shadow-xs disabled:cursor-not-allowed"
                             title={
@@ -1436,6 +1449,8 @@ export default function PortariaDashboard() {
                                 ? "Divergência já registrada nesta solicitação" 
                                 : (activeTab === 'ENTRY' && selectedReq.status !== 'IN_ANALYSIS')
                                 ? "Disponível apenas quando a solicitação estiver Em Análise"
+                                : (activeTab === 'EXIT' && !(selectedReq.status === 'EXIT_CONFERENCE' || selectedReq.materials?.some(m => m.status === 'EXIT_CONFERENCE')))
+                                ? "Disponível apenas quando a solicitação estiver em Conferência"
                                 : ""
                             }
                          >
