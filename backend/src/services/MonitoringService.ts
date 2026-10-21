@@ -41,7 +41,19 @@ export class MonitoringService {
             id,
             profile:profiles!profile_id(full_name, role, theme_color, logo_url, cnpj, phone, representative_name),
             tenant_id,
-            status
+            status,
+            rejection_reason,
+            entry_date
+          ),
+          movements:material_movements(
+            id,
+            moved_at,
+            photos,
+            signature,
+            observation,
+            from_sector:sectors!material_movements_from_sector_id_fkey(id, name),
+            to_sector:sectors!material_movements_to_sector_id_fkey(id, name),
+            actor:profiles(full_name, registration_number)
           )
         `)
         .eq('entry_requests.tenant_id', tenantId);

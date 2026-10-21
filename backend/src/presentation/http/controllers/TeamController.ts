@@ -29,7 +29,7 @@ export class TeamController {
   static async updateMember(req: AuthRequest, res: Response): Promise<any> {
     try {
       const { id } = req.params;
-      const { full_name, role, sector, sector_id, is_active } = req.body;
+      const { full_name, role, sector, sector_id, registration_number, is_active } = req.body;
 
       // Validação: Gestor só pode editar membros do próprio tenant
       const manager = await userService.findProfileById(req.user.id as string);
@@ -44,6 +44,7 @@ export class TeamController {
         role, 
         sector, 
         sector_id, 
+        registration_number: registration_number !== undefined ? (registration_number ? String(registration_number).trim() : null) : undefined,
         is_active 
       });
 

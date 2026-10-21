@@ -36,6 +36,7 @@ interface AuditMaterial {
   description?: string;
   condition?: string;
   code?: string;
+  status?: string;
   movements: AuditMovement[];
 }
 
@@ -106,28 +107,14 @@ export function AuditTimeline({ auditData, profileName, onBack }: AuditTimelineP
       body: [
         ['Total de Contratos/Entradas Analisados', auditData.length.toString()],
         ['Ativos Atuais na Planta', auditData.reduce((acc, curr) => {
-          const activeMats = (curr.materials || []).filter(mat => {
-            const movements = mat.movements || [];
-            const lastMove = movements.length > 0 ? movements[movements.length - 1] : null;
-            const isAtGate = lastMove?.to_sector?.name?.toLowerCase().includes('portaria') || 
-                             lastMove?.to_sector?.name?.toLowerCase().includes('gate') || 
-                             lastMove?.to_sector?.name?.toLowerCase().includes('entrada');
-            return !curr.exit_at && !isAtGate;
-          });
+          const activeMats = (curr.materials || []).filter(mat => mat.status === 'IN_PLANTA' || mat.status === 'MOVING');
           return acc + activeMats.length;
         }, 0).toString()],
         ['Ativos Finalizados (Saída)', auditData.reduce((acc, curr) => {
-          const finishedMats = (curr.materials || []).filter(mat => {
-            const movements = mat.movements || [];
-            const lastMove = movements.length > 0 ? movements[movements.length - 1] : null;
-            const isAtGate = lastMove?.to_sector?.name?.toLowerCase().includes('portaria') || 
-                             lastMove?.to_sector?.name?.toLowerCase().includes('gate') || 
-                             lastMove?.to_sector?.name?.toLowerCase().includes('entrada');
-            return curr.exit_at || isAtGate;
-          });
+          const finishedMats = (curr.materials || []).filter(mat => mat.status === 'OUT_PLANTA');
           return acc + finishedMats.length;
         }, 0).toString()],
-        ['Status do Parceiro', auditData.some(d => !d.exit_at) ? 'EM OPERAÇÃO NA PLANTA' : 'NENHUM ATIVO NA PLANTA'],
+        ['Status do Parceiro', auditData.some(d => (d.materials || []).some((m: any) => m.status === 'IN_PLANTA' || m.status === 'MOVING')) ? 'EM OPERAÇÃO NA PLANTA' : 'NENHUM ATIVO NA PLANTA'],
       ],
       theme: 'grid',
       headStyles: { fillColor: [0, 21, 64], fontSize: 10, fontStyle: 'bold' },
@@ -183,10 +170,7 @@ export function AuditTimeline({ auditData, profileName, onBack }: AuditTimelineP
         }
 
         const lastMove = movements[movements.length - 1];
-        const isAtGate = lastMove?.to_sector?.name?.toLowerCase().includes('portaria') || 
-                         lastMove?.to_sector?.name?.toLowerCase().includes('gate') || 
-                         lastMove?.to_sector?.name?.toLowerCase().includes('entrada');
-        const hasExited = !!req.exit_at || isAtGate;
+        const hasExited = mat.status === 'OUT_PLANTA' || !!req.exit_at;
         const equipStatus = hasExited ? 'SAÍDA DA USINA (INATIVO)' : 'EM OPERAÇÃO';
 
         // Sub-header for equipment
@@ -204,8 +188,8 @@ export function AuditTimeline({ auditData, profileName, onBack }: AuditTimelineP
           
           if (role) responsibleName += ` (${role})`;
           
-          let fromName = move.from_sector?.name || 'Gate';
-          let toName = move.to_sector?.name || 'Gate';
+          let fromName = move.from_sector?.name || 'ENTRADA';
+          let toName = move.to_sector?.name || 'PORTARIA';
 
           return [
             `#${idx + 1}`,
@@ -245,25 +229,11 @@ export function AuditTimeline({ auditData, profileName, onBack }: AuditTimelineP
   const filteredData = useMemo(() => {
     return auditData.filter(request => {
       if (filterType === 'active') {
-         const hasActiveMats = (request.materials || []).some(mat => {
-            const movements = mat.movements || [];
-            const lastMove = movements.length > 0 ? movements[movements.length - 1] : null;
-            const isAtGate = lastMove?.to_sector?.name?.toLowerCase().includes('portaria') || 
-                             lastMove?.to_sector?.name?.toLowerCase().includes('gate') || 
-                             lastMove?.to_sector?.name?.toLowerCase().includes('entrada');
-            return !isAtGate;
-         });
-         if (request.exit_at || !hasActiveMats) return false;
+         const hasActiveMats = (request.materials || []).some(mat => mat.status === 'IN_PLANTA' || mat.status === 'MOVING');
+         if (!hasActiveMats) return false;
       }
       if (filterType === 'finished') {
-         const hasFinishedMats = (request.materials || []).some(mat => {
-            const movements = mat.movements || [];
-            const lastMove = movements.length > 0 ? movements[movements.length - 1] : null;
-            const isAtGate = lastMove?.to_sector?.name?.toLowerCase().includes('portaria') || 
-                             lastMove?.to_sector?.name?.toLowerCase().includes('gate') || 
-                             lastMove?.to_sector?.name?.toLowerCase().includes('entrada');
-            return isAtGate;
-         });
+         const hasFinishedMats = (request.materials || []).some(mat => mat.status === 'OUT_PLANTA');
          if (!request.exit_at && !hasFinishedMats) return false;
       }
 
@@ -341,51 +311,41 @@ export function AuditTimeline({ auditData, profileName, onBack }: AuditTimelineP
                <div className="flex flex-wrap gap-4 mt-2">
                   <StatBadge icon={Calendar} label="Contratos" value={auditData.length.toString()} />
                   <StatBadge icon={Package} label="Ativos na Planta" value={auditData.reduce((acc, curr) => {
-                    const activeMats = (curr.materials || []).filter(mat => {
-                      const movements = mat.movements || [];
-                      const lastMove = movements.length > 0 ? movements[movements.length - 1] : null;
-                      const isAtGate = lastMove?.to_sector?.name?.toLowerCase().includes('portaria') || 
-                                       lastMove?.to_sector?.name?.toLowerCase().includes('gate') || 
-                                       lastMove?.to_sector?.name?.toLowerCase().includes('entrada');
-                      return !curr.exit_at && !isAtGate;
-                    });
-                    return acc + activeMats.length;
-                  }, 0).toString()} />
-                  <StatBadge icon={ShieldCheck} label="Ativos Finalizados" value={auditData.reduce((acc, curr) => {
-                    const finishedMats = (curr.materials || []).filter(mat => {
-                      const movements = mat.movements || [];
-                      const lastMove = movements.length > 0 ? movements[movements.length - 1] : null;
-                      const isAtGate = lastMove?.to_sector?.name?.toLowerCase().includes('portaria') || 
-                                       lastMove?.to_sector?.name?.toLowerCase().includes('gate') || 
-                                       lastMove?.to_sector?.name?.toLowerCase().includes('entrada');
-                      return curr.exit_at || isAtGate;
-                    });
-                    return acc + finishedMats.length;
-                  }, 0).toString()} />
+                     const activeMats = (curr.materials || []).filter((mat: any) => mat.status === 'IN_PLANTA' || mat.status === 'MOVING');
+                     return acc + activeMats.length;
+                   }, 0).toString()} />
+                   <StatBadge icon={ShieldCheck} label="Ativos Finalizados" value={auditData.reduce((acc, curr) => {
+                     const finishedMats = (curr.materials || []).filter((mat: any) => mat.status === 'OUT_PLANTA');
+                     return acc + finishedMats.length;
+                   }, 0).toString()} />
                </div>
 
-               {auditData[0]?.profile && (
-                 <div className="flex flex-wrap gap-x-8 gap-y-2 mt-6 pt-6 border-t border-white/10">
-                   {auditData[0].profile.cnpj && (
-                     <div className="flex flex-col">
-                       <span className="text-[7px] font-bold text-white/40 uppercase tracking-widest">CNPJ Operacional</span>
-                       <span className="text-xs font-bold text-white/80">{auditData[0].profile.cnpj}</span>
-                     </div>
-                   )}
-                   {auditData[0].profile.representative_name && (
-                     <div className="flex flex-col">
-                       <span className="text-[7px] font-bold text-white/40 uppercase tracking-widest">Representante Legal</span>
-                       <span className="text-xs font-bold text-white/80">{auditData[0].profile.representative_name}</span>
-                     </div>
-                   )}
-                   {auditData[0].profile.phone && (
-                     <div className="flex flex-col">
-                       <span className="text-[7px] font-bold text-white/40 uppercase tracking-widest">Contato Emergência</span>
-                       <span className="text-xs font-bold text-white/80">{auditData[0].profile.phone}</span>
-                     </div>
-                   )}
-                 </div>
-               )}
+               {(() => {
+                  const prof = auditData.find(d => d.profile?.cnpj || d.profile?.representative_name)?.profile || auditData[0]?.profile;
+                  if (!prof) return null;
+                  return (
+                    <div className="flex flex-wrap gap-x-8 gap-y-2 mt-6 pt-6 border-t border-white/10">
+                      {prof.cnpj && (
+                        <div className="flex flex-col">
+                          <span className="text-[7px] font-bold text-white/40 uppercase tracking-widest">CNPJ Operacional</span>
+                          <span className="text-xs font-bold text-white/80">{prof.cnpj}</span>
+                        </div>
+                      )}
+                      {prof.representative_name && (
+                        <div className="flex flex-col">
+                          <span className="text-[7px] font-bold text-white/40 uppercase tracking-widest">Representante Legal</span>
+                          <span className="text-xs font-bold text-white/80">{prof.representative_name}</span>
+                        </div>
+                      )}
+                      {prof.phone && (
+                        <div className="flex flex-col">
+                          <span className="text-[7px] font-bold text-white/40 uppercase tracking-widest">Contato Emergência</span>
+                          <span className="text-xs font-bold text-white/80">{prof.phone}</span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
             </div>
          </div>
       </div>
@@ -503,17 +463,12 @@ export function AuditTimeline({ auditData, profileName, onBack }: AuditTimelineP
 
                      {/* Grid de Materiais Auditados */}
                      <div className="space-y-4">
-                        {(request.materials || []).filter(mat => {
-                             const movements = mat.movements || [];
-                             const lastMove = movements.length > 0 ? movements[movements.length - 1] : null;
-                             const isAtGate = lastMove?.to_sector?.name?.toLowerCase().includes('portaria') || 
-                                              lastMove?.to_sector?.name?.toLowerCase().includes('gate') || 
-                                              lastMove?.to_sector?.name?.toLowerCase().includes('entrada');
-                             const hasExited = !!request.exit_at || isAtGate;
-                             if (filterType === 'active') return !hasExited;
-                             if (filterType === 'finished') return hasExited;
-                             return true;
-                         }).map(material => (
+                        {(request.materials || []).filter((mat: any) => {
+                              const hasExited = mat.status === 'OUT_PLANTA' || !!request.exit_at;
+                              if (filterType === 'active') return !hasExited;
+                              if (filterType === 'finished') return hasExited;
+                              return true;
+                          }).map((material: any) => (
                           <div key={material.id} className="bg-slate-50/50 p-6 rounded-2xl border border-slate-100 group/material hover:bg-white hover:border-primary/20 transition-all duration-300">
                              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
                                 <div className="flex items-center gap-4">
@@ -524,20 +479,20 @@ export function AuditTimeline({ auditData, profileName, onBack }: AuditTimelineP
                                       <div className="flex items-center gap-3 mb-1">
                                         <h5 className="font-bold text-navy text-sm uppercase tracking-tight">{material.name}</h5>
                                         {(() => {
-                                          const lastMove = (material.movements || []).length > 0 ? material.movements[material.movements.length - 1] : null;
-                                          const isAtGate = lastMove?.to_sector?.name?.toLowerCase().includes('portaria') || 
-                                                           lastMove?.to_sector?.name?.toLowerCase().includes('gate') || 
-                                                           lastMove?.to_sector?.name?.toLowerCase().includes('entrada');
-                                          const hasExited = !!request.exit_at || isAtGate;
-                                          if (hasExited) {
-                                            return (
-                                              <span className="px-2 py-0.5 bg-slate-100 text-slate-500 rounded text-[9px] font-bold uppercase tracking-widest border border-slate-200">
-                                                Fora de Operação (Saída)
-                                              </span>
-                                            );
-                                          }
-                                          return null;
-                                        })()}
+                                           const hasExited = material.status === 'OUT_PLANTA' || !!request.exit_at;
+                                           if (hasExited) {
+                                             return (
+                                               <span className="px-2 py-0.5 bg-slate-100 text-slate-500 rounded text-[9px] font-bold uppercase tracking-widest border border-slate-200">
+                                                 Fora de Operação (Saída)
+                                               </span>
+                                             );
+                                           }
+                                           return (
+                                             <span className="px-2 py-0.5 bg-emerald-50 text-emerald-600 rounded text-[9px] font-bold uppercase tracking-widest border border-emerald-200">
+                                               Ativo na Planta
+                                             </span>
+                                           );
+                                         })()}
                                       </div>
                                       <div className="flex flex-wrap items-center gap-2">
                                          <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{material.brand}</span>
@@ -564,20 +519,17 @@ export function AuditTimeline({ auditData, profileName, onBack }: AuditTimelineP
                                       <p className="text-[8px] font-bold text-slate-300 uppercase tracking-widest mb-1.5">Último Rastro Local</p>
                                       <div className="flex items-center gap-2">
                                          {(() => {
-                                            const lastMove = (material.movements || []).length > 0 ? material.movements[material.movements.length - 1] : null;
-                                            const isAtGate = lastMove?.to_sector?.name?.toLowerCase().includes('portaria') || 
-                                                             lastMove?.to_sector?.name?.toLowerCase().includes('gate') || 
-                                                             lastMove?.to_sector?.name?.toLowerCase().includes('entrada');
-                                            const hasExited = !!request.exit_at || isAtGate;
-                                            return (
-                                              <>
-                                                <div className={`w-2 h-2 rounded-full ${hasExited ? 'bg-slate-300' : 'bg-primary shadow-[0_0_8px_rgba(255,214,0,0.4)]'}`}></div>
-                                                <span className={`text-[10px] font-bold uppercase ${hasExited ? 'text-slate-400' : 'text-navy'}`}>
-                                                  {lastMove ? lastMove.to_sector?.name : 'GATE PRINCIPAL'}
-                                                </span>
-                                              </>
-                                            );
-                                         })()}
+                                             const lastMove = (material.movements || []).length > 0 ? material.movements[material.movements.length - 1] : null;
+                                             const hasExited = material.status === 'OUT_PLANTA' || !!request.exit_at;
+                                             return (
+                                               <>
+                                                 <div className={`w-2 h-2 rounded-full ${hasExited ? 'bg-slate-300' : 'bg-primary shadow-[0_0_8px_rgba(255,214,0,0.4)]'}`}></div>
+                                                 <span className={`text-[10px] font-bold uppercase ${hasExited ? 'text-slate-400' : 'text-navy'}`}>
+                                                   {hasExited ? 'SAÍDA CONCLUÍDA' : (lastMove?.to_sector?.name || 'EM PLANTA')}
+                                                 </span>
+                                               </>
+                                             );
+                                          })()}
                                       </div>
                                    </div>
                                    <div className="text-right">
@@ -590,7 +542,7 @@ export function AuditTimeline({ auditData, profileName, onBack }: AuditTimelineP
                              {/* Trilha de Movimentos */}
                              {(material.movements || []).length > 0 && (
                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-6">
-                                  {material.movements.map((move, mIdx) => (
+                                  {material.movements.map((move: any, mIdx: number) => (
                                     <div key={move.id} className="bg-white/80 backdrop-blur-sm p-4 rounded-xl border border-slate-100 shadow-sm relative overflow-hidden group/move hover:border-primary/30 transition-all">
                                        <div className="absolute top-0 right-0 px-2 py-1 bg-slate-50 text-[7px] font-bold text-slate-300 rounded-bl-lg">#{mIdx + 1}</div>
                                        <div className="flex flex-col gap-3">
@@ -600,7 +552,7 @@ export function AuditTimeline({ auditData, profileName, onBack }: AuditTimelineP
                                              </div>
                                              <div className="flex-1">
                                                 <p className="text-[9px] font-bold text-navy uppercase leading-tight mb-1">{move.to_sector?.name || 'Setor'}</p>
-                                                <p className="text-[7px] font-bold text-slate-400 uppercase">Origem: {move.from_sector?.name || 'Gate'}</p>
+                                                <p className="text-[7px] font-bold text-slate-400 uppercase">Origem: {move.from_sector?.name || 'ENTRADA'}</p>
                                              </div>
                                           </div>
                                           <div className="flex flex-col gap-2 pt-2 border-t border-slate-50">

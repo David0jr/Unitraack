@@ -6,6 +6,7 @@ import managerRoutes from './managerRoutes';
 import gatekeeperRoutes from './gatekeeperRoutes';
 import sectorRoutes from './sectorRoutes';
 import adminRoutes from './adminRoutes';
+import notificationRoutes from './notificationRoutes';
 
 const router = Router();
 
@@ -16,5 +17,6 @@ router.use('/gestor', managerRoutes);
 router.use('/portaria', gatekeeperRoutes);
 router.use('/sectors', sectorRoutes);
 router.use('/admin', adminRoutes);
+router.use('/notifications', notificationRoutes);
 
 export default router;

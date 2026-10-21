@@ -1,20 +1,25 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { 
-  UserPlus, 
-  Link as LinkIcon, 
-  Users, 
-  LayoutGrid,
-  AlertTriangle,
-  Check, 
+  AlertCircle,
+  CheckCircle2, 
 } from 'lucide-react';
-import { TabButton } from './dashboard/team/TeamCommon';
 import { ManualRegisterForm } from './dashboard/team/ManualRegisterForm';
 import { InviteGenerator } from './dashboard/team/InviteGenerator';
 import { MemberList } from './dashboard/team/MemberList';
 import { SectorManagement } from './dashboard/team/SectorManagement';
 
-export default function TeamManagement({ tenantId, usinaCnpj }: { tenantId: string, usinaCnpj: string }) {
-  const [activeTab, setActiveTab] = useState<'register' | 'invite' | 'list' | 'sectors'>('register');
+interface TeamManagementProps {
+  tenantId: string;
+  usinaCnpj: string;
+  activeTab?: 'register' | 'invite' | 'list' | 'sectors';
+  onTabChange?: (tab: 'register' | 'invite' | 'list' | 'sectors') => void;
+}
+
+export default function TeamManagement({ 
+  tenantId, 
+  usinaCnpj,
+  activeTab = 'register'
+}: TeamManagementProps) {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -31,53 +36,49 @@ export default function TeamManagement({ tenantId, usinaCnpj }: { tenantId: stri
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm min-h-[500px]">
-      {/* Tabs Header */}
-      <div className="flex bg-slate-50 p-1 rounded-t-3xl overflow-x-auto scrollbar-hide">
-        <TabButton 
-          active={activeTab === 'register'} 
-          onClick={() => setActiveTab('register')}
-          icon={<UserPlus className="w-4 h-4" />}
-          label="Registro Manual"
-        />
-        <TabButton 
-          active={activeTab === 'invite'} 
-          onClick={() => setActiveTab('invite')}
-          icon={<LinkIcon className="w-4 h-4" />}
-          label="Link de Convite"
-        />
-        <TabButton 
-          active={activeTab === 'list'} 
-          onClick={() => setActiveTab('list')}
-          icon={<Users className="w-4 h-4" />}
-          label="Membros da Equipe"
-        />
-        <TabButton 
-          active={activeTab === 'sectors'} 
-          onClick={() => setActiveTab('sectors')}
-          icon={<LayoutGrid className="w-4 h-4" />}
-          label="Setores"
-        />
-      </div>
+    <div className="space-y-6">
+      {/* Alertas de Sucesso / Erro */}
+      {error && (
+        <div className="p-3.5 bg-rose-50 border border-rose-200/70 rounded-xl text-rose-700 text-xs font-medium flex items-center gap-2.5 animate-in fade-in slide-in-from-top-2 duration-200">
+          <AlertCircle className="w-4 h-4 shrink-0 text-rose-500" />
+          <span>{error}</span>
+        </div>
+      )}
+      {success && (
+        <div className="p-3.5 bg-emerald-50 border border-emerald-200/70 rounded-xl text-emerald-700 text-xs font-medium flex items-center gap-2.5 animate-in fade-in slide-in-from-top-2 duration-200">
+          <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-500" />
+          <span>{success}</span>
+        </div>
+      )}
 
-      <div className="p-4 md:p-8">
-        {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-100 rounded-xl text-red-600 text-[10px] font-bold uppercase tracking-widest flex items-center gap-3 animate-in slide-in-from-top-2">
-            <AlertTriangle className="w-4 h-4" /> {error}
-          </div>
+      {/* Conteúdo da Seção Selecionada no Menu Lateral */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-6 lg:p-8 animate-in fade-in duration-200">
+        {activeTab === 'register' && (
+          <ManualRegisterForm 
+            tenantId={tenantId} 
+            usinaCnpj={usinaCnpj} 
+            onSuccess={handleSuccess} 
+            onError={handleError} 
+          />
         )}
-        {success && (
-          <div className="mb-6 p-4 bg-emerald-50 border border-emerald-100 rounded-xl text-emerald-600 text-[10px] font-bold uppercase tracking-widest flex items-center gap-3 animate-in slide-in-from-top-2">
-            <Check className="w-4 h-4" /> {success}
-          </div>
+        {activeTab === 'invite' && (
+          <InviteGenerator 
+            tenantId={tenantId} 
+            usinaCnpj={usinaCnpj} 
+          />
         )}
-
-        {activeTab === 'register' && <ManualRegisterForm tenantId={tenantId} usinaCnpj={usinaCnpj} onSuccess={handleSuccess} onError={handleError} />}
-        {activeTab === 'invite' && <InviteGenerator tenantId={tenantId} usinaCnpj={usinaCnpj} />}
-        {activeTab === 'list' && <MemberList tenantId={tenantId} />}
-        {activeTab === 'sectors' && <SectorManagement onSuccess={handleSuccess} onError={handleError} />}
+        {activeTab === 'list' && (
+          <MemberList 
+            tenantId={tenantId} 
+          />
+        )}
+        {activeTab === 'sectors' && (
+          <SectorManagement 
+            onSuccess={handleSuccess} 
+            onError={handleError} 
+          />
+        )}
       </div>
     </div>
   );
 }
-

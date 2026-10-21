@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { dashboardService } from '../features/requests/api/dashboardService';
 import { useAuth } from './AuthContext';
 import { supabase } from '../lib/supabase';
+import { api } from '../lib/axios';
 
 /**
  * Interface para os dados consolidados do Dashboard.
@@ -15,6 +16,7 @@ interface DashboardState {
     pending: number;
     active: number;
     completed: number;
+    discrepancies: number;
   };
   loading: boolean;
   error: string | null;
@@ -37,7 +39,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     sectors: [],
     materials: [],
     movements: [],
-    stats: { pending: 0, active: 0, completed: 0 },
+    stats: { pending: 0, active: 0, completed: 0, discrepancies: 0 },
     loading: true,
     error: null
   });
@@ -49,9 +51,10 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setState(prev => ({ ...prev, loading: true }));
       
       // Buscar dados em paralelo para performance e resiliência
-      const [monitoringRes, requestsRes] = await Promise.allSettled([
+      const [monitoringRes, requestsRes, sectorsRes] = await Promise.allSettled([
         dashboardService.getMonitoring(),
-        dashboardService.getDashboard()
+        dashboardService.getDashboard(),
+        api.get('/sectors')
       ]);
 
       let sectors = [];
@@ -68,6 +71,14 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         console.warn('Falha ao carregar dados de monitoramento:', monitoringRes.reason);
       }
 
+      // Garante lista completa de setores via endpoint universal /sectors
+      if (sectorsRes.status === 'fulfilled') {
+        const fetchedSectors = sectorsRes.value.data?.data || sectorsRes.value.data || [];
+        if (Array.isArray(fetchedSectors) && fetchedSectors.length > 0) {
+          sectors = fetchedSectors;
+        }
+      }
+
       if (requestsRes.status === 'fulfilled') {
         requests = requestsRes.value.data || [];
       } else {
@@ -75,10 +86,18 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       }
 
       // Cálculo de estatísticas rápidas
+      const discrepanciesCount = Array.isArray(requests)
+        ? requests.filter((r: any) => 
+            (r.status === 'DISCREPANCY' || (r.rejection_reason && !['REJECTED', 'REJECTED_LIDER', 'REJECTED_GESTOR', 'CANCELED'].includes(r.status))) &&
+            r.status !== 'COMPLETED'
+          ).length
+        : 0;
+
       const stats = {
         pending: Array.isArray(requests) ? requests.filter((r: any) => r.status === 'PENDING').length : 0,
         active: materials.length,
-        completed: movements.length
+        completed: movements.length,
+        discrepancies: discrepanciesCount
       };
 
       setState({
@@ -88,7 +107,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         movements,
         stats,
         loading: false,
-        error: (monitoringRes.status === 'rejected' && requestsRes.status === 'rejected') ? 'Falha total na conexão.' : null
+        error: (monitoringRes.status === 'rejected' && requestsRes.status === 'rejected' && sectorsRes.status === 'rejected') ? 'Falha total na conexão.' : null
       });
     } catch (err: any) {
       console.error('Erro ao carregar dados do dashboard:', err);

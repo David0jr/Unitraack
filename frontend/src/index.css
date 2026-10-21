@@ -7,16 +7,25 @@
   --color-tertiary: var(--tertiary-color, #001D4A);
   --color-brand: var(--primary-color, #00B5AD);
   
-  --font-brand: "Noto Sans", sans-serif;
+  --font-brand: "Roboto", sans-serif;
+  --font-sans: "Roboto", sans-serif;
 }
 
 @layer base {
-  body {
-    background-color: white;
-    color: #001D4A; /* navy */
-    font-family: "Noto Sans", sans-serif;
+  *, ::before, ::after {
+    font-family: "Roboto", sans-serif !important;
+  }
+
+  html, body {
+    background-color: #F8FAFC;
+    color: var(--navy-color, #001D4A);
+    font-family: "Roboto", sans-serif !important;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+
+  button, input, optgroup, select, textarea {
+    font-family: inherit !important;
   }
 
   /* Minimalist Scrollbar Implementation */
@@ -31,6 +40,31 @@
 
   ::-webkit-scrollbar-thumb {
     @apply bg-slate-300 rounded-full hover:bg-primary transition-colors;
+  }
+
+  /* Interatividade e Mãozinha (Cursor Pointer) Global em Todo o Sistema */
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  a,
+  label,
+  select,
+  summary,
+  input[type="button"]:not(:disabled),
+  input[type="submit"]:not(:disabled),
+  input[type="reset"]:not(:disabled),
+  input[type="checkbox"]:not(:disabled),
+  input[type="radio"]:not(:disabled),
+  input[type="file"]:not(:disabled),
+  .cursor-pointer {
+    cursor: pointer !important;
+  }
+
+  button:disabled,
+  [role="button"][aria-disabled="true"],
+  input:disabled,
+  select:disabled,
+  .cursor-not-allowed {
+    cursor: not-allowed !important;
   }
 
   /* Industrial Grid Utility */

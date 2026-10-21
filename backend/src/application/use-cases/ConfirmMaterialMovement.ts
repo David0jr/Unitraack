@@ -1,6 +1,7 @@
 import { IRequestRepository } from '../../domain/repositories/IRequestRepository';
 import { MaterialStatus } from '../../domain/entities/EntryRequest';
 import { supabaseAdmin } from '../../config/supabase';
+import { NotificationService } from '../../services/NotificationService';
 
 export class ConfirmMaterialMovement {
   constructor(private requestRepository: IRequestRepository) {}
@@ -81,15 +82,18 @@ export class ConfirmMaterialMovement {
           observation
       );
     } else {
-      // Saída: Setor Alvo -> Portaria
+      // Saída definitiva da usina (toSectorId = undefined para indicar SAÍDA)
+      const firstMat = await this.requestRepository.findMaterialById(materialIds[0]);
+      const currentSectorId = firstMat?.current_sector_id || request.sector_id;
+
       await this.requestRepository.updateMultipleMaterialsStatus(
           materialIds, 
           status, 
           timestampField, 
           movedBy, 
           request.tenant_id,
-          request.sector_id || undefined,
-          portariaSectorId || undefined,
+          currentSectorId || undefined,
+          undefined, // Saída da Planta (to_sector_id nulo para registrar como SAÍDA)
           signature,
           photos,
           undefined,
@@ -110,13 +114,24 @@ export class ConfirmMaterialMovement {
       const isFirstEntry = (request.status !== 'IN_PLANTA' || !request.gate_checked_at);
       if (materialIds.length > 0 && isFirstEntry) {
         await this.requestRepository.updateStatus(requestId, 'IN_PLANTA', undefined, movedBy);
+        NotificationService.notifyInPlanta(updatedRequest, materialIds.length).catch((err) =>
+          console.error('[ConfirmMaterialMovement] Erro ao enviar notificacao in_planta:', err)
+        );
       }
     } else {
       // Se todos os materiais saíram, a requisição é marcada como COMPLETED
       const allOut = materials.every(m => m.status === 'OUT_PLANTA');
       if (allOut) {
         await this.requestRepository.updateStatus(requestId, 'COMPLETED', undefined, movedBy);
+      } else {
+        const hasOtherWaiting = materials.some(m => m.status === 'WAITING_EXIT' || m.status === 'EXIT_CONFERENCE');
+        if (!hasOtherWaiting) {
+          await this.requestRepository.updateStatus(requestId, 'IN_PLANTA', undefined, movedBy);
+        }
       }
+      NotificationService.notifyExitCompleted(updatedRequest, materialIds.length).catch((err) =>
+        console.error('[ConfirmMaterialMovement] Erro ao enviar notificacao exit_completed:', err)
+      );
     }
   }
 }

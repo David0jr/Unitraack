@@ -8,12 +8,24 @@ export class UserService {
       .from('profiles')
       .select(`
         *,
-        tenant:tenants(name)
+        tenant:tenants(id, name, subdomain, active)
       `)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
     return users as Profile[];
+  }
+
+  async setUserStatus(userId: string, isActive: boolean): Promise<void> {
+    const { error } = await supabaseAdmin
+      .from('profiles')
+      .update({ is_active: isActive })
+      .eq('id', userId);
+
+    if (error) {
+      console.error('[UserService.setUserStatus] Erro ao atualizar status:', error);
+      throw error;
+    }
   }
 
   async findProfileById(userId: string): Promise<Profile | null> {

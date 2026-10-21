@@ -47,7 +47,8 @@ async function migrate() {
     'audit_audit_tracking.sql',
     'update_v15_tenant_branding.sql',
     'update_v16_registration_number.sql',
-    'update_v17_tenant_triad_colors.sql'
+    'update_v17_tenant_triad_colors.sql',
+    'update_v18_active_status.sql'
   ];
 
   console.log('\n🚀 Iniciando Automação de Banco de Dados...');
