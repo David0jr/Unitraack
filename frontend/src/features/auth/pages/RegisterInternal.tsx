@@ -35,6 +35,7 @@ export default function RegisterInternal() {
   const [formData, setFormData] = useState({
     email: '',
     password: '',
+    confirmPassword: '',
     fullName: '',
     registrationNumber: '',
     sector: '',
@@ -69,21 +70,59 @@ export default function RegisterInternal() {
       return;
     }
 
+    if (!formData.registrationNumber || !formData.registrationNumber.trim()) {
+      setError('Por favor, informe o número de matrícula.');
+      return;
+    }
+
+    if (formData.password !== formData.confirmPassword) {
+      setError('As senhas não coincidem!');
+      return;
+    }
+
+    if (formData.password.length < 6) {
+      setError('A senha deve ter no mínimo 6 caracteres.');
+      return;
+    }
+
     setLoading(true);
     setError('');
 
     try {
+      const slug = tenantSlug || tenant?.subdomain || '';
       const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/register`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'X-Tenant-Slug': tenantSlug || ''
+          'X-Tenant-Slug': slug
         },
-        body: JSON.stringify({ ...formData, role })
+        body: JSON.stringify({ 
+          ...formData, 
+          role,
+          tenantId: tenant?.id,
+          usinaCnpj: formData.usinaCnpj || tenant?.cnpj || ''
+        })
       });
 
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Erro no cadastro interno.');
+      if (!response.ok) {
+        const errorText = data.error || data.message || 'Erro no cadastro interno.';
+        if (
+          /already registered/i.test(errorText) ||
+          /user already exists/i.test(errorText) ||
+          /email.*already.*(exist|registered)/i.test(errorText) ||
+          /already been registered/i.test(errorText) ||
+          /e-?mail j[áa] (est[áa] )?cadastrado/i.test(errorText) ||
+          data.code === 'user_already_exists' ||
+          data.code === 'email_exists'
+        ) {
+          throw new Error('Este e-mail já está cadastrado no sistema.');
+        }
+        if (/matr[íi]cula/i.test(errorText)) {
+          throw new Error('Este número de matrícula já está cadastrado no sistema.');
+        }
+        throw new Error(errorText);
+      }
 
       setSuccess(true);
       setTimeout(() => navigate(`/${tenantSlug || 'unknown'}/login`), 3000);
@@ -243,14 +282,25 @@ export default function RegisterInternal() {
                     placeholder="seu.nome@linsagro.com.br" 
                   />
                   
-                  <InputGroup 
-                    label="Senha de Acesso" 
-                    icon={<Lock className="w-4 h-4" />}
-                    type="password" 
-                    value={formData.password} 
-                    onChange={v => setFormData({...formData, password: v})} 
-                    placeholder="••••••••" 
-                  />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <InputGroup 
+                      label="Senha de Acesso" 
+                      icon={<Lock className="w-4 h-4" />}
+                      type="password" 
+                      value={formData.password} 
+                      onChange={v => setFormData({...formData, password: v})} 
+                      placeholder="Mínimo 6 caracteres" 
+                    />
+
+                    <InputGroup 
+                      label="Confirmar Senha" 
+                      icon={<Lock className="w-4 h-4" />}
+                      type="password" 
+                      value={formData.confirmPassword} 
+                      onChange={v => setFormData({...formData, confirmPassword: v})} 
+                      placeholder="Repita a senha" 
+                    />
+                  </div>
                   
                   <div className="grid grid-cols-2 gap-4 pt-2">
                     <InputGroup 

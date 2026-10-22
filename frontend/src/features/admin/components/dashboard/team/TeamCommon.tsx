@@ -17,9 +17,10 @@ export function TabButton({ active, onClick, icon, label }: any) {
   );
 }
 
-export function CustomSelect({ value, onChange, options, placeholder, direction = 'down' }: any) {
+export function CustomSelect({ value, onChange, options, placeholder, direction = 'auto' }: any) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const [openUp, setOpenUp] = useState(direction === 'up');
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -31,12 +32,26 @@ export function CustomSelect({ value, onChange, options, placeholder, direction 
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    if (isOpen && dropdownRef.current) {
+      if (direction === 'up') {
+        setOpenUp(true);
+      } else if (direction === 'down') {
+        setOpenUp(false);
+      } else {
+        const rect = dropdownRef.current.getBoundingClientRect();
+        const spaceBelow = window.innerHeight - rect.bottom;
+        setOpenUp(spaceBelow < 260 && rect.top > 200);
+      }
+    }
+  }, [isOpen, direction]);
+
   let selectedLabel = placeholder;
   for (const group of options) {
     if (group.type === 'option' && group.value === value) {
       selectedLabel = group.label;
     } else if (group.type === 'group') {
-      const found = group.items.find((i: any) => i.value === value);
+      const found = group.items?.find((i: any) => i.value === value);
       if (found) selectedLabel = found.label;
     }
   }
@@ -52,15 +67,15 @@ export function CustomSelect({ value, onChange, options, placeholder, direction 
       </div>
 
       {isOpen && (
-        <div className={`absolute ${direction === 'up' ? 'bottom-[calc(100%+6px)]' : 'top-[calc(100%+6px)]'} left-0 right-0 bg-white border border-slate-200 rounded-xl shadow-xl z-50 animate-in fade-in zoom-in-95 duration-150 max-h-60 overflow-y-auto custom-scrollbar`}>
+        <div className={`absolute ${openUp ? 'bottom-[calc(100%+6px)]' : 'top-[calc(100%+6px)]'} left-0 right-0 bg-white border border-slate-200 rounded-xl shadow-2xl z-[70] animate-in fade-in zoom-in-95 duration-150 max-h-56 overflow-y-auto custom-scrollbar`}>
           {options.map((opt: any, i: number) => {
             if (opt.type === 'group') {
               return (
                 <div key={i} className="py-1">
-                  <div className="px-4 pt-2.5 pb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400 bg-slate-50/80">
+                  <div className="px-4 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400 bg-slate-50/80 sticky top-0 z-10 backdrop-blur-xs">
                     {opt.label}
                   </div>
-                  {opt.items.map((item: any) => (
+                  {opt.items?.map((item: any) => (
                     <div 
                       key={item.value}
                       onClick={() => { onChange(item.value); setIsOpen(false); }}
@@ -109,13 +124,13 @@ export function Modal({ isOpen, onClose, title, children }: any) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
       <div 
-        className="absolute inset-0 bg-navy/40 backdrop-blur-xs animate-in fade-in duration-200"
+        className="fixed inset-0 bg-navy/40 backdrop-blur-xs animate-in fade-in duration-200"
         onClick={onClose}
       ></div>
-      <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl relative z-10 animate-in zoom-in-95 slide-in-from-bottom-4 duration-300 overflow-hidden border border-slate-200/80">
-        <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/70">
+      <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl relative z-10 animate-in zoom-in-95 slide-in-from-bottom-4 duration-300 border border-slate-200/80 my-auto">
+        <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/70 rounded-t-2xl">
           <h3 className="text-sm font-semibold text-navy">{title}</h3>
           <button 
             onClick={onClose} 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
+import Swal from 'sweetalert2';
 import { 
   ShieldCheck, 
   HardHat, 
@@ -81,14 +82,54 @@ export function MemberList({ tenantId }: MemberListProps) {
       });
       setEditingMember(null);
       fetchMembers();
-    } catch (err) {
-      alert('Erro ao atualizar membro.');
+      Swal.fire({
+        title: 'Membro Atualizado!',
+        text: 'Os dados do colaborador foram atualizados com sucesso.',
+        icon: 'success',
+        confirmButtonColor: '#002B49',
+        customClass: {
+          popup: 'rounded-2xl font-brand',
+          confirmButton: 'rounded-xl font-bold uppercase text-xs px-6 py-3'
+        }
+      });
+    } catch (err: any) {
+      Swal.fire({
+        title: 'Erro ao Atualizar',
+        text: err.response?.data?.error || 'Erro ao atualizar membro.',
+        icon: 'error',
+        confirmButtonColor: '#002B49',
+        customClass: {
+          popup: 'rounded-2xl font-brand',
+          confirmButton: 'rounded-xl font-bold uppercase text-xs px-6 py-3'
+        }
+      });
     } finally {
       setUpdating(false);
     }
   };
 
   const handleToggleStatus = async (member: any) => {
+    const isActivating = member.is_active === false;
+    const actionText = isActivating ? 'ativar' : 'desativar';
+
+    const result = await Swal.fire({
+      title: `${isActivating ? 'Ativar' : 'Desativar'} Colaborador?`,
+      text: `Deseja realmente ${actionText} o acesso de ${formatName(member.full_name)}?`,
+      icon: isActivating ? 'question' : 'warning',
+      showCancelButton: true,
+      confirmButtonColor: isActivating ? '#059669' : '#e11d48',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: `Sim, ${actionText}`,
+      cancelButtonText: 'Cancelar',
+      customClass: {
+        popup: 'rounded-2xl font-brand',
+        confirmButton: 'rounded-xl font-bold uppercase text-xs px-6 py-3',
+        cancelButton: 'rounded-xl font-bold uppercase text-xs px-6 py-3'
+      }
+    });
+
+    if (!result.isConfirmed) return;
+
     try {
       await axios.put(`${import.meta.env.VITE_API_URL}/gestor/team/${member.id}`, {
         ...member,
@@ -97,8 +138,28 @@ export function MemberList({ tenantId }: MemberListProps) {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       fetchMembers();
-    } catch (err) {
-      alert('Erro ao alterar status.');
+      Swal.fire({
+        title: isActivating ? 'Conta Ativada!' : 'Conta Desativada!',
+        text: `O colaborador foi ${isActivating ? 'ativado' : 'desativado'} com sucesso.`,
+        icon: 'success',
+        confirmButtonColor: '#002B49',
+        timer: 2000,
+        showConfirmButton: false,
+        customClass: {
+          popup: 'rounded-2xl font-brand'
+        }
+      });
+    } catch (err: any) {
+      Swal.fire({
+        title: 'Erro ao Alterar Status',
+        text: err.response?.data?.error || 'Erro ao alterar status.',
+        icon: 'error',
+        confirmButtonColor: '#002B49',
+        customClass: {
+          popup: 'rounded-2xl font-brand',
+          confirmButton: 'rounded-xl font-bold uppercase text-xs px-6 py-3'
+        }
+      });
     }
   };
 
@@ -111,8 +172,27 @@ export function MemberList({ tenantId }: MemberListProps) {
       });
       setDeletingMember(null);
       fetchMembers();
-    } catch (err) {
-      alert('Erro ao remover membro da equipe.');
+      Swal.fire({
+        title: 'Colaborador Removido!',
+        text: 'O colaborador foi excluído da equipe com sucesso.',
+        icon: 'success',
+        confirmButtonColor: '#002B49',
+        customClass: {
+          popup: 'rounded-2xl font-brand',
+          confirmButton: 'rounded-xl font-bold uppercase text-xs px-6 py-3'
+        }
+      });
+    } catch (err: any) {
+      Swal.fire({
+        title: 'Erro ao Remover',
+        text: err.response?.data?.error || 'Erro ao remover membro da equipe.',
+        icon: 'error',
+        confirmButtonColor: '#002B49',
+        customClass: {
+          popup: 'rounded-2xl font-brand',
+          confirmButton: 'rounded-xl font-bold uppercase text-xs px-6 py-3'
+        }
+      });
     } finally {
       setUpdating(false);
     }
@@ -121,6 +201,21 @@ export function MemberList({ tenantId }: MemberListProps) {
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!resettingPassword || !newPassword) return;
+
+    if (newPassword.length < 6) {
+      Swal.fire({
+        title: 'Senha Curta',
+        text: 'A nova senha deve ter no mínimo 6 caracteres.',
+        icon: 'warning',
+        confirmButtonColor: '#002B49',
+        customClass: {
+          popup: 'rounded-2xl font-brand',
+          confirmButton: 'rounded-xl font-bold uppercase text-xs px-6 py-3'
+        }
+      });
+      return;
+    }
+
     setUpdating(true);
     try {
       await axios.post(`${import.meta.env.VITE_API_URL}/gestor/team/${resettingPassword.id}/reset-password`, {
@@ -130,9 +225,27 @@ export function MemberList({ tenantId }: MemberListProps) {
       });
       setResettingPassword(null);
       setNewPassword('');
-      alert('Senha redefinida com sucesso!');
+      Swal.fire({
+        title: 'Senha Redefinida!',
+        text: 'A senha do colaborador foi atualizada com sucesso.',
+        icon: 'success',
+        confirmButtonColor: '#002B49',
+        customClass: {
+          popup: 'rounded-2xl font-brand',
+          confirmButton: 'rounded-xl font-bold uppercase text-xs px-6 py-3'
+        }
+      });
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Erro ao redefinir senha.');
+      Swal.fire({
+        title: 'Erro ao Redefinir Senha',
+        text: err.response?.data?.error || 'Erro ao redefinir senha.',
+        icon: 'error',
+        confirmButtonColor: '#002B49',
+        customClass: {
+          popup: 'rounded-2xl font-brand',
+          confirmButton: 'rounded-xl font-bold uppercase text-xs px-6 py-3'
+        }
+      });
     } finally {
       setUpdating(false);
     }
@@ -432,7 +545,7 @@ export function MemberList({ tenantId }: MemberListProps) {
                   { type: 'option', value: '', label: 'Nenhum setor selecionado' },
                   ...sectorOptions
                 ]}
-                direction="down"
+                direction="up"
               />
             </div>
           )}
