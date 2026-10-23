@@ -110,6 +110,29 @@ export function ManualRegisterForm({ tenantId, usinaCnpj, onSuccess, onError }: 
       return;
     }
 
+    // Validação preventiva no cliente contra membros já carregados
+    if (formData.registrationNumber && formData.registrationNumber.trim()) {
+      const trimmedMatricula = formData.registrationNumber.trim().toLowerCase();
+      const matriculaExists = members.some(m => 
+        m.registration_number && String(m.registration_number).trim().toLowerCase() === trimmedMatricula
+      );
+      if (matriculaExists) {
+        onError('Este número de matrícula já está cadastrado no sistema.');
+        return;
+      }
+    }
+
+    if (formData.email && formData.email.trim()) {
+      const trimmedEmail = formData.email.trim().toLowerCase();
+      const emailExists = members.some(m => 
+        m.email && String(m.email).trim().toLowerCase() === trimmedEmail
+      );
+      if (emailExists) {
+        onError('Este e-mail já está cadastrado no sistema.');
+        return;
+      }
+    }
+
     setLoading(true);
 
     try {
@@ -133,7 +156,31 @@ export function ManualRegisterForm({ tenantId, usinaCnpj, onSuccess, onError }: 
         sector_id: '' 
       });
     } catch (err: any) {
-      onError(err.response?.data?.error || 'Erro no cadastro.');
+      const serverError = err.response?.data?.error || err.response?.data?.message || err.message || '';
+
+      let friendlyMessage = 'Erro no cadastro.';
+
+      if (
+        /already registered/i.test(serverError) ||
+        /user already exists/i.test(serverError) ||
+        /email.*already.*(exist|registered)/i.test(serverError) ||
+        /already been registered/i.test(serverError) ||
+        /e-?mail j[áa] (est[áa] )?cadastrado/i.test(serverError) ||
+        err.response?.data?.code === 'user_already_exists' ||
+        err.response?.data?.code === 'email_exists'
+      ) {
+        friendlyMessage = 'Este e-mail já está cadastrado no sistema.';
+      } else if (/matr[íi]cula/i.test(serverError)) {
+        friendlyMessage = 'Este número de matrícula já está cadastrado no sistema.';
+      } else if (/password.*least 6/i.test(serverError)) {
+        friendlyMessage = 'A senha deve ter no mínimo 6 caracteres.';
+      } else if (/invalid.*email/i.test(serverError) || /email.*invalid/i.test(serverError)) {
+        friendlyMessage = 'O formato do e-mail informado é inválido.';
+      } else if (serverError) {
+        friendlyMessage = serverError;
+      }
+
+      onError(friendlyMessage);
     } finally {
       setLoading(false);
     }

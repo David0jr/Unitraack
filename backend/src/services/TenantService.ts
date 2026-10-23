@@ -65,14 +65,25 @@ export class TenantService {
   }
 
   async findByCnpj(cnpj: string): Promise<Tenant | null> {
-    const { data: tenant, error } = await supabaseAdmin
-      .from('tenants')
-      .select('*')
-      .eq('cnpj', cnpj)
-      .maybeSingle();
+    if (!cnpj) return null;
+    const rawCnpj = cnpj.replace(/\D/g, '');
 
-    if (error) throw error;
-    return tenant as Tenant;
+    const { data: tenants, error } = await supabaseAdmin
+      .from('tenants')
+      .select('*');
+
+    if (error) {
+      console.error('[TenantService.findByCnpj] Query Error:', error);
+      throw error;
+    }
+
+    if (!tenants || tenants.length === 0) return null;
+
+    const matched = tenants.find(t => 
+      t.cnpj === cnpj || (t.cnpj && t.cnpj.replace(/\D/g, '') === rawCnpj)
+    );
+
+    return (matched || null) as Tenant | null;
   }
 
   async update(id: string, data: Partial<Tenant>): Promise<Tenant> {

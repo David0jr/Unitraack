@@ -17,7 +17,8 @@ import {
   MapPin,
   ChevronDown,
   Check,
-  AlertCircle
+  AlertCircle,
+  Search
 } from 'lucide-react';
 import axios from 'axios';
 import { compressImage } from '../../../../utils/imageCompressor';
@@ -236,7 +237,7 @@ export default function NovaSolicitacao() {
 
     const itemDeFalta = materials.find((m) => !m.imageUrl || m.imageUrl.startsWith('blob:'));
     if (itemDeFalta) {
-      setErrorMessage(`Uma ou mais fotos de equipamentos ainda não foram salvas no servidor. Por favor, anexe novamente.`);
+      setErrorMessage(`Uma foto do equipamento ainda não foi salva no servidor. Por favor, anexe novamente.`);
       return;
     }
 
@@ -379,11 +380,13 @@ export default function NovaSolicitacao() {
           </div>
 
            {/* Core Info Section */}
-          <div className="bg-white rounded-[2rem] p-12 shadow-[0_32px_64px_-12px_rgba(0,50,160,0.08)] border border-slate-100 relative overflow-hidden group">
-             <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-bl-full -mr-10 -mt-10 opacity-50 group-hover:scale-110 transition-transform"></div>
+          <div className="bg-white rounded-[2rem] p-12 shadow-[0_32px_64px_-12px_rgba(0,50,160,0.08)] border border-slate-100 relative group z-20">
+             <div className="absolute inset-0 rounded-[2rem] overflow-hidden pointer-events-none">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-bl-full -mr-10 -mt-10 opacity-50 group-hover:scale-110 transition-transform"></div>
+             </div>
              
              <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-8 mb-10 items-end relative z-30">
-                <div className="space-y-3">
+                <div className="space-y-3 relative">
                    <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 tracking-[0.15em] flex items-center gap-2">
                       <div className="w-5 h-5 bg-primary/10 rounded-md flex items-center justify-center">
                         <MapPin className="w-3 h-3 text-primary" />
@@ -402,7 +405,7 @@ export default function NovaSolicitacao() {
                    />
                 </div>
 
-                <div className="space-y-3 relative z-40">
+                <div className="space-y-3 relative">
                    <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 tracking-[0.15em] flex items-center gap-2">
                       <div className="w-5 h-5 bg-primary/10 rounded-md flex items-center justify-center">
                         <MapPin className="w-3 h-3 text-primary" />
@@ -633,8 +636,10 @@ function ShieldCheck({ className }: { className: string }) {
   );
 }
 
-function CustomSelect({ value, onChange, options, placeholder, direction = 'down', disabled = false }: any) {
+function CustomSelect({ value, onChange, options, placeholder, direction = 'auto', disabled = false }: any) {
   const [isOpen, setIsOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [openUp, setOpenUp] = useState(direction === 'up');
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -647,18 +652,50 @@ function CustomSelect({ value, onChange, options, placeholder, direction = 'down
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    if (isOpen && dropdownRef.current) {
+      if (direction === 'up') {
+        setOpenUp(true);
+      } else if (direction === 'down') {
+        setOpenUp(false);
+      } else {
+        const rect = dropdownRef.current.getBoundingClientRect();
+        const spaceBelow = window.innerHeight - rect.bottom;
+        setOpenUp(spaceBelow < 280 && rect.top > 250);
+      }
+    } else {
+      setSearchTerm('');
+    }
+  }, [isOpen, direction]);
+
   let selectedLabel = placeholder;
   for (const group of options) {
     if (group.type === 'option' && group.value === value) {
       selectedLabel = group.label;
     } else if (group.type === 'group') {
-      const found = group.items.find((i: any) => i.value === value);
+      const found = group.items?.find((i: any) => i.value === value);
       if (found) selectedLabel = found.label;
     }
   }
 
+  const filteredOptions = options.filter((opt: any) => {
+    if (!searchTerm) return true;
+    if (opt.type === 'group') {
+      return opt.items?.some((item: any) => item.label?.toLowerCase().includes(searchTerm.toLowerCase()));
+    }
+    return opt.label?.toLowerCase().includes(searchTerm.toLowerCase());
+  }).map((opt: any) => {
+    if (opt.type === 'group' && searchTerm) {
+      return {
+        ...opt,
+        items: opt.items.filter((item: any) => item.label?.toLowerCase().includes(searchTerm.toLowerCase()))
+      };
+    }
+    return opt;
+  });
+
   return (
-    <div className={`relative w-full ${disabled ? 'opacity-40 cursor-not-allowed' : ''}`} ref={dropdownRef}>
+    <div className={`relative w-full ${isOpen ? 'z-[60]' : 'z-10'} ${disabled ? 'opacity-40 cursor-not-allowed' : ''}`} ref={dropdownRef}>
       <div 
         onClick={() => !disabled && setIsOpen(!isOpen)}
         className={`w-full px-6 py-4 bg-white border ${isOpen ? 'border-primary shadow-[0_0_0_4px_rgba(0,50,160,0.05)]' : 'border-slate-100 shadow-sm'} rounded-2xl text-navy font-bold text-sm cursor-pointer flex items-center justify-between hover:border-primary/30 transition-all select-none uppercase tracking-tight`}
@@ -668,20 +705,35 @@ function CustomSelect({ value, onChange, options, placeholder, direction = 'down
       </div>
 
       {isOpen && (
-        <div className={`absolute ${direction === 'up' ? 'bottom-[calc(100%+12px)]' : 'top-[calc(100%+12px)]'} left-0 right-0 bg-white/95 backdrop-blur-xl border border-slate-100 rounded-2xl shadow-[0_20px_50px_rgba(0,50,160,0.15)] z-[100] animate-in fade-in slide-in-from-top-2 duration-200 max-h-80 overflow-hidden flex flex-col`}>
+        <div className={`absolute ${openUp ? 'bottom-[calc(100%+12px)]' : 'top-[calc(100%+12px)]'} left-0 right-0 bg-white/95 backdrop-blur-xl border border-slate-100 rounded-2xl shadow-[0_20px_50px_rgba(0,50,160,0.15)] z-[100] animate-in fade-in slide-in-from-top-2 duration-200 max-h-80 overflow-hidden flex flex-col`}>
+          {options.length > 5 && (
+            <div className="p-3 border-b border-slate-100 bg-slate-50/60" onClick={e => e.stopPropagation()}>
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input 
+                  type="text" 
+                  value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                  placeholder="FILTRAR OPÇÕES..." 
+                  className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-navy placeholder:text-slate-300 focus:outline-none focus:border-primary transition-all uppercase"
+                  autoFocus
+                />
+              </div>
+            </div>
+          )}
           <div className="overflow-y-auto custom-scrollbar flex-1">
-            {options.length === 0 ? (
+            {filteredOptions.length === 0 ? (
               <div className="px-6 py-8 text-center">
                  <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">Nenhuma opção encontrada</p>
               </div>
-            ) : options.map((opt: any, i: number) => {
+            ) : filteredOptions.map((opt: any, i: number) => {
               if (opt.type === 'group') {
                 return (
                   <div key={i} className="border-b border-slate-50 last:border-0">
                     <div className="px-6 pt-4 pb-2 text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 bg-slate-50/50">
                       {opt.label}
                     </div>
-                    {opt.items.map((item: any) => (
+                    {opt.items?.map((item: any) => (
                       <div 
                         key={item.value}
                         onClick={() => { onChange(item.value); setIsOpen(false); }}

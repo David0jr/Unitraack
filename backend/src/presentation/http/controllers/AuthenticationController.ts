@@ -51,6 +51,26 @@ export class AuthenticationController {
         tenantId = req.tenantContext.id;
       }
 
+      // Validação de duplicidade de matrícula (registration_number)
+      if (registrationNumber && typeof registrationNumber === 'string' && registrationNumber.trim()) {
+        const cleanRegNumber = registrationNumber.trim();
+        let query = supabaseAdmin
+          .from('profiles')
+          .select('id, tenant_id')
+          .ilike('registration_number', cleanRegNumber);
+
+        if (tenantId) {
+          query = query.eq('tenant_id', tenantId);
+        }
+
+        const { data: existingMembers, error: matriculaCheckError } = await query.limit(1);
+
+        if (existingMembers && existingMembers.length > 0) {
+          console.warn(`[REGISTER] Matrícula duplicada recusada: "${cleanRegNumber}" (tenantId: ${tenantId})`);
+          return ApiResponse.error(res, 'Este número de matrícula já está cadastrado no sistema.', 409);
+        }
+      }
+
       const authUser = await authService.createAuthUser(email, password, fullName);
 
       let themeColor = null;
@@ -87,7 +107,25 @@ export class AuthenticationController {
 
     } catch (error: any) {
       console.error('[REGISTER ERROR]', error);
-      return ApiResponse.error(res, error.message || 'Erro interno no cadastro.', 500, error);
+      let errorMsg = error.message || 'Erro interno no cadastro.';
+      let statusCode = 500;
+
+      if (
+        /already registered/i.test(errorMsg) ||
+        /user already exists/i.test(errorMsg) ||
+        /email.*already.*(exist|registered)/i.test(errorMsg) ||
+        /already been registered/i.test(errorMsg) ||
+        error.code === 'user_already_exists' ||
+        error.code === 'email_exists'
+      ) {
+        errorMsg = 'Este e-mail já está cadastrado no sistema.';
+        statusCode = 409;
+      } else if (/password.*least 6/i.test(errorMsg)) {
+        errorMsg = 'A senha deve conter no mínimo 6 caracteres.';
+        statusCode = 400;
+      }
+
+      return ApiResponse.error(res, errorMsg, statusCode, error);
     }
   }
 
